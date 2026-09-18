@@ -1,5 +1,6 @@
-const SERVER_VERSION = 16;
+const SERVER_VERSION = 17;
 const SHEET_NAME = "Hoja 1";
+const SKU_SHEET_NAME = "Maestro SKU";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
 const COLUMNS = [
   "id_movimiento",
@@ -16,6 +17,7 @@ const COLUMNS = [
   "estado",
   "actualizado_en",
 ];
+const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active"];
 
 const BASELINE_STOCK = {
   "A2.02.0": { sku: "5555555", cantidad: 1 },
@@ -29,14 +31,74 @@ function doGet(event) {
   try {
     const action = clean(event && event.parameter && event.parameter.action) || "list";
     if (action === "list") return jsonp(callback, { ok: true, version: SERVER_VERSION, records: readRecords() });
+    if (action === "sku_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readSkuMaster() });
+    const payload = JSON.parse(clean(event.parameter.payload) || "{}");
+    if (action === "sku_save") return jsonp(callback, saveSkuItems([payload.item], payload.admin_password));
+    if (action === "sku_bulk") return jsonp(callback, saveSkuItems(payload.items, payload.admin_password));
     if (action !== "command") return jsonp(callback, { ok: false, retryable: false, error: "Acción no válida." });
 
-    const payload = JSON.parse(clean(event.parameter.payload) || "{}");
     const result = processCommand(payload);
     return jsonp(callback, result);
   } catch (error) {
     return jsonp(callback, { ok: false, retryable: true, error: String(error) });
   }
+}
+
+function readSkuMaster() {
+  const sheet = getSkuSheet();
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+  return values.slice(1).filter((row) => clean(row[0])).map((row) => {
+    const item = {};
+    SKU_COLUMNS.forEach((column, index) => item[column] = row[index] == null ? "" : row[index]);
+    return item;
+  });
+}
+
+function saveSkuItems(items, adminPassword) {
+  if (clean(adminPassword) !== ADMIN_PASSWORD_HASH) return { ok: false, retryable: false, error: "Se requiere autorización de administrador." };
+  if (!Array.isArray(items) || !items.length) return { ok: false, retryable: false, error: "No hay SKU para guardar." };
+  const normalized = items.map((source) => {
+    const item = {};
+    SKU_COLUMNS.forEach((column) => item[column] = source && source[column] != null ? source[column] : "");
+    item.sku = clean(item.sku);
+    item.description = clean(item.description);
+    return item;
+  }).filter((item) => item.sku && item.description);
+  if (!normalized.length) return { ok: false, retryable: false, error: "Ninguna fila contiene SKU y descripción." };
+
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) return { ok: false, retryable: true, error: "El maestro está ocupado. Reintenta en unos segundos." };
+  try {
+    const sheet = getSkuSheet();
+    const existing = sheet.getDataRange().getDisplayValues();
+    const rows = new Map();
+    existing.slice(1).forEach((row, index) => rows.set(clean(row[0]).toLowerCase(), index + 2));
+    normalized.forEach((item) => {
+      const values = SKU_COLUMNS.map((column) => item[column]);
+      const row = rows.get(item.sku.toLowerCase());
+      if (row) sheet.getRange(row, 1, 1, SKU_COLUMNS.length).setValues([values]);
+      else {
+        sheet.appendRow(values);
+        rows.set(item.sku.toLowerCase(), sheet.getLastRow());
+      }
+    });
+    SpreadsheetApp.flush();
+    return { ok: true, version: SERVER_VERSION, saved: normalized.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getSkuSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(SKU_SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(SKU_SHEET_NAME);
+    sheet.appendRow(SKU_COLUMNS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 function processCommand(payload) {

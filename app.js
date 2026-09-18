@@ -1,9 +1,11 @@
 const STORAGE_KEY = "mini-wms-state-v2";
 const SYNC_CONFIG_KEY = "mini-wms-sync-config-v2";
 const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v1";
+const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
+const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active"];
 
 const state = {
   original: [],
@@ -54,6 +56,7 @@ const state = {
   syncTimer: 0,
   syncError: "",
   centralBlocks: new Map(),
+  skuMaster: [],
 };
 
 const shadeCache = new Map();
@@ -125,6 +128,7 @@ async function init() {
   state.syncConfig = loadJson(SYNC_CONFIG_KEY, state.syncConfig);
   if (!state.syncConfig.endpoint) state.syncConfig.endpoint = DEFAULT_SYNC_ENDPOINT;
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
+  state.skuMaster = loadJson(SKU_MASTER_KEY, []);
   saveState();
 
   fillLevelFilter();
@@ -135,6 +139,7 @@ async function init() {
   if (!state.syncConfig.authenticated) openSyncSettings();
   flushSyncOutbox();
   await pullCentralMovements();
+  await pullSkuMaster();
   state.syncTimer = window.setInterval(pullCentralMovements, 15000);
 }
 
@@ -234,6 +239,12 @@ function bindEvents() {
   bind3dMouseControls();
 
   $("#quickMove").addEventListener("submit", handleMovement);
+  $("#skuForm").addEventListener("submit", saveSku);
+  $("#clearSkuForm").addEventListener("click", clearSkuForm);
+  $("#skuSearch").addEventListener("input", renderSkuMaster);
+  $("#skuImport").addEventListener("change", importSkuFile);
+  $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
+  $("#skuTable").addEventListener("click", editSkuFromTable);
   $("#pickingForm").addEventListener("submit", calculatePickingRoute);
   $("#loadPickingExample").addEventListener("click", loadPickingExample);
   $("#clearPicking").addEventListener("click", clearPickingRoute);
@@ -598,6 +609,151 @@ function renderAll() {
   renderMovements();
   renderAnalytics();
   renderRegistration();
+  renderSkuMaster();
+}
+
+function normalizeSku(source) {
+  const item = {};
+  SKU_FIELDS.forEach((field) => item[field] = source[field] ?? "");
+  item.sku = String(item.sku).trim();
+  item.description = String(item.description).trim();
+  item.ean = String(item.ean).trim();
+  item.unit = String(item.unit || "UN").trim().toUpperCase();
+  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","minStock","maxStock"].forEach((field) => item[field] = Number(item[field] || 0));
+  ["lotControl","expiryControl","active"].forEach((field) => item[field] = item[field] === true || ["1","true","si","sí","yes"].includes(String(item[field]).toLowerCase()));
+  if (!item.unitsPerPallet && item.unitsPerCase && item.casesPerPallet) item.unitsPerPallet = item.unitsPerCase * item.casesPerPallet;
+  return item;
+}
+
+async function saveSku(event) {
+  event.preventDefault();
+  const raw = Object.fromEntries(new FormData(event.currentTarget));
+  raw.lotControl = event.currentTarget.elements.lotControl.checked;
+  raw.expiryControl = event.currentTarget.elements.expiryControl.checked;
+  raw.active = event.currentTarget.elements.active.checked;
+  const item = normalizeSku(raw);
+  if (!item.sku || !item.description) return setSkuMessage("SKU y descripción son obligatorios.", true);
+  upsertSkuLocal(item);
+  renderSkuMaster();
+  try {
+    const result = await centralRequest("sku_save", { item, admin_password: ADMIN_PASSWORD_HASH });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar centralmente");
+    setSkuMessage(`SKU ${item.sku} guardado.`);
+    clearSkuForm(false);
+  } catch (error) {
+    setSkuMessage(`Guardado en este dispositivo; no se pudo sincronizar: ${error.message}`, true);
+  }
+}
+
+function upsertSkuLocal(item) {
+  const index = state.skuMaster.findIndex((current) => current.sku.toLowerCase() === item.sku.toLowerCase());
+  if (index >= 0) state.skuMaster[index] = item;
+  else state.skuMaster.push(item);
+  localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
+}
+
+function clearSkuForm(clearMessage = true) {
+  $("#skuForm").reset();
+  $("#skuForm").elements.active.checked = true;
+  if (clearMessage) setSkuMessage("");
+}
+
+function setSkuMessage(text, error = false) {
+  $("#skuMessage").textContent = text;
+  $("#skuMessage").style.color = error ? "var(--danger)" : "var(--available-text)";
+}
+
+function renderSkuMaster() {
+  const query = String($("#skuSearch")?.value || "").trim().toLowerCase();
+  const items = state.skuMaster.filter((item) => !query || [item.sku,item.description,item.ean,item.category].some((value) => String(value || "").toLowerCase().includes(query)));
+  $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU`;
+  const body = $("#skuTable");
+  body.replaceChildren();
+  items.sort((a,b) => a.sku.localeCompare(b.sku)).forEach((item) => {
+    const row = document.createElement("tr");
+    row.dataset.sku = item.sku;
+    [item.sku,item.description,item.ean || "—",item.unit,item.unitsPerPallet || "—",item.lotControl ? "Sí" : "No",item.expiryControl ? "Sí" : "No",item.active ? "Activo" : "Inactivo"].forEach((value) => {
+      const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell);
+    });
+    body.appendChild(row);
+  });
+}
+
+function editSkuFromTable(event) {
+  const row = event.target.closest("tr[data-sku]");
+  if (!row) return;
+  const item = state.skuMaster.find((sku) => sku.sku === row.dataset.sku);
+  if (!item) return;
+  SKU_FIELDS.forEach((field) => {
+    const control = $("#skuForm").elements[field];
+    if (!control) return;
+    if (control.type === "checkbox") control.checked = Boolean(item[field]);
+    else control.value = item[field] ?? "";
+  });
+  $("#skuForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function importSkuFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const rows = parseDelimited(await file.text());
+    const items = rows.map(normalizeSku).filter((item) => item.sku && item.description);
+    if (!items.length) throw new Error("El archivo no contiene filas válidas.");
+    items.forEach(upsertSkuLocal);
+    renderSkuMaster();
+    const result = await centralRequest("sku_bulk", { items, admin_password: ADMIN_PASSWORD_HASH });
+    if (!result.ok) throw new Error(result.error || "No se pudo importar centralmente");
+    setSkuMessage(`${items.length} SKU importados.`);
+  } catch (error) {
+    setSkuMessage(error.message, true);
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function parseDelimited(text) {
+  const lines = String(text).replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return [];
+  const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : ",";
+  const headers = lines.shift().split(delimiter).map((value) => value.trim());
+  return lines.map((line) => Object.fromEntries(headers.map((header, index) => [header, (line.split(delimiter)[index] || "").trim()])));
+}
+
+function downloadSkuTemplate() {
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true];
+  const csv = [SKU_FIELDS, sample].map((row) => row.join(";")).join("\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  link.download = "plantilla_maestro_sku.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function centralRequest(action, payload = {}) {
+  const callbackName = `wmsData_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  const script = document.createElement("script");
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => cleanup(reject, new Error("El servidor no respondió.")), 12000);
+    const cleanup = (done, value) => { clearTimeout(timeout); delete window[callbackName]; script.remove(); done(value); };
+    window[callbackName] = (value) => cleanup(resolve, value);
+    script.onerror = () => cleanup(reject, new Error("No se pudo conectar con el registro central."));
+    script.src = `${state.syncConfig.endpoint}?action=${encodeURIComponent(action)}&callback=${callbackName}&payload=${encodeURIComponent(JSON.stringify(payload))}&_=${Date.now()}`;
+    document.head.appendChild(script);
+  });
+}
+
+async function pullSkuMaster() {
+  try {
+    const result = await centralRequest("sku_list");
+    if (result.ok && Array.isArray(result.items)) {
+      state.skuMaster = result.items.map(normalizeSku);
+      localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
+      renderSkuMaster();
+    }
+  } catch (error) {
+    console.warn("Maestro SKU central no disponible:", error);
+  }
 }
 
 function fillLabelRackFilter() {
