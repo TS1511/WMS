@@ -5,7 +5,7 @@ const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
-const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active"];
+const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption"];
 
 const state = {
   original: [],
@@ -619,7 +619,7 @@ function normalizeSku(source) {
   item.description = String(item.description).trim();
   item.ean = String(item.ean).trim();
   item.unit = String(item.unit || "UN").trim().toUpperCase();
-  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","minStock","maxStock"].forEach((field) => item[field] = Number(item[field] || 0));
+  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","minStock","maxStock","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
   ["lotControl","expiryControl","active"].forEach((field) => item[field] = item[field] === true || ["1","true","si","sí","yes"].includes(String(item[field]).toLowerCase()));
   if (!item.unitsPerPallet && item.unitsPerCase && item.casesPerPallet) item.unitsPerPallet = item.unitsPerCase * item.casesPerPallet;
   return item;
@@ -666,13 +666,21 @@ function setSkuMessage(text, error = false) {
 function renderSkuMaster() {
   const query = String($("#skuSearch")?.value || "").trim().toLowerCase();
   const items = state.skuMaster.filter((item) => !query || [item.sku,item.description,item.ean,item.category].some((value) => String(value || "").toLowerCase().includes(query)));
+  const stockBySku = state.locations.reduce((totals, location) => {
+    if (location.occupied && location.material) totals[location.material] = (totals[location.material] || 0) + Number(location.quantity || 0);
+    return totals;
+  }, {});
   $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU`;
   const body = $("#skuTable");
   body.replaceChildren();
   items.sort((a,b) => a.sku.localeCompare(b.sku)).forEach((item) => {
     const row = document.createElement("tr");
     row.dataset.sku = item.sku;
-    [item.sku,item.description,item.ean || "—",item.unit,item.unitsPerPallet || "—",item.lotControl ? "Sí" : "No",item.expiryControl ? "Sí" : "No",item.active ? "Activo" : "Inactivo"].forEach((value) => {
+    const currentStock = Number(stockBySku[item.sku] || 0);
+    const coverage = item.dailyConsumption > 0 ? currentStock / item.dailyConsumption : null;
+    const stockStatus = currentStock <= 0 ? "Sin stock" : item.minStock > 0 && currentStock < item.minStock ? "Reponer" : item.maxStock > 0 && currentStock > item.maxStock ? "Exceso" : "Normal";
+    row.dataset.stockStatus = stockStatus.toLowerCase().replace(" ", "-");
+    [item.sku,item.description,currentStock,item.minStock || "—",item.maxStock || "—",item.dailyConsumption || "—",coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),stockStatus].forEach((value) => {
       const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell);
     });
     body.appendChild(row);
@@ -721,7 +729,7 @@ function parseDelimited(text) {
 }
 
 function downloadSkuTemplate() {
-  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true];
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true,25];
   const csv = [SKU_FIELDS, sample].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));

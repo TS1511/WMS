@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260918-5" />
+    <link rel="stylesheet" href="styles.css?v=20260918-6" />
   </head>
   <body>
     <aside class="sidebar">
@@ -377,6 +377,7 @@
               <label>Peso unitario (kg)<input name="weightKg" type="number" min="0" step="0.001" value="0" /></label>
               <label>Stock mínimo<input name="minStock" type="number" min="0" value="0" /></label>
               <label>Stock máximo<input name="maxStock" type="number" min="0" value="0" /></label>
+              <label>Consumo diario estimado<input name="dailyConsumption" type="number" min="0" step="0.01" value="0" /></label>
               <label>Ubicación preferida<input name="preferredLocation" placeholder="Ej. A2.01.0" /></label>
             </div>
             <div class="sku-checks"><label><input name="lotControl" type="checkbox" /> Control de lote</label><label><input name="expiryControl" type="checkbox" /> Control de vencimiento</label><label><input name="active" type="checkbox" checked /> Activo</label></div>
@@ -390,7 +391,7 @@
               <label class="ghost file-action">Importar CSV/TSV<input id="skuImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadSkuTemplate" type="button" class="ghost">Descargar plantilla</button>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Unidad</th><th>Pallet</th><th>Lote</th><th>Venc.</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th>Stock</th><th>Mín.</th><th>Máx.</th><th>Consumo/día</th><th>Días stock</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
           </section>
         </div>
       </section>
@@ -517,6 +518,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260917-1"></script>
-    <script src="app.js?v=20260918-30"></script>
+    <script src="app.js?v=20260918-31"></script>
   </body>
 </html>

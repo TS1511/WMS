@@ -551,6 +551,22 @@ label select {
   background: #eef5f8;
 }
 
+#skuTable tr[data-stock-status="sin-stock"] td:last-child,
+#skuTable tr[data-stock-status="reponer"] td:last-child {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+#skuTable tr[data-stock-status="exceso"] td:last-child {
+  color: #9a5b0a;
+  font-weight: 700;
+}
+
+#skuTable tr[data-stock-status="normal"] td:last-child {
+  color: var(--available-text);
+  font-weight: 700;
+}
+
 .rack-card.has-blocked {
   border-color: #df7d86;
   box-shadow: inset 3px 0 0 var(--danger);

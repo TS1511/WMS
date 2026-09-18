@@ -1,4 +1,4 @@
-const SERVER_VERSION = 17;
+const SERVER_VERSION = 18;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
@@ -17,7 +17,7 @@ const COLUMNS = [
   "estado",
   "actualizado_en",
 ];
-const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active"];
+const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption"];
 
 const BASELINE_STOCK = {
   "A2.02.0": { sku: "5555555", cantidad: 1 },
