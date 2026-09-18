@@ -17,6 +17,7 @@
       <nav>
         <button class="nav-item active" data-view="dashboard">Panel</button>
         <button class="nav-item" data-view="register">Registrar</button>
+        <button class="nav-item" data-view="picking">Preparar pedido</button>
         <button class="nav-item" data-view="map">Mapa</button>
         <button class="nav-item" data-view="map3d">Mapa 3D</button>
         <button class="nav-item" data-view="locations">Ubicaciones</button>
@@ -152,6 +153,33 @@
               <div id="recentMovementList" class="recent-movement-list"></div>
             </section>
           </aside>
+        </div>
+      </section>
+
+      <section id="picking" class="view">
+        <div class="picking-layout">
+          <form id="pickingForm" class="panel picking-form">
+            <div class="panel-head">
+              <h2>Pedido</h2>
+              <button id="loadPickingExample" type="button" class="ghost">Usar stock actual</button>
+            </div>
+            <label>SKU y cantidad
+              <textarea id="pickingLines" rows="12" required placeholder="100360, 2&#10;5555555, 1"></textarea>
+            </label>
+            <div class="dialog-actions">
+              <button id="clearPicking" type="button" class="ghost">Limpiar</button>
+              <button type="submit" class="primary-action">Calcular ruta</button>
+            </div>
+            <p id="pickingMessage" class="message"></p>
+          </form>
+          <section class="panel picking-result">
+            <div class="panel-head">
+              <h2>Ruta de preparación</h2>
+              <span id="pickingSummary">Sin calcular</span>
+            </div>
+            <div id="pickingShortages" class="picking-shortages hidden"></div>
+            <ol id="pickingRoute" class="picking-route"></ol>
+          </section>
         </div>
       </section>
 
@@ -454,6 +482,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260917-1"></script>
-    <script src="app.js?v=20260918-28"></script>
+    <script src="app.js?v=20260918-29"></script>
   </body>
 </html>

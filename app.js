@@ -234,6 +234,9 @@ function bindEvents() {
   bind3dMouseControls();
 
   $("#quickMove").addEventListener("submit", handleMovement);
+  $("#pickingForm").addEventListener("submit", calculatePickingRoute);
+  $("#loadPickingExample").addEventListener("click", loadPickingExample);
+  $("#clearPicking").addEventListener("click", clearPickingRoute);
   $("#registerMovement").addEventListener("submit", handleMovement);
   $("#registerMovement").addEventListener("keydown", handleRegisterEnter);
   $$("[data-move-type]").forEach((button) => {
@@ -708,6 +711,142 @@ function renderMap() {
       openRackDetail(Number(card.dataset.side), Number(card.dataset.rack));
     });
   });
+}
+
+function loadPickingExample() {
+  const bySku = groupBy(state.locations.filter((item) => item.occupied && !item.blocked && item.material), (item) => item.material);
+  $("#pickingLines").value = Object.entries(bySku).slice(0, 6).map(([sku, items]) => {
+    const available = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    return `${sku}, ${Math.min(available, 2)}`;
+  }).join("\n");
+}
+
+function clearPickingRoute() {
+  $("#pickingLines").value = "";
+  $("#pickingRoute").replaceChildren();
+  $("#pickingShortages").classList.add("hidden");
+  $("#pickingSummary").textContent = "Sin calcular";
+  $("#pickingMessage").textContent = "";
+}
+
+function calculatePickingRoute(event) {
+  event.preventDefault();
+  const requests = parsePickingLines($("#pickingLines").value);
+  if (!requests.length) {
+    $("#pickingMessage").textContent = "Ingresá al menos un SKU con una cantidad válida.";
+    return;
+  }
+
+  const allocations = [];
+  const shortages = [];
+  requests.forEach(({ sku, quantity }) => {
+    let pending = quantity;
+    const positions = state.locations
+      .filter((item) => item.occupied && !item.blocked && String(item.material).toLowerCase() === sku.toLowerCase())
+      .sort((a, b) => pickingAge(a) - pickingAge(b) || a.id.localeCompare(b.id));
+    positions.forEach((location) => {
+      if (pending <= 0) return;
+      const pick = Math.min(pending, Number(location.quantity || 0));
+      if (pick > 0) allocations.push({ sku, quantity: pick, location, point: pickingPoint(location) });
+      pending -= pick;
+    });
+    if (pending > 0) shortages.push({ sku, requested: quantity, missing: pending });
+  });
+
+  const route = optimizePickingRoute(allocations);
+  renderPickingRoute(route, shortages, requests);
+}
+
+function parsePickingLines(value) {
+  const combined = new Map();
+  String(value).split(/\r?\n/).forEach((line) => {
+    const parts = line.trim().split(/[;,\t]|\s{2,}/).map((part) => part.trim()).filter(Boolean);
+    if (parts.length < 2) return;
+    const quantity = Number(String(parts.pop()).replace(",", "."));
+    const sku = parts.join(" ").trim();
+    if (!sku || !(quantity > 0)) return;
+    combined.set(sku, (combined.get(sku) || 0) + quantity);
+  });
+  return [...combined].map(([sku, quantity]) => ({ sku, quantity }));
+}
+
+function pickingAge(location) {
+  const value = new Date(location.occupiedSince || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function pickingPoint(location) {
+  const key = location.id.split(".").slice(0, -1).join(".");
+  const stack = state.layout3d?.stacks?.find((item) => item.key === key);
+  return stack ? { x: Number(stack.col), y: Number(stack.row) } : { x: Number(location.module), y: Number(location.side) * 100 + Number(location.rack) };
+}
+
+function optimizePickingRoute(allocations) {
+  const pending = [...allocations];
+  const route = [];
+  const bounds = state.layout3d?.bounds;
+  let current = { x: Number(bounds?.minCol || 0), y: Number(bounds?.maxRow || 0) };
+  while (pending.length) {
+    pending.sort((a, b) => pickingDistance(current, a.point) - pickingDistance(current, b.point));
+    const next = pending.shift();
+    next.distance = pickingDistance(current, next.point);
+    route.push(next);
+    current = next.point;
+  }
+  return route;
+}
+
+function pickingDistance(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function renderPickingRoute(route, shortages, requests) {
+  const list = $("#pickingRoute");
+  list.replaceChildren();
+  let cumulative = 0;
+  route.forEach((stop, index) => {
+    cumulative += stop.distance;
+    const item = document.createElement("li");
+    const step = document.createElement("span");
+    const location = document.createElement("div");
+    const locationId = document.createElement("strong");
+    const locationDetail = document.createElement("small");
+    const quantity = document.createElement("div");
+    const quantityValue = document.createElement("strong");
+    const sku = document.createElement("small");
+    step.className = "pick-step";
+    quantity.className = "pick-quantity";
+    step.textContent = index + 1;
+    locationId.textContent = stop.location.id;
+    locationDetail.textContent = `Pasillo ${stop.location.aisle} · Rack ${String(stop.location.rack).padStart(2, "0")} · Módulo ${stop.location.module} · Nivel ${stop.location.level}`;
+    quantityValue.textContent = fmt.format(stop.quantity);
+    sku.textContent = stop.sku;
+    location.append(locationId, locationDetail);
+    quantity.append(quantityValue, sku);
+    item.append(step, location, quantity);
+    list.appendChild(item);
+  });
+
+  const requestedUnits = requests.reduce((sum, item) => sum + item.quantity, 0);
+  const assignedUnits = route.reduce((sum, item) => sum + item.quantity, 0);
+  $("#pickingSummary").textContent = `${route.length} paradas · ${fmt.format(assignedUnits)}/${fmt.format(requestedUnits)} unidades · ${fmt.format(cumulative)} tramos`;
+  $("#pickingMessage").textContent = route.length ? "Ruta calculada con posiciones disponibles y no bloqueadas." : "No hay stock disponible para el pedido.";
+
+  const shortageBox = $("#pickingShortages");
+  shortageBox.replaceChildren();
+  if (shortages.length) {
+    const title = document.createElement("strong");
+    title.textContent = "Faltantes";
+    shortageBox.appendChild(title);
+    shortages.forEach((item) => {
+      const row = document.createElement("span");
+      row.textContent = `${item.sku}: faltan ${fmt.format(item.missing)} de ${fmt.format(item.requested)}`;
+      shortageBox.appendChild(row);
+    });
+    shortageBox.classList.remove("hidden");
+  } else {
+    shortageBox.classList.add("hidden");
+  }
 }
 
 function rackCard(side, rack, items) {

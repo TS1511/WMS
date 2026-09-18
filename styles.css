@@ -400,6 +400,87 @@ label select {
   font-size: 12px;
 }
 
+.picking-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.picking-form textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  resize: vertical;
+  font: inherit;
+}
+
+.picking-result {
+  min-height: 420px;
+}
+
+.picking-route {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picking-route li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(86px, auto);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fbfcfd;
+}
+
+.pick-step {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--primary);
+  font-weight: 700;
+}
+
+.picking-route small,
+.pick-quantity small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.pick-quantity {
+  text-align: right;
+}
+
+.pick-quantity > strong {
+  font-size: 20px;
+}
+
+.picking-shortages {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid #edbcc5;
+  border-radius: 6px;
+  color: #8b1e2d;
+  background: #fff1f3;
+}
+
+.picking-shortages.hidden {
+  display: none;
+}
+
 .rack-card.has-blocked {
   border-color: #df7d86;
   box-shadow: inset 3px 0 0 var(--danger);
@@ -1227,7 +1308,8 @@ dd {
   .kpis,
   .analytics-kpis,
   .analytics-grid,
-  .register-layout {
+  .register-layout,
+  .picking-layout {
     grid-template-columns: 1fr;
   }
 
@@ -1257,6 +1339,15 @@ dd {
   body {
     display: block;
     padding-bottom: 72px;
+  }
+
+  .picking-route li {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .pick-quantity {
+    grid-column: 2;
+    text-align: left;
   }
 
   .sidebar {
