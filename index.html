@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260918-6" />
+    <link rel="stylesheet" href="styles.css?v=20260918-7" />
   </head>
   <body>
     <aside class="sidebar">
@@ -370,6 +370,7 @@
               <label>Descripción<input name="description" required /></label>
               <label>EAN / código de barras<input name="ean" inputmode="numeric" /></label>
               <label>Categoría<input name="category" /></label>
+              <label>Clasificación<select name="velocityClass"><option value="">Sin clasificar</option><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select></label>
               <label>Unidad de medida<select name="unit"><option>UN</option><option>CJ</option><option>KG</option><option>LT</option><option>PL</option></select></label>
               <label>Unidades por caja<input name="unitsPerCase" type="number" min="0" value="0" /></label>
               <label>Cajas por pallet<input name="casesPerPallet" type="number" min="0" value="0" /></label>
@@ -391,7 +392,28 @@
               <label class="ghost file-action">Importar CSV/TSV<input id="skuImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadSkuTemplate" type="button" class="ghost">Descargar plantilla</button>
             </div>
-            <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th>Stock</th><th>Mín.</th><th>Máx.</th><th>Consumo/día</th><th>Días stock</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th>Clase</th><th>Stock</th><th>Mín.</th><th>Máx.</th><th>Consumo/día</th><th>Días stock</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
+          </section>
+        </div>
+        <div class="sku-operations-grid">
+          <section class="panel">
+            <div class="panel-head"><h2>Alarmas de inventario</h2><span id="skuAlertCount">0 alertas</span></div>
+            <div id="skuAlerts" class="sku-alerts"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Zonas por clasificación</h2><span class="muted">Rangos inclusivos</span></div>
+            <form id="slottingForm" class="slotting-form">
+              <label>Clase<select name="velocityClass" required><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select></label>
+              <label>Pasillo<input name="aisle" value="ALL" placeholder="ALL, A, B..." /></label>
+              <label>Lado<select name="side"><option value="all">Ambos</option><option value="1">1</option><option value="2">2</option></select></label>
+              <label>Rack desde<input name="rackFrom" type="number" min="0" value="1" /></label>
+              <label>Rack hasta<input name="rackTo" type="number" min="0" value="26" /></label>
+              <label>Posición desde<input name="moduleFrom" type="number" min="0" value="1" /></label>
+              <label>Posición hasta<input name="moduleTo" type="number" min="0" value="99" /></label>
+              <label>Nivel<select name="level"><option value="all">Todos</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+              <button type="submit" class="primary-action">Agregar zona</button>
+            </form>
+            <div class="table-wrap"><table><thead><tr><th>Clase</th><th>Pasillo</th><th>Lado</th><th>Racks</th><th>Posiciones</th><th>Nivel</th><th></th></tr></thead><tbody id="slottingTable"></tbody></table></div>
           </section>
         </div>
       </section>
@@ -518,6 +540,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260917-1"></script>
-    <script src="app.js?v=20260918-31"></script>
+    <script src="app.js?v=20260918-32"></script>
   </body>
 </html>

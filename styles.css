@@ -567,6 +567,68 @@ label select {
   font-weight: 700;
 }
 
+.sku-operations-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(620px, 1.5fr);
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.slotting-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(105px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.slotting-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.slotting-form input,
+.slotting-form select {
+  height: 38px;
+  min-width: 0;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.slotting-form .primary-action {
+  align-self: end;
+  height: 38px;
+}
+
+.sku-alerts {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.sku-alert {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border-left: 4px solid #b26b12;
+  background: #fff8eb;
+}
+
+.sku-alert.critical {
+  border-color: var(--danger);
+  background: #fff1f3;
+}
+
+.sku-alert span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .rack-card.has-blocked {
   border-color: #df7d86;
   box-shadow: inset 3px 0 0 var(--danger);
@@ -1382,6 +1444,13 @@ dd {
 }
 
 @media (max-width: 980px) {
+  .sku-operations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .slotting-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   body {
     grid-template-columns: 1fr;
   }

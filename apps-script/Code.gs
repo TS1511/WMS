@@ -1,6 +1,7 @@
-const SERVER_VERSION = 18;
+const SERVER_VERSION = 19;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
+const SLOTTING_SHEET_NAME = "Zonas SKU";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
 const COLUMNS = [
   "id_movimiento",
@@ -17,7 +18,8 @@ const COLUMNS = [
   "estado",
   "actualizado_en",
 ];
-const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption"];
+const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass"];
+const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level"];
 
 const BASELINE_STOCK = {
   "A2.02.0": { sku: "5555555", cantidad: 1 },
@@ -32,9 +34,12 @@ function doGet(event) {
     const action = clean(event && event.parameter && event.parameter.action) || "list";
     if (action === "list") return jsonp(callback, { ok: true, version: SERVER_VERSION, records: readRecords() });
     if (action === "sku_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readSkuMaster() });
+    if (action === "slotting_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readSlottingRules() });
     const payload = JSON.parse(clean(event.parameter.payload) || "{}");
     if (action === "sku_save") return jsonp(callback, saveSkuItems([payload.item], payload.admin_password));
     if (action === "sku_bulk") return jsonp(callback, saveSkuItems(payload.items, payload.admin_password));
+    if (action === "slotting_save") return jsonp(callback, saveSlottingRule(payload.rule, payload.admin_password));
+    if (action === "slotting_delete") return jsonp(callback, deleteSlottingRule(payload.id, payload.admin_password));
     if (action !== "command") return jsonp(callback, { ok: false, retryable: false, error: "Acción no válida." });
 
     const result = processCommand(payload);
@@ -96,6 +101,50 @@ function getSkuSheet() {
   if (!sheet) {
     sheet = spreadsheet.insertSheet(SKU_SHEET_NAME);
     sheet.appendRow(SKU_COLUMNS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function readSlottingRules() {
+  const values = getSlottingSheet().getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+  return values.slice(1).filter((row) => clean(row[0])).map((row) => {
+    const item = {};
+    SLOTTING_COLUMNS.forEach((column, index) => item[column] = row[index] == null ? "" : row[index]);
+    return item;
+  });
+}
+
+function saveSlottingRule(source, adminPassword) {
+  if (clean(adminPassword) !== ADMIN_PASSWORD_HASH) return { ok: false, retryable: false, error: "Se requiere autorización de administrador." };
+  const item = {};
+  SLOTTING_COLUMNS.forEach((column) => item[column] = source && source[column] != null ? source[column] : "");
+  if (!clean(item.id) || !clean(item.velocityClass)) return { ok: false, retryable: false, error: "La regla de zona está incompleta." };
+  const sheet = getSlottingSheet();
+  const rows = sheet.getDataRange().getDisplayValues();
+  const index = rows.findIndex((row, rowIndex) => rowIndex > 0 && clean(row[0]) === clean(item.id));
+  const values = SLOTTING_COLUMNS.map((column) => item[column]);
+  if (index > 0) sheet.getRange(index + 1, 1, 1, values.length).setValues([values]);
+  else sheet.appendRow(values);
+  return { ok: true, version: SERVER_VERSION };
+}
+
+function deleteSlottingRule(id, adminPassword) {
+  if (clean(adminPassword) !== ADMIN_PASSWORD_HASH) return { ok: false, retryable: false, error: "Se requiere autorización de administrador." };
+  const sheet = getSlottingSheet();
+  const rows = sheet.getDataRange().getDisplayValues();
+  const index = rows.findIndex((row, rowIndex) => rowIndex > 0 && clean(row[0]) === clean(id));
+  if (index > 0) sheet.deleteRow(index + 1);
+  return { ok: true, version: SERVER_VERSION };
+}
+
+function getSlottingSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(SLOTTING_SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(SLOTTING_SHEET_NAME);
+    sheet.appendRow(SLOTTING_COLUMNS);
     sheet.setFrozenRows(1);
   }
   return sheet;

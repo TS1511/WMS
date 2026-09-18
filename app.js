@@ -2,10 +2,12 @@ const STORAGE_KEY = "mini-wms-state-v2";
 const SYNC_CONFIG_KEY = "mini-wms-sync-config-v2";
 const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v1";
 const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
+const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
-const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption"];
+const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass"];
+const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
 
 const state = {
   original: [],
@@ -57,6 +59,7 @@ const state = {
   syncError: "",
   centralBlocks: new Map(),
   skuMaster: [],
+  slottingRules: [],
 };
 
 const shadeCache = new Map();
@@ -129,6 +132,7 @@ async function init() {
   if (!state.syncConfig.endpoint) state.syncConfig.endpoint = DEFAULT_SYNC_ENDPOINT;
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
+  state.slottingRules = loadJson(SLOTTING_RULES_KEY, []);
   saveState();
 
   fillLevelFilter();
@@ -140,6 +144,7 @@ async function init() {
   flushSyncOutbox();
   await pullCentralMovements();
   await pullSkuMaster();
+  await pullSlottingRules();
   state.syncTimer = window.setInterval(pullCentralMovements, 15000);
 }
 
@@ -245,6 +250,8 @@ function bindEvents() {
   $("#skuImport").addEventListener("change", importSkuFile);
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
   $("#skuTable").addEventListener("click", editSkuFromTable);
+  $("#slottingForm").addEventListener("submit", saveSlottingRule);
+  $("#slottingTable").addEventListener("click", deleteSlottingRule);
   $("#pickingForm").addEventListener("submit", calculatePickingRoute);
   $("#loadPickingExample").addEventListener("click", loadPickingExample);
   $("#clearPicking").addEventListener("click", clearPickingRoute);
@@ -610,6 +617,8 @@ function renderAll() {
   renderAnalytics();
   renderRegistration();
   renderSkuMaster();
+  renderSlottingRules();
+  renderSkuAlerts();
 }
 
 function normalizeSku(source) {
@@ -619,10 +628,22 @@ function normalizeSku(source) {
   item.description = String(item.description).trim();
   item.ean = String(item.ean).trim();
   item.unit = String(item.unit || "UN").trim().toUpperCase();
+  item.velocityClass = String(item.velocityClass || "").trim().toUpperCase();
   ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","minStock","maxStock","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
   ["lotControl","expiryControl","active"].forEach((field) => item[field] = item[field] === true || ["1","true","si","sí","yes"].includes(String(item[field]).toLowerCase()));
   if (!item.unitsPerPallet && item.unitsPerCase && item.casesPerPallet) item.unitsPerPallet = item.unitsPerCase * item.casesPerPallet;
   return item;
+}
+
+function formatVelocityClass(value) {
+  return ({ SUPER_A: "Súper A", A: "A", B: "B", C: "C", ESTACIONAL: "Estacional" })[value] || "Sin clasificar";
+}
+
+function stockBySku() {
+  return state.locations.reduce((totals, location) => {
+    if (location.occupied && location.material) totals[location.material] = (totals[location.material] || 0) + Number(location.quantity || 0);
+    return totals;
+  }, {});
 }
 
 async function saveSku(event) {
@@ -666,21 +687,18 @@ function setSkuMessage(text, error = false) {
 function renderSkuMaster() {
   const query = String($("#skuSearch")?.value || "").trim().toLowerCase();
   const items = state.skuMaster.filter((item) => !query || [item.sku,item.description,item.ean,item.category].some((value) => String(value || "").toLowerCase().includes(query)));
-  const stockBySku = state.locations.reduce((totals, location) => {
-    if (location.occupied && location.material) totals[location.material] = (totals[location.material] || 0) + Number(location.quantity || 0);
-    return totals;
-  }, {});
+  const currentStock = stockBySku();
   $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU`;
   const body = $("#skuTable");
   body.replaceChildren();
   items.sort((a,b) => a.sku.localeCompare(b.sku)).forEach((item) => {
     const row = document.createElement("tr");
     row.dataset.sku = item.sku;
-    const currentStock = Number(stockBySku[item.sku] || 0);
-    const coverage = item.dailyConsumption > 0 ? currentStock / item.dailyConsumption : null;
-    const stockStatus = currentStock <= 0 ? "Sin stock" : item.minStock > 0 && currentStock < item.minStock ? "Reponer" : item.maxStock > 0 && currentStock > item.maxStock ? "Exceso" : "Normal";
+    const quantity = Number(currentStock[item.sku] || 0);
+    const coverage = item.dailyConsumption > 0 ? quantity / item.dailyConsumption : null;
+    const stockStatus = quantity <= 0 ? "Sin stock" : item.minStock > 0 && quantity < item.minStock ? "Reponer" : item.maxStock > 0 && quantity > item.maxStock ? "Exceso" : "Normal";
     row.dataset.stockStatus = stockStatus.toLowerCase().replace(" ", "-");
-    [item.sku,item.description,currentStock,item.minStock || "—",item.maxStock || "—",item.dailyConsumption || "—",coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),stockStatus].forEach((value) => {
+    [item.sku,item.description,formatVelocityClass(item.velocityClass),quantity,item.minStock || "—",item.maxStock || "—",item.dailyConsumption || "—",coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),stockStatus].forEach((value) => {
       const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell);
     });
     body.appendChild(row);
@@ -729,7 +747,7 @@ function parseDelimited(text) {
 }
 
 function downloadSkuTemplate() {
-  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true,25];
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true,25,"SUPER_A"];
   const csv = [SKU_FIELDS, sample].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
@@ -761,6 +779,109 @@ async function pullSkuMaster() {
     }
   } catch (error) {
     console.warn("Maestro SKU central no disponible:", error);
+  }
+}
+
+function normalizeSlottingRule(source) {
+  return {
+    id: String(source.id || (crypto.randomUUID ? crypto.randomUUID() : `zone-${Date.now()}`)),
+    velocityClass: String(source.velocityClass || "").toUpperCase(),
+    aisle: String(source.aisle || "ALL").trim().toUpperCase(),
+    side: String(source.side || "all"),
+    rackFrom: Number(source.rackFrom || 0),
+    rackTo: Number(source.rackTo || 99),
+    moduleFrom: Number(source.moduleFrom || 0),
+    moduleTo: Number(source.moduleTo || 999),
+    level: String(source.level ?? "all"),
+  };
+}
+
+function locationMatchesRule(location, rule) {
+  return (rule.aisle === "ALL" || location.aisle === rule.aisle)
+    && (rule.side === "all" || String(location.side) === rule.side)
+    && Number(location.rack) >= rule.rackFrom && Number(location.rack) <= rule.rackTo
+    && Number(location.module) >= rule.moduleFrom && Number(location.module) <= rule.moduleTo
+    && (rule.level === "all" || String(location.level) === rule.level);
+}
+
+async function saveSlottingRule(event) {
+  event.preventDefault();
+  const rule = normalizeSlottingRule(Object.fromEntries(new FormData(event.currentTarget)));
+  if (!VELOCITY_CLASSES.includes(rule.velocityClass)) return;
+  state.slottingRules.push(rule);
+  localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
+  renderSlottingRules();
+  renderSkuAlerts();
+  event.currentTarget.reset();
+  try {
+    const result = await centralRequest("slotting_save", { rule, admin_password: ADMIN_PASSWORD_HASH });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar la zona.");
+  } catch (error) {
+    alert(`La zona quedó guardada sólo en este dispositivo: ${error.message}`);
+  }
+}
+
+async function deleteSlottingRule(event) {
+  const button = event.target.closest("button[data-rule-id]");
+  if (!button || !confirm("¿Eliminar esta delimitación de posiciones?")) return;
+  const id = button.dataset.ruleId;
+  state.slottingRules = state.slottingRules.filter((rule) => rule.id !== id);
+  localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
+  renderSlottingRules();
+  renderSkuAlerts();
+  const result = await centralRequest("slotting_delete", { id, admin_password: ADMIN_PASSWORD_HASH }).catch(() => null);
+  if (!result?.ok) alert("La zona se eliminó localmente, pero no pudo sincronizarse.");
+}
+
+function renderSlottingRules() {
+  const body = $("#slottingTable");
+  if (!body) return;
+  body.innerHTML = state.slottingRules.map((rule) => `
+    <tr>
+      <td>${formatVelocityClass(rule.velocityClass)}</td>
+      <td>${rule.aisle === "ALL" ? "Todos" : rule.aisle}</td>
+      <td>${rule.side === "all" ? "Ambos" : rule.side}</td>
+      <td>${rule.rackFrom}-${rule.rackTo}</td>
+      <td>${rule.moduleFrom}-${rule.moduleTo}</td>
+      <td>${rule.level === "all" ? "Todos" : rule.level}</td>
+      <td><button type="button" class="icon-action danger" data-rule-id="${rule.id}" title="Eliminar zona">×</button></td>
+    </tr>`).join("");
+}
+
+function renderSkuAlerts() {
+  const container = $("#skuAlerts");
+  if (!container) return;
+  const stocks = stockBySku();
+  const alerts = [];
+  const missingZones = new Set();
+  state.skuMaster.filter((item) => item.active).forEach((item) => {
+    const quantity = Number(stocks[item.sku] || 0);
+    if (item.minStock > 0 && quantity < item.minStock) alerts.push({ type: "stock", level: "critical", title: `${item.sku} por debajo del mínimo`, detail: `${fmt.format(quantity)} u. actuales · mínimo ${fmt.format(item.minStock)}` });
+    if (item.maxStock > 0 && quantity > item.maxStock) alerts.push({ type: "stock", level: "warning", title: `${item.sku} supera el máximo`, detail: `${fmt.format(quantity)} u. actuales · máximo ${fmt.format(item.maxStock)}` });
+    if (item.velocityClass && !state.slottingRules.some((rule) => rule.velocityClass === item.velocityClass)) missingZones.add(item.velocityClass);
+  });
+  missingZones.forEach((velocityClass) => alerts.push({ type: "config", level: "warning", title: `${formatVelocityClass(velocityClass)} sin zona definida`, detail: "Los SKU de esta clase todavía no pueden validarse por ubicación." }));
+  state.locations.filter((location) => location.occupied && location.material).forEach((location) => {
+    const item = state.skuMaster.find((sku) => sku.sku === location.material);
+    if (!item?.velocityClass) return;
+    const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
+    if (rules.length && !rules.some((rule) => locationMatchesRule(location, rule))) alerts.push({ type: "slotting", level: "critical", title: `${item.sku} fuera de zona ${formatVelocityClass(item.velocityClass)}`, detail: `Ubicado en ${location.id}.` });
+  });
+  $("#skuAlertCount").textContent = `${alerts.length} alerta${alerts.length === 1 ? "" : "s"}`;
+  container.innerHTML = alerts.length ? alerts.map((alert) => `<article class="sku-alert ${alert.level}"><strong>${alert.title}</strong><span>${alert.detail}</span></article>`).join("") : `<p class="empty-state">Sin desvíos de stock ni ubicación.</p>`;
+}
+
+async function pullSlottingRules() {
+  try {
+    const result = await centralRequest("slotting_list");
+    if (result.ok && Array.isArray(result.items)) {
+      state.slottingRules = result.items.map(normalizeSlottingRule);
+      localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
+      renderSlottingRules();
+      renderSkuAlerts();
+    }
+  } catch (error) {
+    console.warn("Zonificación central no disponible:", error);
   }
 }
 
