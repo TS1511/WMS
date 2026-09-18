@@ -1,0 +1,216 @@
+const SERVER_VERSION = 16;
+const SHEET_NAME = "Hoja 1";
+const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
+const COLUMNS = [
+  "id_movimiento",
+  "fecha_hora_utc",
+  "fecha_local",
+  "tipo",
+  "sku",
+  "posicion_origen",
+  "posicion_destino",
+  "cantidad",
+  "delta_ocupacion",
+  "permanencia_horas",
+  "usuario",
+  "estado",
+  "actualizado_en",
+];
+
+const BASELINE_STOCK = {
+  "A2.02.0": { sku: "5555555", cantidad: 1 },
+  "C1.12.3": { sku: "333333", cantidad: 1 },
+  "D2.02.0": { sku: "123123", cantidad: 1 },
+  "H1.20.2": { sku: "22222", cantidad: 1 },
+};
+
+function doGet(event) {
+  const callback = safeCallback(event && event.parameter && event.parameter.callback);
+  try {
+    const action = clean(event && event.parameter && event.parameter.action) || "list";
+    if (action === "list") return jsonp(callback, { ok: true, version: SERVER_VERSION, records: readRecords() });
+    if (action !== "command") return jsonp(callback, { ok: false, retryable: false, error: "Acción no válida." });
+
+    const payload = JSON.parse(clean(event.parameter.payload) || "{}");
+    const result = processCommand(payload);
+    return jsonp(callback, result);
+  } catch (error) {
+    return jsonp(callback, { ok: false, retryable: true, error: String(error) });
+  }
+}
+
+function processCommand(payload) {
+  const record = normalizeRecord(payload);
+  const basicError = validateBasicRecord(record);
+  if (basicError) return { ok: false, retryable: false, error: basicError };
+
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) return { ok: false, retryable: true, error: "El registro central está ocupado. Reintenta en unos segundos." };
+
+  try {
+    const records = readRecords();
+    const duplicate = records.find((item) => clean(item.id_movimiento) === record.id_movimiento && clean(item.actualizado_en) === record.actualizado_en);
+    if (duplicate) return { ok: true, duplicate: true, version: SERVER_VERSION };
+
+    const validationError = validateCommand(record, records);
+    if (validationError) return { ok: false, retryable: false, error: validationError };
+
+    createDailyBackup();
+    getSheet().appendRow(COLUMNS.map((column) => record[column]));
+    SpreadsheetApp.flush();
+    return { ok: true, version: SERVER_VERSION };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function validateCommand(record, records) {
+  const existing = records.some((item) => clean(item.id_movimiento) === record.id_movimiento);
+  if (record.estado === "ANULADO") return existing ? "" : "No existe el movimiento que se quiere anular.";
+
+  const effective = latestActiveRecords(records, record.id_movimiento);
+  const warehouse = reconstructWarehouse(effective);
+  const from = record.posicion_origen;
+  const to = record.posicion_destino;
+
+  if ((record.tipo === "BLOCK" || record.tipo === "UNBLOCK") && record.admin_password !== ADMIN_PASSWORD_HASH) {
+    return "Se requiere autorización de administrador.";
+  }
+  if (record.tipo === "IN") {
+    if (!to) return "El ingreso requiere una posición de destino.";
+    if (warehouse.blocks.has(to)) return `La posición ${to} está bloqueada.`;
+    if (warehouse.stock.has(to)) return `Conflicto: la posición ${to} ya está ocupada.`;
+  }
+  if (record.tipo === "MOVE") {
+    if (!from || !to) return "El movimiento requiere posición de origen y destino.";
+    if (!warehouse.stock.has(from)) return `La posición de origen ${from} no tiene stock.`;
+    if (warehouse.blocks.has(to)) return `La posición ${to} está bloqueada.`;
+    if (warehouse.stock.has(to) && from !== to) return `Conflicto: la posición ${to} ya está ocupada.`;
+  }
+  if (record.tipo === "OUT" && (!from || !warehouse.stock.has(from))) {
+    return `La posición de origen ${from || "indicada"} no tiene stock.`;
+  }
+  if (record.tipo === "BLOCK") {
+    if (!to) return "El bloqueo requiere una posición.";
+    if (warehouse.stock.has(to)) return `No se puede bloquear ${to} porque está ocupada.`;
+    if (warehouse.blocks.has(to)) return `La posición ${to} ya está bloqueada.`;
+  }
+  if (record.tipo === "UNBLOCK" && (!from || !warehouse.blocks.has(from))) {
+    return `La posición ${from || "indicada"} no está bloqueada.`;
+  }
+  return "";
+}
+
+function reconstructWarehouse(records) {
+  const stock = new Map(Object.keys(BASELINE_STOCK).map((position) => [position, BASELINE_STOCK[position]]));
+  const blocks = new Set();
+  records.forEach((record) => {
+    const type = clean(record.tipo).toUpperCase();
+    const from = normalizePosition(record.posicion_origen);
+    const to = normalizePosition(record.posicion_destino);
+    if (type === "IN" && to) stock.set(to, { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 });
+    if (type === "MOVE" && from && to) {
+      const item = stock.get(from) || { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 };
+      stock.delete(from);
+      stock.set(to, item);
+    }
+    if (type === "OUT" && from) stock.delete(from);
+    if (type === "BLOCK" && to) blocks.add(to);
+    if (type === "UNBLOCK" && from) blocks.delete(from);
+  });
+  return { stock: stock, blocks: blocks };
+}
+
+function latestActiveRecords(records, excludedId) {
+  const latest = new Map();
+  records.forEach((record, index) => {
+    const id = clean(record.id_movimiento);
+    if (!id || id === excludedId) return;
+    if (clean(record.estado).toUpperCase() === "ANULADO") latest.delete(id);
+    else latest.set(id, { record: record, index: index });
+  });
+  return Array.from(latest.values()).sort((a, b) => a.index - b.index).map((item) => item.record);
+}
+
+function validateBasicRecord(record) {
+  if (!record.id_movimiento) return "Falta el identificador del movimiento.";
+  if (!record.actualizado_en) return "Falta la fecha de actualización.";
+  if (!["CREADO", "ANULADO"].includes(record.estado)) return "Estado no válido.";
+  if (record.estado !== "ANULADO" && !["IN", "MOVE", "OUT", "BLOCK", "UNBLOCK"].includes(record.tipo)) return "Tipo de movimiento no válido.";
+  if (["IN", "MOVE", "OUT"].includes(record.tipo) && !(Number(record.cantidad) > 0)) return "La cantidad debe ser mayor que cero.";
+  return "";
+}
+
+function normalizeRecord(payload) {
+  const record = {};
+  COLUMNS.forEach((column) => record[column] = clean(payload && payload[column]));
+  record.tipo = record.tipo.toUpperCase();
+  record.estado = (record.estado || "CREADO").toUpperCase();
+  record.posicion_origen = normalizePosition(record.posicion_origen);
+  record.posicion_destino = normalizePosition(record.posicion_destino);
+  record.cantidad = Number(record.cantidad) || 0;
+  record.delta_ocupacion = Number(record.delta_ocupacion) || 0;
+  record.admin_password = clean(payload && payload.admin_password);
+  return record;
+}
+
+function readRecords() {
+  const values = getSheet().getDataRange().getDisplayValues();
+  if (!values.length) return [];
+  const headerIndex = values.findIndex((row) => row.some((cell) => normalizeHeader(cell) === "id_movimiento"));
+  if (headerIndex < 0) throw new Error(`La cabecera de ${SHEET_NAME} no es válida; no se modificaron datos.`);
+
+  return values.slice(headerIndex + 1).map((row) => {
+    let cells = row;
+    if (row.slice(1).every((cell) => !clean(cell)) && clean(row[0]).indexOf("\t") >= 0) cells = clean(row[0]).split("\t");
+    const item = {};
+    COLUMNS.forEach((column, index) => item[column] = cells[index] == null ? "" : cells[index]);
+    return item;
+  }).filter((item) => clean(item.id_movimiento) && normalizeHeader(item.id_movimiento) !== "id_movimiento");
+}
+
+function getSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  if (!sheet) throw new Error(`No existe la hoja ${SHEET_NAME}.`);
+  return sheet;
+}
+
+function createDailyBackup() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const timezone = spreadsheet.getSpreadsheetTimeZone() || "America/Argentina/Buenos_Aires";
+  const name = `_backup_${Utilities.formatDate(new Date(), timezone, "yyyy-MM-dd")}`;
+  if (spreadsheet.getSheetByName(name)) return;
+
+  const source = getSheet();
+  const backup = spreadsheet.insertSheet(name);
+  const range = source.getDataRange();
+  range.copyTo(
+    backup.getRange(1, 1, range.getNumRows(), range.getNumColumns()),
+    SpreadsheetApp.CopyPasteType.PASTE_VALUES,
+    false
+  );
+  backup.hideSheet();
+  PropertiesService.getDocumentProperties().setProperty("last_backup", name);
+}
+
+function normalizeHeader(value) {
+  return clean(value).replace(/^\uFEFF/, "").toLowerCase();
+}
+
+function normalizePosition(value) {
+  return clean(value).toUpperCase().replace(/\s+/g, "");
+}
+
+function clean(value) {
+  return value == null ? "" : String(value).trim();
+}
+
+function safeCallback(value) {
+  const callback = clean(value);
+  return /^[A-Za-z_$][0-9A-Za-z_$\.]*$/.test(callback) ? callback : "callback";
+}
+
+function jsonp(callback, payload) {
+  return ContentService.createTextOutput(`${callback}(${JSON.stringify(payload)});`).setMimeType(ContentService.MimeType.JAVASCRIPT);
+}

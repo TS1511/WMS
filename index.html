@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WMS de almacén</title>
+    <link rel="stylesheet" href="styles.css?v=20260917-3" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <div>
+          <strong>WMS</strong>
+          <span>Control de ubicaciones</span>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="dashboard">Panel</button>
+        <button class="nav-item" data-view="register">Registrar</button>
+        <button class="nav-item" data-view="map">Mapa</button>
+        <button class="nav-item" data-view="map3d">Mapa 3D</button>
+        <button class="nav-item" data-view="locations">Ubicaciones</button>
+        <button class="nav-item" data-view="movements">Movimientos</button>
+        <button class="nav-item" data-view="analytics">Analítica</button>
+        <button class="nav-item" data-view="labels">Etiquetas</button>
+      </nav>
+      <div class="source">
+        <span>Almacén</span>
+        <strong>Gestión operativa</strong>
+        <small>11.040 posiciones configuradas</small>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1>Mini WMS</h1>
+          <p>Gestión operativa de posiciones, stock y movimientos.</p>
+        </div>
+        <div class="top-actions">
+          <span class="topbar-context">Operación de almacén</span>
+          <button id="openSyncSettings" class="ghost"><span id="syncIndicator" class="sync-indicator"></span><span id="operatorLabel">Identificar operario</span></button>
+          <button id="resetData" class="ghost">Restaurar datos</button>
+        </div>
+      </header>
+
+      <section id="dashboard" class="view active">
+        <div class="kpis">
+          <article>
+            <span>Ubicaciones</span>
+            <strong id="kpiTotal">0</strong>
+          </article>
+          <article>
+            <span>Ocupadas</span>
+            <strong id="kpiOccupied">0</strong>
+          </article>
+          <article>
+            <span>Disponibles</span>
+            <strong id="kpiAvailable">0</strong>
+          </article>
+          <article>
+            <span>Ocupación</span>
+            <strong id="kpiRate">0%</strong>
+          </article>
+        </div>
+
+        <div class="split">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Ocupación por lado</h2>
+              <span id="lastUpdate"></span>
+            </div>
+            <div id="sideBars" class="bars"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Acciones rápidas</h2>
+            </div>
+            <form id="quickMove" class="form-grid">
+              <label>Tipo
+                <select name="type">
+                  <option value="IN">Ingreso</option>
+                  <option value="MOVE">Traslado</option>
+                  <option value="OUT">Egreso</option>
+                </select>
+              </label>
+              <label>SKU / Material
+                <input name="material" placeholder="Ej. 5555555" />
+              </label>
+              <label>Desde
+                <input name="from" placeholder="Posición origen" />
+              </label>
+              <label>Hasta
+                <input name="to" placeholder="Posición destino" />
+              </label>
+              <label>Cantidad
+                <input name="quantity" type="number" min="1" value="1" />
+              </label>
+              <button type="submit">Registrar</button>
+            </form>
+            <p id="formMessage" class="message"></p>
+          </section>
+        </div>
+      </section>
+
+      <section id="register" class="view">
+        <div class="register-layout">
+          <section class="panel register-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Registrar movimiento</h2>
+                <span>Operación directa sobre posiciones</span>
+              </div>
+              <span id="registerClock"></span>
+            </div>
+
+            <div class="movement-tabs" role="group" aria-label="Tipo de movimiento">
+              <button type="button" class="active" data-move-type="IN">Ingreso</button>
+              <button type="button" data-move-type="MOVE">Traslado</button>
+              <button type="button" data-move-type="OUT">Egreso</button>
+            </div>
+
+            <form id="registerMovement" class="register-form" data-operation="IN">
+              <label id="registerMaterialGroup">SKU / Material
+                <span class="scan-field"><input name="material" id="registerMaterial" autocomplete="off" placeholder="Escanear o ingresar SKU" /><button type="button" class="scan-button" data-scan-target="registerMaterial" aria-label="Escanear SKU">Escanear SKU</button></span>
+              </label>
+              <label id="registerFromGroup" hidden>Posición origen
+                <span class="scan-field"><input name="from" id="registerFrom" autocomplete="off" placeholder="Escanear posición origen" /><button type="button" class="scan-button" data-scan-target="registerFrom" aria-label="Escanear posición origen">Escanear</button></span>
+                <small id="registerFromInfo" class="field-info"></small>
+              </label>
+              <label id="registerToGroup">Posición destino
+                <span class="scan-field"><input name="to" id="registerTo" autocomplete="off" placeholder="Escanear posición destino" /><button type="button" class="scan-button" data-scan-target="registerTo" aria-label="Escanear posición destino">Escanear</button></span>
+                <small id="registerToInfo" class="field-info"></small>
+              </label>
+              <label>Cantidad
+                <input name="quantity" id="registerQuantity" type="number" min="1" value="1" inputmode="numeric" />
+              </label>
+              <div id="movementSummary" class="movement-summary"></div>
+              <button id="registerSubmit" type="submit" class="primary-action">Registrar ingreso</button>
+            </form>
+            <p id="registerMessage" class="message register-message" aria-live="polite"></p>
+          </section>
+
+          <aside class="register-side">
+            <section class="register-stats">
+              <article><span>Movimientos hoy</span><strong id="todayMoves">0</strong></article>
+              <article><span>Unidades ingresadas</span><strong id="todayIn">0</strong></article>
+              <article><span>Unidades egresadas</span><strong id="todayOut">0</strong></article>
+            </section>
+            <section class="panel recent-registers">
+              <div class="panel-head"><h2>Últimos movimientos</h2><span id="lastMovementTime"></span></div>
+              <div id="recentMovementList" class="recent-movement-list"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section id="map" class="view">
+        <div class="toolbar">
+          <select id="sideFilter">
+            <option value="all">Ambos lados</option>
+            <option value="1">Lado 1</option>
+            <option value="2">Lado 2</option>
+          </select>
+          <select id="levelFilter">
+            <option value="all">Todos los niveles</option>
+          </select>
+          <select id="statusFilter">
+            <option value="all">Todas</option>
+            <option value="available">Disponibles</option>
+            <option value="occupied">Ocupadas</option>
+            <option value="blocked">Bloqueadas</option>
+          </select>
+        </div>
+        <div class="warehouse-map" id="warehouseMap"></div>
+      </section>
+
+      <section id="map3d" class="view">
+        <div class="toolbar">
+          <select id="side3dFilter">
+            <option value="all">Ambos lados</option>
+            <option value="1">Lado 1</option>
+            <option value="2">Lado 2</option>
+          </select>
+          <select id="level3dFilter">
+            <option value="all">Todos los niveles</option>
+            <option value="0" selected>Nivel 0</option>
+            <option value="1">Nivel 1</option>
+            <option value="2">Nivel 2</option>
+            <option value="3">Nivel 3</option>
+            <option value="4">Nivel 4</option>
+          </select>
+          <button id="rotateLeft" class="ghost">Girar izquierda</button>
+          <button id="rotateRight" class="ghost">Girar derecha</button>
+          <button id="tiltUp" class="ghost">Subir vista</button>
+          <button id="tiltDown" class="ghost">Bajar vista</button>
+          <button id="reset3dView" class="ghost">Centrar</button>
+        </div>
+        <div class="map3d-shell">
+          <div class="map3d-legend">
+            <span><i class="legend-free"></i>Libre</span>
+            <span><i class="legend-used"></i>Ocupada</span>
+            <span><i class="legend-blocked"></i>Bloqueada</span>
+            <span><i class="legend-aisle"></i>Calle principal</span>
+          </div>
+          <div class="scene3d" id="scene3d">
+            <canvas class="floor3d" id="floor3d" aria-label="Mapa 3D del depósito"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section id="locations" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Listado de posiciones</h2>
+            <span id="rowCount"></span>
+          </div>
+          <div class="location-filters">
+            <label>Posición<input id="locationPositionFilter" type="search" placeholder="Ej. A2.01.3" /></label>
+            <label>Pasillo<input id="locationAisleFilter" type="search" placeholder="Ej. A" /></label>
+            <label>Lado<select id="locationSideFilter"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option></select></label>
+            <label>Rack<input id="locationRackFilter" type="number" min="1" max="26" placeholder="Ej. 4" /></label>
+            <label>Nivel<select id="locationLevelFilter"><option value="all">Todos</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
+            <label>SKU<input id="locationMaterialFilter" type="search" placeholder="Código o material" /></label>
+            <label>Estado<select id="locationStatusFilter"><option value="all">Todos</option><option value="available">Libre</option><option value="occupied">Ocupada</option><option value="blocked">Bloqueada</option></select></label>
+            <button id="clearLocationFilters" type="button" class="ghost">Limpiar filtros</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Posición</th>
+                  <th>Pasillo</th>
+                  <th>Lado</th>
+                  <th>Rack</th>
+                  <th>Módulo</th>
+                  <th>Nivel</th>
+                  <th>Material</th>
+                  <th>Cantidad</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="locationsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="movements" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Historial de movimientos</h2>
+            <button id="exportCsv" class="ghost">Exportar CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Material</th>
+                  <th>Desde</th>
+                  <th>Hasta</th>
+                  <th>Cantidad</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="movementsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="analytics" class="view">
+        <div class="toolbar analytics-toolbar">
+          <select id="analyticsPeriod">
+            <option value="3">Últimos 3 meses</option>
+            <option value="6">Últimos 6 meses</option>
+            <option value="12" selected>Últimos 12 meses</option>
+            <option value="24">Últimos 24 meses</option>
+            <option value="all">Todo el historial</option>
+          </select>
+          <span id="analyticsCoverage" class="muted"></span>
+        </div>
+
+        <div class="analytics-kpis">
+          <article><span>Ocupación actual</span><strong id="analyticsOccupancy">0%</strong><small id="analyticsChange">Sin variación</small></article>
+          <article><span>Ocupación promedio</span><strong id="analyticsAverage">0%</strong><small id="analyticsPeak">Máximo 0%</small></article>
+          <article><span>Movimientos / día</span><strong id="analyticsMovesDay">0</strong><small id="analyticsMovesTotal">0 movimientos</small></article>
+          <article><span>Rotación estimada</span><strong id="analyticsTurnover">0x</strong><small>Salidas / stock promedio</small></article>
+          <article><span>Permanencia promedio</span><strong id="analyticsDwell">Sin datos</strong><small id="analyticsDwellSamples">0 salidas medibles</small></article>
+          <article><span>Sin movimiento +30 días</span><strong id="analyticsStagnant">0</strong><small>Posiciones con fecha conocida</small></article>
+        </div>
+
+        <div class="analytics-grid">
+          <section class="panel analytics-chart-panel">
+            <div class="panel-head">
+              <h2>Evolución mensual de posiciones ocupadas</h2>
+              <span id="analyticsRange"></span>
+            </div>
+            <canvas id="occupancyChart" class="analytics-chart" aria-label="Evolución temporal de posiciones ocupadas"></canvas>
+          </section>
+          <section class="panel waterfall-panel">
+            <div class="panel-head">
+              <h2>Cascada diaria de posiciones</h2>
+              <div class="waterfall-controls">
+                <select id="waterfallGranularity" aria-label="Detalle de la cascada">
+                  <option value="day">Por día</option>
+                  <option value="hour">Por hora</option>
+                </select>
+                <button id="waterfallZoomOut" type="button" class="ghost icon-control" title="Alejar" aria-label="Alejar">−</button>
+                <button id="waterfallZoomIn" type="button" class="ghost icon-control" title="Acercar" aria-label="Acercar">+</button>
+                <button id="waterfallZoomReset" type="button" class="ghost" title="Mostrar todo">Ajustar</button>
+                <span id="waterfallRange"></span>
+              </div>
+            </div>
+            <div class="waterfall-legend"><span class="waterfall-up">Ocupadas</span><span class="waterfall-down">Desocupadas</span><span class="waterfall-total">Total</span></div>
+            <canvas id="occupancyWaterfall" class="analytics-chart waterfall-chart" aria-label="Posiciones ocupadas y desocupadas por fecha con total acumulado"></canvas>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Flujo del período</h2></div>
+            <div id="flowMetrics" class="flow-metrics"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Utilización por lado</h2></div>
+            <div id="analyticsSides" class="bars"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><h2>Materiales con mayor stock</h2></div>
+            <div id="topMaterials" class="rank-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="labels" class="view">
+        <div class="toolbar label-toolbar">
+          <select id="labelSide">
+            <option value="all">Ambos lados</option>
+            <option value="1">Lado 1</option>
+            <option value="2">Lado 2</option>
+          </select>
+          <select id="labelLevel">
+            <option value="all">Todos los niveles</option>
+            <option value="0" selected>Nivel 0</option>
+            <option value="1">Nivel 1</option>
+            <option value="2">Nivel 2</option>
+            <option value="3">Nivel 3</option>
+            <option value="4">Nivel 4</option>
+          </select>
+          <select id="labelRack"><option value="all">Todos los racks</option></select>
+          <button id="printLabels" class="ghost">Imprimir</button>
+          <span id="labelCount" class="muted"></span>
+        </div>
+        <div id="labelSheet" class="label-sheet"></div>
+      </section>
+    </main>
+
+    <aside id="detailPanel" class="detail hidden">
+      <button id="closeDetail" class="close">×</button>
+      <h2 id="detailTitle">Posición</h2>
+      <dl id="detailFields"></dl>
+      <button id="toggleLocationBlock" type="button" class="block-location-action"></button>
+    </aside>
+
+    <dialog id="blockLocationDialog" class="movement-dialog">
+      <form id="blockLocationForm">
+        <div class="panel-head"><h2>Bloquear posición</h2><button type="button" id="closeBlockLocation" class="close">&times;</button></div>
+        <p id="blockLocationId" class="dialog-position"></p>
+        <label>Motivo
+          <select id="blockReasonPreset">
+            <option value="Rotura de rack">Rotura de rack</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+            <option value="Seguridad">Seguridad</option>
+            <option value="Inventario">Inventario</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </label>
+        <label>Detalle opcional<textarea id="blockReasonDetail" rows="3" placeholder="Observación"></textarea></label>
+        <div class="dialog-actions"><button type="button" id="cancelBlockLocation" class="ghost">Cancelar</button><button type="submit" class="primary-action">Bloquear posición</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="editMovementDialog" class="movement-dialog">
+      <form id="editMovementForm">
+        <div class="panel-head">
+          <h2>Modificar movimiento</h2>
+          <button type="button" id="closeEditMovement" class="close">×</button>
+        </div>
+        <label>Tipo
+          <select name="type">
+            <option value="IN">Ingreso</option>
+            <option value="MOVE">Traslado</option>
+            <option value="OUT">Egreso</option>
+          </select>
+        </label>
+        <label>SKU / Material
+          <input name="material" autocomplete="off" />
+        </label>
+        <label>Desde
+          <input name="from" autocomplete="off" />
+        </label>
+        <label>Hasta
+          <input name="to" autocomplete="off" />
+        </label>
+        <label>Cantidad
+          <input name="quantity" type="number" min="1" />
+        </label>
+        <p id="editMovementMessage" class="message"></p>
+        <div class="dialog-actions">
+          <button type="button" id="cancelEditMovement" class="ghost">Cancelar</button>
+          <button type="submit" class="primary-action">Guardar cambios</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="syncSettingsDialog" class="movement-dialog">
+      <form id="syncSettingsForm">
+        <div class="panel-head">
+          <h2>Acceso al WMS</h2>
+          <button type="button" id="closeSyncSettings" class="close">×</button>
+        </div>
+        <label>Usuario
+          <input id="operatorName" name="operator" autocomplete="username" required placeholder="Usuario" />
+        </label>
+        <label>Contraseña
+          <input id="operatorPassword" name="password" type="password" autocomplete="current-password" required placeholder="Contraseña" />
+        </label>
+        <label>URL del registro central
+          <input id="syncEndpoint" name="endpoint" type="url" inputmode="url" placeholder="Se configura una sola vez por dispositivo" />
+        </label>
+        <p id="syncSettingsMessage" class="message"></p>
+        <div class="dialog-actions">
+          <button type="button" id="retrySync" class="ghost">Reintentar pendientes</button>
+          <button type="submit" class="primary-action">Ingresar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="scannerDialog" class="scanner-dialog">
+      <div class="scanner-head">
+        <div><strong id="scannerTitle">Escanear código</strong><small>Apuntá al código y mantené el teléfono quieto.</small></div>
+        <button type="button" id="closeScanner" class="scanner-close" aria-label="Cerrar lector">&times;</button>
+      </div>
+      <div class="scanner-viewport">
+        <video id="scannerVideo" playsinline muted></video>
+        <span class="scanner-guide" aria-hidden="true"></span>
+      </div>
+      <div class="scanner-actions">
+        <button type="button" id="scannerPhotoFallback" class="ghost">Usar una foto</button>
+        <span id="scannerMessage">Buscando código…</span>
+      </div>
+    </dialog>
+    <input id="barcodeCapture" type="file" accept="image/*" capture="environment" hidden />
+    <div id="scanStatus" class="scan-status hidden" role="status"></div>
+
+    <script src="data/embedded-data.js?v=20260917-1"></script>
+    <script src="app.js?v=20260918-27"></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+# Duplicate working copies kept locally; the app uses the organized folders.
+/Logo2.webp
+/locations.json
+/layout3d.json
+/embedded-data.js
+/build_embedded_data.js
+/export_layout3d.py
+/export_wms_data.py
+/inspect_layout_coords.py
+/serve.js
