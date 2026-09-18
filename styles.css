@@ -400,6 +400,16 @@ label select {
   font-size: 12px;
 }
 
+.rack-card.has-blocked {
+  border-color: #df7d86;
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.rack-card .rack-blocked-count {
+  color: #a72231;
+  font-weight: 700;
+}
+
 .mini-levels {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -415,6 +425,15 @@ label select {
 
 .mini-levels i.used {
   background: var(--occupied);
+}
+
+.mini-levels i.blocked {
+  background: var(--danger);
+}
+
+.detail dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .table-wrap {

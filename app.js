@@ -705,27 +705,30 @@ function renderMap() {
 
   $$(".rack-card").forEach((card) => {
     card.addEventListener("click", () => {
-      const first = state.locations.find(
-        (item) => item.side === Number(card.dataset.side) && item.rack === Number(card.dataset.rack)
-      );
-      if (first) openDetail(first);
+      openRackDetail(Number(card.dataset.side), Number(card.dataset.rack));
     });
   });
 }
 
 function rackCard(side, rack, items) {
-  const total = items.length;
-  const occupied = items.filter((item) => item.occupied).length;
+  const rackItems = state.locations.filter((item) => item.side === side && item.rack === rack);
+  const total = rackItems.length;
+  const occupied = rackItems.filter((item) => item.occupied).length;
+  const blocked = rackItems.filter((item) => item.blocked).length;
   const levels = [0, 1, 2, 3, 4].map((level) => {
-    const levelItems = items.filter((item) => item.level === level);
+    const levelItems = rackItems.filter((item) => item.level === level);
     const used = levelItems.some((item) => item.occupied);
-    return `<i class="${used ? "used" : ""}" title="Nivel ${level}"></i>`;
+    const levelBlocked = levelItems.some((item) => item.blocked);
+    const status = levelBlocked ? "blocked" : used ? "used" : "";
+    const detail = levelBlocked ? "con posiciones bloqueadas" : used ? "con ocupación" : "libre";
+    return `<i class="${status}" title="Nivel ${level}: ${detail}"></i>`;
   });
 
   return `
-    <button class="rack-card" data-side="${side}" data-rack="${rack}">
+    <button class="rack-card ${blocked ? "has-blocked" : ""}" data-side="${side}" data-rack="${rack}">
       <strong>Rack ${String(rack).padStart(2, "0")}</strong>
       <span>${occupied}/${total} posiciones ocupadas</span>
+      ${blocked ? `<span class="rack-blocked-count">${blocked} bloqueada${blocked === 1 ? "" : "s"}</span>` : ""}
       <div class="mini-levels">${levels.join("")}</div>
     </button>
   `;
@@ -1896,7 +1899,7 @@ function openDetail(item) {
   if (!item) return;
   $("#detailPanel").dataset.locationId = item.id;
   $("#detailTitle").textContent = item.id;
-  $("#detailFields").innerHTML = [
+  renderDetailFields([
     ["Pasillo", item.aisle],
     ["Lado", item.side],
     ["Rack", item.rack],
@@ -1906,13 +1909,58 @@ function openDetail(item) {
     ["Cantidad", item.quantity || 0],
     ["Estado", item.blocked ? "Bloqueada" : item.occupied ? "Ocupada" : "Libre"],
     ["Motivo de bloqueo", item.blockReason || "—"],
-  ]
-    .map(([label, value]) => `<dt>${label}</dt><dd>${value}</dd>`)
-    .join("");
+  ]);
   const action = $("#toggleLocationBlock");
+  action.hidden = false;
   action.textContent = item.blocked ? "Desbloquear posición" : "Bloquear posición";
   action.classList.toggle("unblock", item.blocked);
   $("#detailPanel").classList.remove("hidden");
+}
+
+function openRackDetail(side, rack) {
+  const items = state.locations.filter((item) => item.side === side && item.rack === rack);
+  if (!items.length) return;
+  const occupiedItems = items.filter((item) => item.occupied);
+  const blockedItems = items.filter((item) => item.blocked);
+  const available = items.filter((item) => !item.occupied && !item.blocked).length;
+  const usableCapacity = items.length - blockedItems.length;
+  const units = occupiedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const skus = [...new Set(occupiedItems.map((item) => item.material).filter(Boolean))];
+  const levelSummary = [0, 1, 2, 3, 4].map((level) => {
+    const levelItems = items.filter((item) => item.level === level);
+    const occupied = levelItems.filter((item) => item.occupied).length;
+    const blocked = levelItems.filter((item) => item.blocked).length;
+    return `N${level}: ${occupied}/${levelItems.length}${blocked ? `, ${blocked} bloq.` : ""}`;
+  }).join(" · ");
+  const skuSummary = skus.length ? skus.slice(0, 8).join(", ") + (skus.length > 8 ? ` +${skus.length - 8}` : "") : "Sin stock";
+
+  $("#detailPanel").dataset.locationId = "";
+  $("#detailTitle").textContent = `Rack ${String(rack).padStart(2, "0")} · Lado ${side}`;
+  renderDetailFields([
+    ["Posiciones", items.length],
+    ["Ocupadas", occupiedItems.length],
+    ["Bloqueadas", blockedItems.length],
+    ["Disponibles", available],
+    ["Ocupación útil", usableCapacity ? formatRate((occupiedItems.length / usableCapacity) * 100) : "Sin capacidad"],
+    ["Unidades", fmt.format(units)],
+    ["SKU distintos", skus.length],
+    ["Materiales", skuSummary],
+    ["Por nivel", levelSummary],
+  ]);
+  $("#toggleLocationBlock").hidden = true;
+  $("#detailPanel").classList.remove("hidden");
+}
+
+function renderDetailFields(rows) {
+  const fields = $("#detailFields");
+  fields.replaceChildren();
+  rows.forEach(([label, value]) => {
+    const term = document.createElement("dt");
+    const detail = document.createElement("dd");
+    term.textContent = label;
+    detail.textContent = String(value);
+    fields.append(term, detail);
+  });
 }
 
 async function toggleLocationBlock() {
