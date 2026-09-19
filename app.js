@@ -1274,7 +1274,6 @@ function draw3dMap() {
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
   draw3dQuad(ctx, bounds.minCol - 2, 28.5, bounds.maxCol + 2, 33.5, 0.5, "#cfd8df", width, height);
-  draw3dCoordinateGrid(ctx, width, height);
   const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
   if (driveInStacks.length) {
     draw3dQuad(
@@ -1475,53 +1474,6 @@ function draw3dGuides(ctx, width, height) {
     }
   });
   ctx.restore();
-}
-
-function draw3dCoordinateGrid(ctx, width, height) {
-  const bounds = state.layout3d.bounds;
-  const minX = Math.floor((bounds.minCol - 2) / 10) * 10;
-  const maxX = Math.ceil((bounds.maxCol + 2) / 10) * 10;
-  const minY = Math.floor((bounds.minRow - 2) / 10) * 10;
-  const maxY = Math.ceil((bounds.maxRow + 2) / 10) * 10;
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(75, 94, 105, 0.16)";
-  ctx.lineWidth = 0.8;
-  ctx.font = "700 11px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  for (let x = minX; x <= maxX; x += 10) {
-    const start = project3d(x, bounds.minRow - 2, 1.2, width, height, true);
-    const end = project3d(x, bounds.maxRow + 2, 1.2, width, height, true);
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    drawCoordinateLabel(ctx, `X${x}`, start.x, start.y);
-  }
-
-  for (let y = minY; y <= maxY; y += 10) {
-    const start = project3d(bounds.minCol - 2, y, 1.2, width, height, true);
-    const end = project3d(bounds.maxCol + 2, y, 1.2, width, height, true);
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
-    ctx.stroke();
-    drawCoordinateLabel(ctx, `Y${y}`, start.x, start.y);
-  }
-  ctx.restore();
-}
-
-function drawCoordinateLabel(ctx, text, x, y) {
-  if (x < 8 || y < 8 || x > ctx.canvas.clientWidth - 8 || y > ctx.canvas.clientHeight - 8) return;
-  const width = ctx.measureText(text).width + 8;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-  ctx.fillRect(x - width / 2, y - 8, width, 16);
-  ctx.strokeStyle = "rgba(75, 94, 105, 0.45)";
-  ctx.strokeRect(x - width / 2, y - 8, width, 16);
-  ctx.fillStyle = "#334b58";
-  ctx.fillText(text, x, y + 0.5);
 }
 
 function drawGuideLabel(ctx, label, x, y) {
