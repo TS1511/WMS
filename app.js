@@ -47,7 +47,7 @@ const state = {
     level: "0",
     rotation: -12,
     tilt: 56,
-    scale: 0.46,
+    scale: 0.35,
     panX: 0,
     panY: 0,
     dragging: false,
@@ -246,7 +246,7 @@ function bindEvents() {
   });
 
   $("#reset3dView").addEventListener("click", () => {
-    Object.assign(state.view3d, { rotation: -12, tilt: 56, scale: 0.46, panX: 0, panY: 0 });
+    Object.assign(state.view3d, { rotation: -12, tilt: 56, scale: 0.35, panX: 0, panY: 0 });
     update3dTransform();
   });
 
