@@ -8,6 +8,13 @@ const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
 const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
+const POSITION_3D = {
+  halfWidth: 0.38,
+  halfLength: 0.456,
+  height: 13.4,
+  base: 7,
+  levelPitch: 85,
+};
 
 const state = {
   original: [],
@@ -1293,20 +1300,21 @@ function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height
 }
 
 function draw3dRackLevel(ctx, stack, level, color, width, height) {
-  const bottom = 7 + level * 85;
-  const top = bottom + 26;
-  const half = 0.38;
+  const bottom = POSITION_3D.base + level * POSITION_3D.levelPitch;
+  const top = bottom + POSITION_3D.height;
+  const halfWidth = POSITION_3D.halfWidth;
+  const halfLength = POSITION_3D.halfLength;
   const base = [
-    project3d(stack.col - half, stack.row - half, bottom, width, height),
-    project3d(stack.col + half, stack.row - half, bottom, width, height),
-    project3d(stack.col + half, stack.row + half, bottom, width, height),
-    project3d(stack.col - half, stack.row + half, bottom, width, height),
+    project3d(stack.col - halfWidth, stack.row - halfLength, bottom, width, height),
+    project3d(stack.col + halfWidth, stack.row - halfLength, bottom, width, height),
+    project3d(stack.col + halfWidth, stack.row + halfLength, bottom, width, height),
+    project3d(stack.col - halfWidth, stack.row + halfLength, bottom, width, height),
   ];
   const cap = [
-    project3d(stack.col - half, stack.row - half, top, width, height),
-    project3d(stack.col + half, stack.row - half, top, width, height),
-    project3d(stack.col + half, stack.row + half, top, width, height),
-    project3d(stack.col - half, stack.row + half, top, width, height),
+    project3d(stack.col - halfWidth, stack.row - halfLength, top, width, height),
+    project3d(stack.col + halfWidth, stack.row - halfLength, top, width, height),
+    project3d(stack.col + halfWidth, stack.row + halfLength, top, width, height),
+    project3d(stack.col - halfWidth, stack.row + halfLength, top, width, height),
   ];
   const sides = [
     { points: [base[0], base[1], cap[1], cap[0]], color: shadeColor(color, -30) },
@@ -1330,7 +1338,7 @@ function stackDepth3d(stack) {
 }
 
 function drawRackFrames(ctx, width, height) {
-  const top = 7 + 4 * 85 + 36;
+  const top = POSITION_3D.base + 4 * POSITION_3D.levelPitch + POSITION_3D.height + 6;
   ctx.save();
   ctx.strokeStyle = "rgba(67, 82, 91, 0.48)";
   ctx.lineWidth = 1;
@@ -1350,7 +1358,7 @@ function drawRackFrames(ctx, width, height) {
       ctx.stroke();
     }
     for (let level = 0; level < 5; level += 1) {
-      const z = 20 + level * 85;
+      const z = 20 + level * POSITION_3D.levelPitch;
       const points = corners.map(([col, row]) => project3d(col, row, z, width, height));
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -1402,7 +1410,7 @@ function draw3dGuides(ctx, width, height) {
 
   const visibleLevels = state.view3d.level === "all" ? [0, 1, 2, 3, 4] : [Number(state.view3d.level)];
   for (const level of visibleLevels) {
-    const point = project3d(bounds.minCol - 3.2, (bounds.minRow + bounds.maxRow) / 2, 20 + level * 85, width, height);
+    const point = project3d(bounds.minCol - 3.2, (bounds.minRow + bounds.maxRow) / 2, 20 + level * POSITION_3D.levelPitch, width, height);
     drawGuideLabel(ctx, `N${level}`, point.x, point.y);
   }
 
