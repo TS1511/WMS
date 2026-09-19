@@ -43,8 +43,8 @@ for (let column = 1; column <= 25; column += 1) {
       module: depth,
       depth,
       type: "drivein",
-      row: 63 + (column - 1) * 1.1,
-      col: 72 + (depth - 1) * 0.95,
+      row: 63 + (depth - 1) * 0.95,
+      col: 4 + (column - 1) * 1.1,
       occupiedLevels: 0,
       levels,
     });
@@ -69,8 +69,12 @@ locationsPayload.summary.aisles = locations.reduce((result, item) => {
   return result;
 }, {});
 
-layoutPayload.bounds.maxRow = Math.max(layoutPayload.bounds.maxRow, ...layoutPayload.stacks.map((item) => item.row));
-layoutPayload.bounds.maxCol = Math.max(layoutPayload.bounds.maxCol, ...layoutPayload.stacks.map((item) => item.col));
+layoutPayload.bounds = {
+  minRow: Math.min(...layoutPayload.stacks.map((item) => item.row)),
+  maxRow: Math.max(...layoutPayload.stacks.map((item) => item.row)),
+  minCol: Math.min(...layoutPayload.stacks.map((item) => item.col)),
+  maxCol: Math.max(...layoutPayload.stacks.map((item) => item.col)),
+};
 
 fs.writeFileSync(locationsPath, JSON.stringify(locationsPayload, null, 2) + "\n");
 fs.writeFileSync(layoutPath, JSON.stringify(layoutPayload, null, 2) + "\n");
