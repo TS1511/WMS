@@ -448,7 +448,7 @@ label select {
 .picking-order-fields input,
 .picking-order-fields select,
 .picking-quick-add input { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
-.picking-quick-add button { min-height: 40px; }
+.picking-quick-add .primary-action { grid-column: auto; min-height: 40px; height: 40px; padding: 0 14px; }
 
 .picking-draft { display: grid; gap: 6px; margin: 12px 0; }
 .picking-draft-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 30px; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-left: 4px solid #23835b; border-radius: 6px; }
@@ -1635,7 +1635,7 @@ dd {
   .picking-status { display: none; }
   .picking-order-fields { grid-template-columns: 1fr; }
   .picking-quick-add { grid-template-columns: minmax(0, 1fr) 82px; }
-  .picking-quick-add button { grid-column: 1 / -1; width: 100%; }
+  .picking-quick-add .primary-action { grid-column: 1 / -1; width: 100%; }
   .picking-draft-row { grid-template-columns: minmax(0, 1fr) 28px; }
   .picking-draft-row > span { grid-column: 1; }
   .picking-draft-row button { grid-column: 2; grid-row: 1 / span 2; }
