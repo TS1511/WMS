@@ -121,7 +121,8 @@ async function init() {
   state.original = payload.locations;
 
   const saved = loadSavedState();
-  state.locations = saved?.locations || structuredClone(state.original);
+  const savedLocations = new Map((saved?.locations || []).map((location) => [location.id, location]));
+  state.locations = state.original.map((location) => ({ ...structuredClone(location), ...(savedLocations.get(location.id) || {}) }));
   state.movements = saved?.movements || [];
   state.movements.forEach((move, index) => {
     if (!move.id) move.id = `legacy-${movementTimestamp(move) || 0}-${index}`;
@@ -602,6 +603,7 @@ function end3dDrag(shell, pointerId) {
   state.view3d.lastPointer = null;
   shell.releasePointerCapture?.(pointerId);
   shell.classList.remove("dragging");
+  requestAnimationFrame(update3dTransform);
 }
 
 function switchView(view) {
@@ -1156,7 +1158,7 @@ function renderPickingRoute(route, shortages, requests) {
 }
 
 function rackCard(side, rack, items) {
-  const rackItems = state.locations.filter((item) => item.side === side && item.rack === rack);
+  const rackItems = state.locations.filter((item) => item.storageType !== "drivein" && item.side === side && item.rack === rack);
   const total = rackItems.length;
   const occupied = rackItems.filter((item) => item.occupied).length;
   const blocked = rackItems.filter((item) => item.blocked).length;
@@ -1190,13 +1192,16 @@ function render3dMap() {
     .filter((stack) => !query || [stack.baseId, stack.aisle, stack.side, stack.rack, stack.module].join(" ").toLowerCase().includes(query))
     .map((stack) => {
       const levels = [0, 1, 2, 3, 4].map((level) => {
-        const location = locationsById.get(`${stack.key}.${level}`);
+        const location = locationsById.get(stack.type === "drivein" ? `DI.${String(stack.column).padStart(2, "0")}.${level}.${String(stack.depth).padStart(2, "0")}` : `${stack.key}.${level}`);
         return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked) };
       });
       const firstRelevant = levels.findIndex((level) => level.blocked || level.occupied);
-      return { ...stack, levels, detailId: firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId };
+      const detailId = stack.type === "drivein"
+        ? `DI.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.depth).padStart(2, "0")}`
+        : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
+      return { ...stack, levels, detailId };
     });
-  state.render3dRacks = Object.values(groupBy(state.render3dStacks, (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
+  state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
     minCol: Math.min(...items.map((item) => item.col)),
     maxCol: Math.max(...items.map((item) => item.col)),
     minRow: Math.min(...items.map((item) => item.row)),
@@ -1249,7 +1254,7 @@ function draw3dMap() {
   const shell = $(".map3d-shell");
   if (!canvas || !shell || !state.layout3d) return;
   const rect = shell.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+  const dpr = state.view3d.dragging ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
   const width = Math.max(1, Math.round(rect.width));
   const height = Math.max(1, Math.round(rect.height));
   prepare3dProjection();
@@ -1267,6 +1272,20 @@ function draw3dMap() {
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
   draw3dQuad(ctx, bounds.minCol - 2, 28.5, bounds.maxCol + 2, 33.5, 0.5, "#cfd8df", width, height);
+  const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
+  if (driveInStacks.length) {
+    draw3dQuad(
+      ctx,
+      Math.min(...driveInStacks.map((stack) => stack.col)) - 0.7,
+      Math.min(...driveInStacks.map((stack) => stack.row)) - 0.7,
+      Math.max(...driveInStacks.map((stack) => stack.col)) + 0.7,
+      Math.max(...driveInStacks.map((stack) => stack.row)) + 0.7,
+      0.8,
+      "#dce8ed",
+      width,
+      height
+    );
+  }
 
   const levelColors = ["#3f936b", "#49a176", "#55ae82", "#61ba8e", "#70c79c"];
   const orderedStacks = [...state.render3dStacks].sort((a, b) => stackDepth3d(a) - stackDepth3d(b));
@@ -1277,7 +1296,7 @@ function draw3dMap() {
       const freeColor = shadeColor(levelColors[level], columnBand ? -7 : 0);
       const status = stack.levels[level];
       const color = status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : freeColor;
-      draw3dRackLevel(ctx, stack, level, color, width, height);
+      draw3dRackLevel(ctx, stack, level, color, width, height, state.view3d.dragging);
     }
   }
   draw3dGuides(ctx, width, height);
@@ -1299,7 +1318,7 @@ function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height
   ctx.stroke();
 }
 
-function draw3dRackLevel(ctx, stack, level, color, width, height) {
+function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = false) {
   const bottom = POSITION_3D.base + level * POSITION_3D.levelPitch;
   const top = bottom + POSITION_3D.height;
   const halfWidth = POSITION_3D.halfWidth;
@@ -1316,6 +1335,12 @@ function draw3dRackLevel(ctx, stack, level, color, width, height) {
     project3d(stack.col + halfWidth, stack.row + halfLength, top, width, height),
     project3d(stack.col - halfWidth, stack.row + halfLength, top, width, height),
   ];
+  const center = project3d(stack.col, stack.row, top, width, height);
+  if (center.x < -30 || center.x > width + 30 || center.y < -30 || center.y > height + 30) return;
+  if (simplified) {
+    drawCanvasFace(ctx, cap, color);
+    return;
+  }
   const sides = [
     { points: [base[0], base[1], cap[1], cap[0]], color: shadeColor(color, -30) },
     { points: [base[1], base[2], cap[2], cap[1]], color: shadeColor(color, -42) },
@@ -1412,6 +1437,18 @@ function draw3dGuides(ctx, width, height) {
   for (const level of visibleLevels) {
     const point = project3d(bounds.minCol - 3.2, (bounds.minRow + bounds.maxRow) / 2, 20 + level * POSITION_3D.levelPitch, width, height);
     drawGuideLabel(ctx, `N${level}`, point.x, point.y);
+  }
+
+  const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
+  if (driveInStacks.length) {
+    const point = project3d(
+      driveInStacks.reduce((sum, stack) => sum + stack.col, 0) / driveInStacks.length,
+      Math.max(...driveInStacks.map((stack) => stack.row)) + 2.2,
+      2,
+      width,
+      height
+    );
+    drawGuideLabel(ctx, "DRIVE-IN", point.x, point.y);
   }
 
   [
@@ -2248,6 +2285,7 @@ function registerIn(material, to, quantity, timestamp) {
   const destination = requiredLocation(to);
   if (destination.blocked) throw new Error(`La posición destino está bloqueada: ${destination.blockReason || "sin motivo informado"}.`);
   if (destination.occupied) throw new Error("La posición destino ya está ocupada.");
+  validateDriveInPutaway(destination, material);
   destination.material = material;
   destination.quantity = quantity;
   destination.occupied = true;
@@ -2258,6 +2296,7 @@ function registerOut(material, from, quantity) {
   if (!from) throw new Error("Indicá una posición origen.");
   const origin = requiredLocation(from);
   if (!origin.occupied) throw new Error("La posición origen está libre.");
+  validateDriveInRetrieval(origin);
   if (material && origin.material !== material) throw new Error("El material no coincide con la posición origen.");
   if (quantity > origin.quantity) throw new Error("La cantidad supera el stock disponible.");
   origin.quantity -= quantity;
@@ -2277,6 +2316,8 @@ function registerMove(from, to, quantity, timestamp) {
   if (!origin.occupied) throw new Error("La posición origen está libre.");
   if (destination.occupied) throw new Error("La posición destino ya está ocupada.");
   if (quantity > origin.quantity) throw new Error("La cantidad supera el stock disponible.");
+  validateDriveInRetrieval(origin);
+  validateDriveInPutaway(destination, origin.material);
   destination.material = origin.material;
   destination.quantity = quantity;
   destination.occupied = true;
@@ -2288,6 +2329,33 @@ function registerMove(from, to, quantity, timestamp) {
     origin.occupied = false;
     origin.occupiedSince = null;
   }
+}
+
+function driveInLane(location) {
+  return state.locations.filter((item) => item.storageType === "drivein" && item.rack === location.rack && item.level === location.level);
+}
+
+function validateDriveInPutaway(destination, material) {
+  if (destination.storageType !== "drivein") return;
+  const lane = driveInLane(destination);
+  const mixed = lane.find((item) => item.occupied && item.material && item.material !== material);
+  if (mixed) throw new Error(`La calle Drive-In ${String(destination.rack).padStart(2, "0")} nivel ${destination.level} contiene el SKU ${mixed.material}.`);
+  const expected = lane.filter((item) => !item.occupied && !item.blocked).sort((a, b) => b.depth - a.depth)[0];
+  if (!expected || expected.id !== destination.id) throw new Error(`Para respetar LIFO, el ingreso debe realizarse en ${expected?.id || "otra calle disponible"}.`);
+}
+
+function validateDriveInRetrieval(origin) {
+  if (origin.storageType !== "drivein") return;
+  const expected = driveInLane(origin).filter((item) => item.occupied).sort((a, b) => a.depth - b.depth)[0];
+  if (expected && expected.id !== origin.id) throw new Error(`Para respetar LIFO, primero debe retirarse ${expected.id}.`);
+}
+
+function isEligibleDriveInPutaway(location, material) {
+  if (location.storageType !== "drivein") return true;
+  const lane = driveInLane(location);
+  if (lane.some((item) => item.occupied && item.material && item.material !== material)) return false;
+  const expected = lane.filter((item) => !item.occupied && !item.blocked).sort((a, b) => b.depth - a.depth)[0];
+  return expected?.id === location.id;
 }
 
 function createSnapshot(timestamp) {
@@ -2314,11 +2382,22 @@ function requiredLocation(id) {
 
 function normalizePosition(value) {
   const normalized = String(value || "").trim().toUpperCase().replaceAll(" ", "");
+  const driveInMatch = normalized.match(/^DI\.(\d{1,2})\.([0-4])\.(\d{1,2})$/);
+  if (driveInMatch) return `DI.${driveInMatch[1].padStart(2, "0")}.${driveInMatch[2]}.${driveInMatch[3].padStart(2, "0")}`;
   const match = normalized.match(/^([A-Z]+)([12])\.(\d{1,2})\.([0-4])$/);
   return match ? `${match[1]}${match[2]}.${match[3].padStart(2, "0")}.${match[4]}` : normalized;
 }
 
 function suggestLocations(id) {
+  const driveInMatch = String(id || "").match(/^DI\.(\d{2})\.([0-4])\.(\d{2})$/);
+  if (driveInMatch) {
+    const [, column, level, depth] = driveInMatch;
+    return state.locations
+      .filter((item) => item.storageType === "drivein" && String(item.level) === level)
+      .sort((a, b) => (Math.abs(a.rack - Number(column)) + Math.abs(a.depth - Number(depth))) - (Math.abs(b.rack - Number(column)) + Math.abs(b.depth - Number(depth))))
+      .slice(0, 3)
+      .map((item) => item.id);
+  }
   const match = String(id || "").match(/^([A-Z]+)([12])\.(\d{2})\.([0-4])$/);
   if (!match) return [];
   const [, aisle, side, moduleText, level] = match;
@@ -2347,10 +2426,10 @@ function openDetail(item) {
   $("#detailPanel").dataset.locationId = item.id;
   $("#detailTitle").textContent = item.id;
   renderDetailFields([
-    ["Pasillo", item.aisle],
-    ["Lado", item.side],
-    ["Rack", item.rack],
-    ["Módulo", item.module],
+    ["Sector", item.storageType === "drivein" ? "Drive-In" : item.aisle],
+    [item.storageType === "drivein" ? "Acceso" : "Lado", item.storageType === "drivein" ? "Único" : item.side],
+    [item.storageType === "drivein" ? "Columna" : "Rack", item.rack],
+    [item.storageType === "drivein" ? "Profundidad" : "Módulo", item.depth || item.module],
     ["Nivel", item.level],
     ["Material", item.material || "Sin stock"],
     ["Cantidad", item.quantity || 0],
@@ -2367,7 +2446,7 @@ function openDetail(item) {
 function recommendPutawayLocation(sku) {
   const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
   if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
-  const available = state.locations.filter((location) => !location.occupied && !location.blocked);
+  const available = state.locations.filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku));
   const preferred = available.find((location) => location.id === normalizePosition(item.preferredLocation));
   if (preferred) return { location: preferred, reason: "Ubicación preferida del maestro SKU." };
 

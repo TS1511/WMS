@@ -6,7 +6,7 @@
   },
   "bounds": {
     "minRow": 8,
-    "maxRow": 57,
+    "maxRow": 89.4,
     "minCol": 4,
     "maxCol": 80
   },
@@ -117029,6 +117029,7006 @@
           "id": "AA2.47.4",
           "level": 4,
           "rack": 26,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.01.01",
+      "baseId": "DI.01.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 63,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.01.0.01",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.1.01",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.2.01",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.3.01",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.4.01",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.01.02",
+      "baseId": "DI.01.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 63,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.01.0.02",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.1.02",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.2.02",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.3.02",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.4.02",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.01.03",
+      "baseId": "DI.01.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 63,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.01.0.03",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.1.03",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.2.03",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.3.03",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.4.03",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.01.04",
+      "baseId": "DI.01.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 63,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.01.0.04",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.1.04",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.2.04",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.3.04",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.4.04",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.01.05",
+      "baseId": "DI.01.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 63,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.01.0.05",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.1.05",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.2.05",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.3.05",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.01.4.05",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.02.01",
+      "baseId": "DI.02.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 64.1,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.02.0.01",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.1.01",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.2.01",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.3.01",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.4.01",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.02.02",
+      "baseId": "DI.02.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 64.1,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.02.0.02",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.1.02",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.2.02",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.3.02",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.4.02",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.02.03",
+      "baseId": "DI.02.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 64.1,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.02.0.03",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.1.03",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.2.03",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.3.03",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.4.03",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.02.04",
+      "baseId": "DI.02.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 64.1,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.02.0.04",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.1.04",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.2.04",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.3.04",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.4.04",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.02.05",
+      "baseId": "DI.02.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 64.1,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.02.0.05",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.1.05",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.2.05",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.3.05",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.02.4.05",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.03.01",
+      "baseId": "DI.03.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 65.2,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.03.0.01",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.1.01",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.2.01",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.3.01",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.4.01",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.03.02",
+      "baseId": "DI.03.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 65.2,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.03.0.02",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.1.02",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.2.02",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.3.02",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.4.02",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.03.03",
+      "baseId": "DI.03.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 65.2,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.03.0.03",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.1.03",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.2.03",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.3.03",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.4.03",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.03.04",
+      "baseId": "DI.03.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 65.2,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.03.0.04",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.1.04",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.2.04",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.3.04",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.4.04",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.03.05",
+      "baseId": "DI.03.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 65.2,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.03.0.05",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.1.05",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.2.05",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.3.05",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.03.4.05",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.04.01",
+      "baseId": "DI.04.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 66.3,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.04.0.01",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.1.01",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.2.01",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.3.01",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.4.01",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.04.02",
+      "baseId": "DI.04.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 66.3,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.04.0.02",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.1.02",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.2.02",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.3.02",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.4.02",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.04.03",
+      "baseId": "DI.04.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 66.3,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.04.0.03",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.1.03",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.2.03",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.3.03",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.4.03",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.04.04",
+      "baseId": "DI.04.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 66.3,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.04.0.04",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.1.04",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.2.04",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.3.04",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.4.04",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.04.05",
+      "baseId": "DI.04.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 66.3,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.04.0.05",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.1.05",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.2.05",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.3.05",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.04.4.05",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.05.01",
+      "baseId": "DI.05.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 67.4,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.05.0.01",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.1.01",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.2.01",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.3.01",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.4.01",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.05.02",
+      "baseId": "DI.05.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 67.4,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.05.0.02",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.1.02",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.2.02",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.3.02",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.4.02",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.05.03",
+      "baseId": "DI.05.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 67.4,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.05.0.03",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.1.03",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.2.03",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.3.03",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.4.03",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.05.04",
+      "baseId": "DI.05.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 67.4,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.05.0.04",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.1.04",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.2.04",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.3.04",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.4.04",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.05.05",
+      "baseId": "DI.05.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 67.4,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.05.0.05",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.1.05",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.2.05",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.3.05",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.05.4.05",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.06.01",
+      "baseId": "DI.06.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 68.5,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.06.0.01",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.1.01",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.2.01",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.3.01",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.4.01",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.06.02",
+      "baseId": "DI.06.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 68.5,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.06.0.02",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.1.02",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.2.02",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.3.02",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.4.02",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.06.03",
+      "baseId": "DI.06.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 68.5,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.06.0.03",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.1.03",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.2.03",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.3.03",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.4.03",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.06.04",
+      "baseId": "DI.06.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 68.5,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.06.0.04",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.1.04",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.2.04",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.3.04",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.4.04",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.06.05",
+      "baseId": "DI.06.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 68.5,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.06.0.05",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.1.05",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.2.05",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.3.05",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.06.4.05",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.07.01",
+      "baseId": "DI.07.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 69.6,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.07.0.01",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.1.01",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.2.01",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.3.01",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.4.01",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.07.02",
+      "baseId": "DI.07.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 69.6,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.07.0.02",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.1.02",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.2.02",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.3.02",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.4.02",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.07.03",
+      "baseId": "DI.07.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 69.6,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.07.0.03",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.1.03",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.2.03",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.3.03",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.4.03",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.07.04",
+      "baseId": "DI.07.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 69.6,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.07.0.04",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.1.04",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.2.04",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.3.04",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.4.04",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.07.05",
+      "baseId": "DI.07.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 69.6,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.07.0.05",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.1.05",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.2.05",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.3.05",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.07.4.05",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.08.01",
+      "baseId": "DI.08.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 70.7,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.08.0.01",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.1.01",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.2.01",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.3.01",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.4.01",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.08.02",
+      "baseId": "DI.08.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 70.7,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.08.0.02",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.1.02",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.2.02",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.3.02",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.4.02",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.08.03",
+      "baseId": "DI.08.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 70.7,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.08.0.03",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.1.03",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.2.03",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.3.03",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.4.03",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.08.04",
+      "baseId": "DI.08.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 70.7,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.08.0.04",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.1.04",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.2.04",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.3.04",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.4.04",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.08.05",
+      "baseId": "DI.08.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 70.7,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.08.0.05",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.1.05",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.2.05",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.3.05",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.08.4.05",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.09.01",
+      "baseId": "DI.09.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 71.8,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.09.0.01",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.1.01",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.2.01",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.3.01",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.4.01",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.09.02",
+      "baseId": "DI.09.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 71.8,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.09.0.02",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.1.02",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.2.02",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.3.02",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.4.02",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.09.03",
+      "baseId": "DI.09.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 71.8,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.09.0.03",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.1.03",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.2.03",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.3.03",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.4.03",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.09.04",
+      "baseId": "DI.09.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 71.8,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.09.0.04",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.1.04",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.2.04",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.3.04",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.4.04",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.09.05",
+      "baseId": "DI.09.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 71.8,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.09.0.05",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.1.05",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.2.05",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.3.05",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.09.4.05",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.10.01",
+      "baseId": "DI.10.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 72.9,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.10.0.01",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.1.01",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.2.01",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.3.01",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.4.01",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.10.02",
+      "baseId": "DI.10.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 72.9,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.10.0.02",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.1.02",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.2.02",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.3.02",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.4.02",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.10.03",
+      "baseId": "DI.10.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 72.9,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.10.0.03",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.1.03",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.2.03",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.3.03",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.4.03",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.10.04",
+      "baseId": "DI.10.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 72.9,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.10.0.04",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.1.04",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.2.04",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.3.04",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.4.04",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.10.05",
+      "baseId": "DI.10.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 72.9,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.10.0.05",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.1.05",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.2.05",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.3.05",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.10.4.05",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.11.01",
+      "baseId": "DI.11.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 74,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.11.0.01",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.1.01",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.2.01",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.3.01",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.4.01",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.11.02",
+      "baseId": "DI.11.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 74,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.11.0.02",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.1.02",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.2.02",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.3.02",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.4.02",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.11.03",
+      "baseId": "DI.11.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 74,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.11.0.03",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.1.03",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.2.03",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.3.03",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.4.03",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.11.04",
+      "baseId": "DI.11.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 74,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.11.0.04",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.1.04",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.2.04",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.3.04",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.4.04",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.11.05",
+      "baseId": "DI.11.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 74,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.11.0.05",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.1.05",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.2.05",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.3.05",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.11.4.05",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.12.01",
+      "baseId": "DI.12.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 75.1,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.12.0.01",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.1.01",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.2.01",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.3.01",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.4.01",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.12.02",
+      "baseId": "DI.12.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 75.1,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.12.0.02",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.1.02",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.2.02",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.3.02",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.4.02",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.12.03",
+      "baseId": "DI.12.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 75.1,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.12.0.03",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.1.03",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.2.03",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.3.03",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.4.03",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.12.04",
+      "baseId": "DI.12.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 75.1,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.12.0.04",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.1.04",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.2.04",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.3.04",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.4.04",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.12.05",
+      "baseId": "DI.12.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 75.1,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.12.0.05",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.1.05",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.2.05",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.3.05",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.12.4.05",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.13.01",
+      "baseId": "DI.13.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 13,
+      "column": 13,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 76.2,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.13.0.01",
+          "level": 0,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.1.01",
+          "level": 1,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.2.01",
+          "level": 2,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.3.01",
+          "level": 3,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.4.01",
+          "level": 4,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.13.02",
+      "baseId": "DI.13.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 13,
+      "column": 13,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 76.2,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.13.0.02",
+          "level": 0,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.1.02",
+          "level": 1,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.2.02",
+          "level": 2,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.3.02",
+          "level": 3,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.4.02",
+          "level": 4,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.13.03",
+      "baseId": "DI.13.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 13,
+      "column": 13,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 76.2,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.13.0.03",
+          "level": 0,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.1.03",
+          "level": 1,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.2.03",
+          "level": 2,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.3.03",
+          "level": 3,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.4.03",
+          "level": 4,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.13.04",
+      "baseId": "DI.13.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 13,
+      "column": 13,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 76.2,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.13.0.04",
+          "level": 0,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.1.04",
+          "level": 1,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.2.04",
+          "level": 2,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.3.04",
+          "level": 3,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.4.04",
+          "level": 4,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.13.05",
+      "baseId": "DI.13.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 13,
+      "column": 13,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 76.2,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.13.0.05",
+          "level": 0,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.1.05",
+          "level": 1,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.2.05",
+          "level": 2,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.3.05",
+          "level": 3,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.13.4.05",
+          "level": 4,
+          "rack": 13,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.14.01",
+      "baseId": "DI.14.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 14,
+      "column": 14,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 77.3,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.14.0.01",
+          "level": 0,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.1.01",
+          "level": 1,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.2.01",
+          "level": 2,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.3.01",
+          "level": 3,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.4.01",
+          "level": 4,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.14.02",
+      "baseId": "DI.14.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 14,
+      "column": 14,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 77.3,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.14.0.02",
+          "level": 0,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.1.02",
+          "level": 1,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.2.02",
+          "level": 2,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.3.02",
+          "level": 3,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.4.02",
+          "level": 4,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.14.03",
+      "baseId": "DI.14.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 14,
+      "column": 14,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 77.3,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.14.0.03",
+          "level": 0,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.1.03",
+          "level": 1,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.2.03",
+          "level": 2,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.3.03",
+          "level": 3,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.4.03",
+          "level": 4,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.14.04",
+      "baseId": "DI.14.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 14,
+      "column": 14,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 77.3,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.14.0.04",
+          "level": 0,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.1.04",
+          "level": 1,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.2.04",
+          "level": 2,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.3.04",
+          "level": 3,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.4.04",
+          "level": 4,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.14.05",
+      "baseId": "DI.14.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 14,
+      "column": 14,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 77.3,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.14.0.05",
+          "level": 0,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.1.05",
+          "level": 1,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.2.05",
+          "level": 2,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.3.05",
+          "level": 3,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.14.4.05",
+          "level": 4,
+          "rack": 14,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.15.01",
+      "baseId": "DI.15.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 15,
+      "column": 15,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 78.4,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.15.0.01",
+          "level": 0,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.1.01",
+          "level": 1,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.2.01",
+          "level": 2,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.3.01",
+          "level": 3,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.4.01",
+          "level": 4,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.15.02",
+      "baseId": "DI.15.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 15,
+      "column": 15,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 78.4,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.15.0.02",
+          "level": 0,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.1.02",
+          "level": 1,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.2.02",
+          "level": 2,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.3.02",
+          "level": 3,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.4.02",
+          "level": 4,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.15.03",
+      "baseId": "DI.15.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 15,
+      "column": 15,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 78.4,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.15.0.03",
+          "level": 0,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.1.03",
+          "level": 1,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.2.03",
+          "level": 2,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.3.03",
+          "level": 3,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.4.03",
+          "level": 4,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.15.04",
+      "baseId": "DI.15.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 15,
+      "column": 15,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 78.4,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.15.0.04",
+          "level": 0,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.1.04",
+          "level": 1,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.2.04",
+          "level": 2,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.3.04",
+          "level": 3,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.4.04",
+          "level": 4,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.15.05",
+      "baseId": "DI.15.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 15,
+      "column": 15,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 78.4,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.15.0.05",
+          "level": 0,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.1.05",
+          "level": 1,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.2.05",
+          "level": 2,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.3.05",
+          "level": 3,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.15.4.05",
+          "level": 4,
+          "rack": 15,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.16.01",
+      "baseId": "DI.16.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 16,
+      "column": 16,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 79.5,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.16.0.01",
+          "level": 0,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.1.01",
+          "level": 1,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.2.01",
+          "level": 2,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.3.01",
+          "level": 3,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.4.01",
+          "level": 4,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.16.02",
+      "baseId": "DI.16.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 16,
+      "column": 16,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 79.5,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.16.0.02",
+          "level": 0,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.1.02",
+          "level": 1,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.2.02",
+          "level": 2,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.3.02",
+          "level": 3,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.4.02",
+          "level": 4,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.16.03",
+      "baseId": "DI.16.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 16,
+      "column": 16,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 79.5,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.16.0.03",
+          "level": 0,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.1.03",
+          "level": 1,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.2.03",
+          "level": 2,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.3.03",
+          "level": 3,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.4.03",
+          "level": 4,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.16.04",
+      "baseId": "DI.16.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 16,
+      "column": 16,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 79.5,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.16.0.04",
+          "level": 0,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.1.04",
+          "level": 1,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.2.04",
+          "level": 2,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.3.04",
+          "level": 3,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.4.04",
+          "level": 4,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.16.05",
+      "baseId": "DI.16.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 16,
+      "column": 16,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 79.5,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.16.0.05",
+          "level": 0,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.1.05",
+          "level": 1,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.2.05",
+          "level": 2,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.3.05",
+          "level": 3,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.16.4.05",
+          "level": 4,
+          "rack": 16,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.17.01",
+      "baseId": "DI.17.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 17,
+      "column": 17,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 80.6,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.17.0.01",
+          "level": 0,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.1.01",
+          "level": 1,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.2.01",
+          "level": 2,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.3.01",
+          "level": 3,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.4.01",
+          "level": 4,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.17.02",
+      "baseId": "DI.17.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 17,
+      "column": 17,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 80.6,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.17.0.02",
+          "level": 0,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.1.02",
+          "level": 1,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.2.02",
+          "level": 2,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.3.02",
+          "level": 3,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.4.02",
+          "level": 4,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.17.03",
+      "baseId": "DI.17.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 17,
+      "column": 17,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 80.6,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.17.0.03",
+          "level": 0,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.1.03",
+          "level": 1,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.2.03",
+          "level": 2,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.3.03",
+          "level": 3,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.4.03",
+          "level": 4,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.17.04",
+      "baseId": "DI.17.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 17,
+      "column": 17,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 80.6,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.17.0.04",
+          "level": 0,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.1.04",
+          "level": 1,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.2.04",
+          "level": 2,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.3.04",
+          "level": 3,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.4.04",
+          "level": 4,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.17.05",
+      "baseId": "DI.17.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 17,
+      "column": 17,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 80.6,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.17.0.05",
+          "level": 0,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.1.05",
+          "level": 1,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.2.05",
+          "level": 2,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.3.05",
+          "level": 3,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.17.4.05",
+          "level": 4,
+          "rack": 17,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.18.01",
+      "baseId": "DI.18.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 18,
+      "column": 18,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 81.7,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.18.0.01",
+          "level": 0,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.1.01",
+          "level": 1,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.2.01",
+          "level": 2,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.3.01",
+          "level": 3,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.4.01",
+          "level": 4,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.18.02",
+      "baseId": "DI.18.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 18,
+      "column": 18,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 81.7,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.18.0.02",
+          "level": 0,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.1.02",
+          "level": 1,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.2.02",
+          "level": 2,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.3.02",
+          "level": 3,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.4.02",
+          "level": 4,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.18.03",
+      "baseId": "DI.18.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 18,
+      "column": 18,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 81.7,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.18.0.03",
+          "level": 0,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.1.03",
+          "level": 1,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.2.03",
+          "level": 2,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.3.03",
+          "level": 3,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.4.03",
+          "level": 4,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.18.04",
+      "baseId": "DI.18.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 18,
+      "column": 18,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 81.7,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.18.0.04",
+          "level": 0,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.1.04",
+          "level": 1,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.2.04",
+          "level": 2,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.3.04",
+          "level": 3,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.4.04",
+          "level": 4,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.18.05",
+      "baseId": "DI.18.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 18,
+      "column": 18,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 81.7,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.18.0.05",
+          "level": 0,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.1.05",
+          "level": 1,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.2.05",
+          "level": 2,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.3.05",
+          "level": 3,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.18.4.05",
+          "level": 4,
+          "rack": 18,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.19.01",
+      "baseId": "DI.19.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 19,
+      "column": 19,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 82.8,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.19.0.01",
+          "level": 0,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.1.01",
+          "level": 1,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.2.01",
+          "level": 2,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.3.01",
+          "level": 3,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.4.01",
+          "level": 4,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.19.02",
+      "baseId": "DI.19.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 19,
+      "column": 19,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 82.8,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.19.0.02",
+          "level": 0,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.1.02",
+          "level": 1,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.2.02",
+          "level": 2,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.3.02",
+          "level": 3,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.4.02",
+          "level": 4,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.19.03",
+      "baseId": "DI.19.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 19,
+      "column": 19,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 82.8,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.19.0.03",
+          "level": 0,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.1.03",
+          "level": 1,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.2.03",
+          "level": 2,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.3.03",
+          "level": 3,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.4.03",
+          "level": 4,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.19.04",
+      "baseId": "DI.19.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 19,
+      "column": 19,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 82.8,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.19.0.04",
+          "level": 0,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.1.04",
+          "level": 1,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.2.04",
+          "level": 2,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.3.04",
+          "level": 3,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.4.04",
+          "level": 4,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.19.05",
+      "baseId": "DI.19.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 19,
+      "column": 19,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 82.8,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.19.0.05",
+          "level": 0,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.1.05",
+          "level": 1,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.2.05",
+          "level": 2,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.3.05",
+          "level": 3,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.19.4.05",
+          "level": 4,
+          "rack": 19,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.20.01",
+      "baseId": "DI.20.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 20,
+      "column": 20,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 83.9,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.20.0.01",
+          "level": 0,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.1.01",
+          "level": 1,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.2.01",
+          "level": 2,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.3.01",
+          "level": 3,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.4.01",
+          "level": 4,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.20.02",
+      "baseId": "DI.20.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 20,
+      "column": 20,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 83.9,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.20.0.02",
+          "level": 0,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.1.02",
+          "level": 1,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.2.02",
+          "level": 2,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.3.02",
+          "level": 3,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.4.02",
+          "level": 4,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.20.03",
+      "baseId": "DI.20.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 20,
+      "column": 20,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 83.9,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.20.0.03",
+          "level": 0,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.1.03",
+          "level": 1,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.2.03",
+          "level": 2,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.3.03",
+          "level": 3,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.4.03",
+          "level": 4,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.20.04",
+      "baseId": "DI.20.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 20,
+      "column": 20,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 83.9,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.20.0.04",
+          "level": 0,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.1.04",
+          "level": 1,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.2.04",
+          "level": 2,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.3.04",
+          "level": 3,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.4.04",
+          "level": 4,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.20.05",
+      "baseId": "DI.20.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 20,
+      "column": 20,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 83.9,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.20.0.05",
+          "level": 0,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.1.05",
+          "level": 1,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.2.05",
+          "level": 2,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.3.05",
+          "level": 3,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.20.4.05",
+          "level": 4,
+          "rack": 20,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.21.01",
+      "baseId": "DI.21.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 21,
+      "column": 21,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 85,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.21.0.01",
+          "level": 0,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.1.01",
+          "level": 1,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.2.01",
+          "level": 2,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.3.01",
+          "level": 3,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.4.01",
+          "level": 4,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.21.02",
+      "baseId": "DI.21.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 21,
+      "column": 21,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 85,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.21.0.02",
+          "level": 0,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.1.02",
+          "level": 1,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.2.02",
+          "level": 2,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.3.02",
+          "level": 3,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.4.02",
+          "level": 4,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.21.03",
+      "baseId": "DI.21.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 21,
+      "column": 21,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 85,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.21.0.03",
+          "level": 0,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.1.03",
+          "level": 1,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.2.03",
+          "level": 2,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.3.03",
+          "level": 3,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.4.03",
+          "level": 4,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.21.04",
+      "baseId": "DI.21.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 21,
+      "column": 21,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 85,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.21.0.04",
+          "level": 0,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.1.04",
+          "level": 1,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.2.04",
+          "level": 2,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.3.04",
+          "level": 3,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.4.04",
+          "level": 4,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.21.05",
+      "baseId": "DI.21.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 21,
+      "column": 21,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 85,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.21.0.05",
+          "level": 0,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.1.05",
+          "level": 1,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.2.05",
+          "level": 2,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.3.05",
+          "level": 3,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.21.4.05",
+          "level": 4,
+          "rack": 21,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.22.01",
+      "baseId": "DI.22.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 22,
+      "column": 22,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 86.1,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.22.0.01",
+          "level": 0,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.1.01",
+          "level": 1,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.2.01",
+          "level": 2,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.3.01",
+          "level": 3,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.4.01",
+          "level": 4,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.22.02",
+      "baseId": "DI.22.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 22,
+      "column": 22,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 86.1,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.22.0.02",
+          "level": 0,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.1.02",
+          "level": 1,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.2.02",
+          "level": 2,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.3.02",
+          "level": 3,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.4.02",
+          "level": 4,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.22.03",
+      "baseId": "DI.22.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 22,
+      "column": 22,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 86.1,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.22.0.03",
+          "level": 0,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.1.03",
+          "level": 1,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.2.03",
+          "level": 2,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.3.03",
+          "level": 3,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.4.03",
+          "level": 4,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.22.04",
+      "baseId": "DI.22.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 22,
+      "column": 22,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 86.1,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.22.0.04",
+          "level": 0,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.1.04",
+          "level": 1,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.2.04",
+          "level": 2,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.3.04",
+          "level": 3,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.4.04",
+          "level": 4,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.22.05",
+      "baseId": "DI.22.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 22,
+      "column": 22,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 86.1,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.22.0.05",
+          "level": 0,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.1.05",
+          "level": 1,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.2.05",
+          "level": 2,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.3.05",
+          "level": 3,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.22.4.05",
+          "level": 4,
+          "rack": 22,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.23.01",
+      "baseId": "DI.23.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 23,
+      "column": 23,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 87.2,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.23.0.01",
+          "level": 0,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.1.01",
+          "level": 1,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.2.01",
+          "level": 2,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.3.01",
+          "level": 3,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.4.01",
+          "level": 4,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.23.02",
+      "baseId": "DI.23.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 23,
+      "column": 23,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 87.2,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.23.0.02",
+          "level": 0,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.1.02",
+          "level": 1,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.2.02",
+          "level": 2,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.3.02",
+          "level": 3,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.4.02",
+          "level": 4,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.23.03",
+      "baseId": "DI.23.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 23,
+      "column": 23,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 87.2,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.23.0.03",
+          "level": 0,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.1.03",
+          "level": 1,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.2.03",
+          "level": 2,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.3.03",
+          "level": 3,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.4.03",
+          "level": 4,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.23.04",
+      "baseId": "DI.23.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 23,
+      "column": 23,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 87.2,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.23.0.04",
+          "level": 0,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.1.04",
+          "level": 1,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.2.04",
+          "level": 2,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.3.04",
+          "level": 3,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.4.04",
+          "level": 4,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.23.05",
+      "baseId": "DI.23.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 23,
+      "column": 23,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 87.2,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.23.0.05",
+          "level": 0,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.1.05",
+          "level": 1,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.2.05",
+          "level": 2,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.3.05",
+          "level": 3,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.23.4.05",
+          "level": 4,
+          "rack": 23,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.24.01",
+      "baseId": "DI.24.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 24,
+      "column": 24,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 88.3,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.24.0.01",
+          "level": 0,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.1.01",
+          "level": 1,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.2.01",
+          "level": 2,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.3.01",
+          "level": 3,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.4.01",
+          "level": 4,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.24.02",
+      "baseId": "DI.24.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 24,
+      "column": 24,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 88.3,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.24.0.02",
+          "level": 0,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.1.02",
+          "level": 1,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.2.02",
+          "level": 2,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.3.02",
+          "level": 3,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.4.02",
+          "level": 4,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.24.03",
+      "baseId": "DI.24.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 24,
+      "column": 24,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 88.3,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.24.0.03",
+          "level": 0,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.1.03",
+          "level": 1,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.2.03",
+          "level": 2,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.3.03",
+          "level": 3,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.4.03",
+          "level": 4,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.24.04",
+      "baseId": "DI.24.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 24,
+      "column": 24,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 88.3,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.24.0.04",
+          "level": 0,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.1.04",
+          "level": 1,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.2.04",
+          "level": 2,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.3.04",
+          "level": 3,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.4.04",
+          "level": 4,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.24.05",
+      "baseId": "DI.24.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 24,
+      "column": 24,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 88.3,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.24.0.05",
+          "level": 0,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.1.05",
+          "level": 1,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.2.05",
+          "level": 2,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.3.05",
+          "level": 3,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.24.4.05",
+          "level": 4,
+          "rack": 24,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.25.01",
+      "baseId": "DI.25.0.01",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 25,
+      "column": 25,
+      "module": 1,
+      "depth": 1,
+      "type": "drivein",
+      "row": 89.4,
+      "col": 4,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.25.0.01",
+          "level": 0,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.1.01",
+          "level": 1,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.2.01",
+          "level": 2,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.3.01",
+          "level": 3,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.4.01",
+          "level": 4,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.25.02",
+      "baseId": "DI.25.0.02",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 25,
+      "column": 25,
+      "module": 2,
+      "depth": 2,
+      "type": "drivein",
+      "row": 89.4,
+      "col": 4.95,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.25.0.02",
+          "level": 0,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.1.02",
+          "level": 1,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.2.02",
+          "level": 2,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.3.02",
+          "level": 3,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.4.02",
+          "level": 4,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.25.03",
+      "baseId": "DI.25.0.03",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 25,
+      "column": 25,
+      "module": 3,
+      "depth": 3,
+      "type": "drivein",
+      "row": 89.4,
+      "col": 5.9,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.25.0.03",
+          "level": 0,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.1.03",
+          "level": 1,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.2.03",
+          "level": 2,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.3.03",
+          "level": 3,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.4.03",
+          "level": 4,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.25.04",
+      "baseId": "DI.25.0.04",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 25,
+      "column": 25,
+      "module": 4,
+      "depth": 4,
+      "type": "drivein",
+      "row": 89.4,
+      "col": 6.85,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.25.0.04",
+          "level": 0,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.1.04",
+          "level": 1,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.2.04",
+          "level": 2,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.3.04",
+          "level": 3,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.4.04",
+          "level": 4,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "DI.25.05",
+      "baseId": "DI.25.0.05",
+      "aisle": "DI",
+      "side": 2,
+      "rack": 25,
+      "column": 25,
+      "module": 5,
+      "depth": 5,
+      "type": "drivein",
+      "row": 89.4,
+      "col": 7.8,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "DI.25.0.05",
+          "level": 0,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.1.05",
+          "level": 1,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.2.05",
+          "level": 2,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.3.05",
+          "level": 3,
+          "rack": 25,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "DI.25.4.05",
+          "level": 4,
+          "rack": 25,
           "occupied": false,
           "material": "",
           "quantity": 0
