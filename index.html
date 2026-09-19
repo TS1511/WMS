@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260918-8" />
+    <link rel="stylesheet" href="styles.css?v=20260919-9" />
   </head>
   <body>
     <aside class="sidebar">
@@ -15,15 +15,19 @@
         </div>
       </div>
       <nav>
+        <span class="nav-section-label">Operación</span>
         <button class="nav-item active" data-view="dashboard">Panel</button>
         <button class="nav-item" data-view="register">Registrar</button>
         <button class="nav-item" data-view="picking">Preparar pedido</button>
+        <span class="nav-section-label">Inventario</span>
+        <button class="nav-item" data-view="locations">Ubicaciones</button>
         <button class="nav-item" data-view="map">Mapa</button>
         <button class="nav-item" data-view="map3d">Mapa 3D</button>
-        <button class="nav-item" data-view="locations">Ubicaciones</button>
+        <span class="nav-section-label">Control</span>
         <button class="nav-item" data-view="movements">Movimientos</button>
-        <button class="nav-item" data-view="analytics">Analítica</button>
         <button class="nav-item" data-view="sku-master">Maestro SKU</button>
+        <button class="nav-item" data-view="analytics">Analítica</button>
+        <span class="nav-section-label">Herramientas</span>
         <button class="nav-item" data-view="labels">Etiquetas</button>
       </nav>
       <div class="source">
@@ -366,7 +370,13 @@
       </section>
 
       <section id="sku-master" class="view">
-        <div class="sku-master-layout">
+        <div class="sku-section-tabs" role="tablist" aria-label="Secciones del maestro SKU">
+          <button type="button" class="active" data-sku-section="products">Productos</button>
+          <button type="button" data-sku-section="alerts">Alertas <span id="skuAlertTabCount">0</span></button>
+          <button type="button" data-sku-section="zones">Zonificación</button>
+        </div>
+        <div class="sku-subsection active" data-sku-panel="products">
+          <div class="sku-master-layout">
           <form id="skuForm" class="panel sku-form">
             <div class="panel-head"><h2>Alta de SKU</h2><button id="clearSkuForm" type="button" class="ghost">Nuevo</button></div>
             <div class="sku-fields">
@@ -398,12 +408,15 @@
             </div>
             <div class="table-wrap"><table><thead><tr><th>SKU</th><th>Descripción</th><th>Clase</th><th>Stock</th><th>Mín.</th><th>Máx.</th><th>Consumo/día</th><th>Días stock</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
           </section>
+          </div>
         </div>
-        <div class="sku-operations-grid">
+        <div class="sku-subsection" data-sku-panel="alerts" hidden>
           <section class="panel">
             <div class="panel-head"><h2>Alarmas de inventario</h2><span id="skuAlertCount">0 alertas</span></div>
             <div id="skuAlerts" class="sku-alerts"></div>
           </section>
+        </div>
+        <div class="sku-subsection" data-sku-panel="zones" hidden>
           <section class="panel">
             <div class="panel-head"><h2>Zonas por clasificación</h2><span class="muted">Rangos inclusivos</span></div>
             <form id="slottingForm" class="slotting-form">
@@ -544,6 +557,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260917-1"></script>
-    <script src="app.js?v=20260918-33"></script>
+    <script src="app.js?v=20260919-34"></script>
   </body>
 </html>

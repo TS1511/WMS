@@ -186,6 +186,7 @@ function bindEvents() {
   $$(".nav-item").forEach((button) => {
     button.addEventListener("click", () => switchView(button.dataset.view));
   });
+  $$('[data-sku-section]').forEach((button) => button.addEventListener("click", () => switchSkuSection(button.dataset.skuSection)));
 
   const locationFilterIds = ["locationPositionFilter", "locationAisleFilter", "locationSideFilter", "locationRackFilter", "locationLevelFilter", "locationMaterialFilter", "locationStatusFilter"];
   locationFilterIds.forEach((id) => $(`#${id}`).addEventListener("input", updateLocationFilters));
@@ -622,6 +623,15 @@ function renderAll() {
   renderSkuAlerts();
 }
 
+function switchSkuSection(section) {
+  $$('[data-sku-section]').forEach((button) => button.classList.toggle("active", button.dataset.skuSection === section));
+  $$('[data-sku-panel]').forEach((panel) => {
+    const active = panel.dataset.skuPanel === section;
+    panel.hidden = !active;
+    panel.classList.toggle("active", active);
+  });
+}
+
 function normalizeSku(source) {
   const item = {};
   SKU_FIELDS.forEach((field) => item[field] = source[field] ?? "");
@@ -870,6 +880,7 @@ function renderSkuAlerts() {
     if (rules.length && !rules.some((rule) => locationMatchesRule(location, rule))) alerts.push({ type: "slotting", level: "critical", title: `${item.sku} fuera de zona ${formatVelocityClass(item.velocityClass)}`, detail: `Ubicado en ${location.id}.` });
   });
   $("#skuAlertCount").textContent = `${alerts.length} alerta${alerts.length === 1 ? "" : "s"}`;
+  $("#skuAlertTabCount").textContent = String(alerts.length);
   container.innerHTML = alerts.length ? alerts.map((alert) => `<article class="sku-alert ${alert.level}"><strong>${alert.title}</strong><span>${alert.detail}</span></article>`).join("") : `<p class="empty-state">Sin desvíos de stock ni ubicación.</p>`;
 }
 
