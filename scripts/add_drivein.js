@@ -44,7 +44,7 @@ for (let column = 1; column <= 25; column += 1) {
       depth,
       type: "drivein",
       row: 63 + (column - 1) * 1.1,
-      col: 4 + (depth - 1) * 0.95,
+      col: 72 + (depth - 1) * 0.95,
       occupiedLevels: 0,
       levels,
     });
