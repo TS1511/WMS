@@ -264,6 +264,15 @@ function bindEvents() {
   $("#pickingForm").addEventListener("submit", calculatePickingRoute);
   $("#loadPickingExample").addEventListener("click", loadPickingExample);
   $("#clearPicking").addEventListener("click", clearPickingRoute);
+  $("#addPickingLine").addEventListener("click", addPickingLine);
+  $("#pickingSku").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addPickingLine();
+    }
+  });
+  $("#pickingLines").addEventListener("input", renderPickingDraft);
+  $("#pickingDraft").addEventListener("click", removePickingLine);
   $("#registerMovement").addEventListener("submit", handleMovement);
   $("#registerMovement").addEventListener("keydown", handleRegisterEnter);
   $$("[data-move-type]").forEach((button) => {
@@ -1027,14 +1036,79 @@ function loadPickingExample() {
     const available = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     return `${sku}, ${Math.min(available, 2)}`;
   }).join("\n");
+  renderPickingDraft();
+}
+
+function addPickingLine() {
+  const sku = $("#pickingSku").value.trim();
+  const quantity = Number($("#pickingQuantity").value);
+  if (!sku || !(quantity > 0)) {
+    $("#pickingMessage").textContent = "Ingresá un SKU y una cantidad válida.";
+    return;
+  }
+  const requests = parsePickingLines($("#pickingLines").value);
+  const existing = requests.find((item) => item.sku.toLowerCase() === sku.toLowerCase());
+  if (existing) existing.quantity += quantity;
+  else requests.push({ sku, quantity });
+  $("#pickingLines").value = serializePickingLines(requests);
+  $("#pickingSku").value = "";
+  $("#pickingQuantity").value = "1";
+  $("#pickingMessage").textContent = "";
+  renderPickingDraft();
+  $("#pickingSku").focus();
+}
+
+function removePickingLine(event) {
+  const button = event.target.closest("[data-remove-picking]");
+  if (!button) return;
+  const requests = parsePickingLines($("#pickingLines").value)
+    .filter((item) => item.sku.toLowerCase() !== button.dataset.removePicking.toLowerCase());
+  $("#pickingLines").value = serializePickingLines(requests);
+  renderPickingDraft();
+}
+
+function serializePickingLines(requests) {
+  return requests.map((item) => `${item.sku}, ${item.quantity}`).join("\n");
+}
+
+function renderPickingDraft() {
+  const requests = parsePickingLines($("#pickingLines").value);
+  const container = $("#pickingDraft");
+  container.replaceChildren();
+  $("#pickingLineCount").textContent = `${requests.length} SKU`;
+  if (!requests.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty-state";
+    empty.textContent = "Todavía no agregaste productos.";
+    container.appendChild(empty);
+    return;
+  }
+  requests.forEach((request) => {
+    const stock = state.locations
+      .filter((item) => item.occupied && !item.blocked && String(item.material).toLowerCase() === request.sku.toLowerCase())
+      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const master = state.skuMaster.find((item) => item.sku.toLowerCase() === request.sku.toLowerCase());
+    const row = document.createElement("div");
+    row.className = `picking-draft-row${stock < request.quantity ? " has-shortage" : ""}`;
+    row.innerHTML = `<div><strong></strong><small></small></div><span></span><button type="button" aria-label="Eliminar SKU">×</button>`;
+    row.querySelector("strong").textContent = request.sku;
+    row.querySelector("small").textContent = master?.description || "Sin descripción";
+    row.querySelector("span").textContent = `${fmt.format(request.quantity)} u. · Stock ${fmt.format(stock)}`;
+    row.querySelector("button").dataset.removePicking = request.sku;
+    container.appendChild(row);
+  });
 }
 
 function clearPickingRoute() {
   $("#pickingLines").value = "";
-  $("#pickingRoute").replaceChildren();
+  $("#pickingRoute").innerHTML = '<li class="picking-route-empty">Agregá productos y generá la ruta para comenzar.</li>';
   $("#pickingShortages").classList.add("hidden");
   $("#pickingSummary").textContent = "Sin calcular";
   $("#pickingMessage").textContent = "";
+  $("#pickingUnits").textContent = "0";
+  $("#pickingStops").textContent = "0";
+  $("#pickingMissing").textContent = "0";
+  renderPickingDraft();
 }
 
 function calculatePickingRoute(event) {
@@ -1138,6 +1212,9 @@ function renderPickingRoute(route, shortages, requests) {
   const requestedUnits = requests.reduce((sum, item) => sum + item.quantity, 0);
   const assignedUnits = route.reduce((sum, item) => sum + item.quantity, 0);
   $("#pickingSummary").textContent = `${route.length} paradas · ${fmt.format(assignedUnits)}/${fmt.format(requestedUnits)} unidades · ${fmt.format(cumulative)} tramos`;
+  $("#pickingUnits").textContent = fmt.format(assignedUnits);
+  $("#pickingStops").textContent = fmt.format(route.length);
+  $("#pickingMissing").textContent = fmt.format(shortages.reduce((sum, item) => sum + item.missing, 0));
   $("#pickingMessage").textContent = route.length ? "Ruta calculada con posiciones disponibles y no bloqueadas." : "No hay stock disponible para el pedido.";
 
   const shortageBox = $("#pickingShortages");

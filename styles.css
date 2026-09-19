@@ -415,10 +415,51 @@ label select {
 
 .picking-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+  grid-template-columns: minmax(390px, 0.8fr) minmax(480px, 1.2fr);
   gap: 16px;
   align-items: start;
 }
+
+.picking-page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.picking-page-head h1 { margin: 2px 0 4px; font-size: 26px; }
+.picking-page-head p { margin: 0; color: var(--muted); }
+.picking-page-head .eyebrow { color: var(--primary); font-size: 11px; font-weight: 800; }
+.picking-status { padding: 7px 10px; color: var(--available-text); background: var(--available); border-radius: 6px; font-size: 12px; font-weight: 700; }
+
+.picking-form .panel-head > div,
+.picking-result .panel-head > div { display: grid; gap: 3px; }
+.picking-form .panel-head span,
+.picking-result .panel-head span { color: var(--muted); font-size: 12px; }
+
+.picking-order-fields,
+.picking-quick-add { display: grid; gap: 10px; }
+.picking-order-fields { grid-template-columns: 1fr 130px; margin-bottom: 14px; }
+.picking-quick-add { grid-template-columns: minmax(0, 1fr) 92px auto; align-items: end; padding: 12px; background: #f2f7f9; border: 1px solid #cfe0e7; border-radius: 6px; }
+.picking-order-fields label,
+.picking-quick-add label,
+.picking-bulk label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.picking-order-fields input,
+.picking-order-fields select,
+.picking-quick-add input { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+.picking-quick-add button { min-height: 40px; }
+
+.picking-draft { display: grid; gap: 6px; margin: 12px 0; }
+.picking-draft-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 30px; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-left: 4px solid #23835b; border-radius: 6px; }
+.picking-draft-row.has-shortage { border-left-color: var(--danger); background: #fff8f7; }
+.picking-draft-row small { display: block; margin-top: 2px; color: var(--muted); }
+.picking-draft-row > span { font-size: 12px; font-weight: 700; }
+.picking-draft-row button { width: 28px; height: 28px; color: var(--danger); background: transparent; font-size: 20px; }
+.empty-state { margin: 4px 0; padding: 18px; text-align: center; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; }
+.picking-bulk { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.picking-bulk summary { cursor: pointer; color: var(--primary); font-size: 13px; font-weight: 700; }
+.picking-bulk[open] summary { margin-bottom: 10px; }
 
 .picking-form textarea {
   width: 100%;
@@ -433,6 +474,13 @@ label select {
 .picking-result {
   min-height: 420px;
 }
+
+.picking-output { display: grid; gap: 12px; }
+.picking-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.picking-kpis article { padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
+.picking-kpis span { display: block; color: var(--muted); font-size: 12px; }
+.picking-kpis strong { display: block; margin-top: 4px; font-size: 24px; }
+.picking-route-empty { display: block !important; padding: 44px 16px !important; text-align: center; color: var(--muted); border-style: dashed !important; background: transparent !important; }
 
 .picking-route {
   display: grid;
@@ -1581,6 +1629,16 @@ dd {
   .picking-route li {
     grid-template-columns: 30px minmax(0, 1fr);
   }
+
+  .picking-page-head { align-items: flex-start; }
+  .picking-page-head h1 { font-size: 22px; }
+  .picking-status { display: none; }
+  .picking-order-fields { grid-template-columns: 1fr; }
+  .picking-quick-add { grid-template-columns: minmax(0, 1fr) 82px; }
+  .picking-quick-add button { grid-column: 1 / -1; width: 100%; }
+  .picking-draft-row { grid-template-columns: minmax(0, 1fr) 28px; }
+  .picking-draft-row > span { grid-column: 1; }
+  .picking-draft-row button { grid-column: 2; grid-row: 1 / span 2; }
 
   .pick-quantity {
     grid-column: 2;

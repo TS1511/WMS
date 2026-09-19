@@ -166,29 +166,56 @@
       </section>
 
       <section id="picking" class="view">
+        <header class="picking-page-head">
+          <div>
+            <p class="eyebrow">OPERACIÓN DE SALIDA</p>
+            <h1>Preparación de pedidos</h1>
+            <p>Armá el pedido, validá disponibilidad y seguí la ruta sugerida.</p>
+          </div>
+          <span class="picking-status">Stock actualizado</span>
+        </header>
         <div class="picking-layout">
           <form id="pickingForm" class="panel picking-form">
             <div class="panel-head">
-              <h2>Pedido</h2>
+              <div><h2>Cargar pedido</h2><span id="pickingLineCount">0 SKU</span></div>
               <button id="loadPickingExample" type="button" class="ghost">Usar stock actual</button>
             </div>
-            <label>SKU y cantidad
-              <textarea id="pickingLines" rows="12" required placeholder="100360, 2&#10;5555555, 1"></textarea>
-            </label>
+            <div class="picking-order-fields">
+              <label>Pedido / referencia<input id="pickingOrderRef" placeholder="Ej. PED-1048"></label>
+              <label>Prioridad<select id="pickingPriority"><option>Normal</option><option>Urgente</option></select></label>
+            </div>
+            <div class="picking-quick-add">
+              <label>SKU<input id="pickingSku" autocomplete="off" placeholder="Escanear o ingresar SKU"></label>
+              <label>Cantidad<input id="pickingQuantity" type="number" min="1" step="1" value="1"></label>
+              <button id="addPickingLine" type="button" class="primary-action">Agregar</button>
+            </div>
+            <div id="pickingDraft" class="picking-draft"><p class="empty-state">Todavía no agregaste productos.</p></div>
+            <details class="picking-bulk">
+              <summary>Carga masiva</summary>
+              <label>Una línea por SKU, separada por coma, punto y coma o tabulación
+                <textarea id="pickingLines" rows="6" placeholder="100360, 2&#10;5555555, 1"></textarea>
+              </label>
+            </details>
             <div class="dialog-actions">
               <button id="clearPicking" type="button" class="ghost">Limpiar</button>
-              <button type="submit" class="primary-action">Calcular ruta</button>
+              <button type="submit" class="primary-action">Generar ruta</button>
             </div>
             <p id="pickingMessage" class="message"></p>
           </form>
-          <section class="panel picking-result">
-            <div class="panel-head">
-              <h2>Ruta de preparación</h2>
-              <span id="pickingSummary">Sin calcular</span>
-            </div>
-            <div id="pickingShortages" class="picking-shortages hidden"></div>
-            <ol id="pickingRoute" class="picking-route"></ol>
-          </section>
+          <div class="picking-output">
+            <section class="picking-kpis" aria-label="Resumen del pedido">
+              <article><span>Unidades</span><strong id="pickingUnits">0</strong></article>
+              <article><span>Paradas</span><strong id="pickingStops">0</strong></article>
+              <article><span>Faltantes</span><strong id="pickingMissing">0</strong></article>
+            </section>
+            <section class="panel picking-result">
+              <div class="panel-head">
+                <div><h2>Ruta de preparación</h2><span id="pickingSummary">Sin calcular</span></div>
+              </div>
+              <div id="pickingShortages" class="picking-shortages hidden"></div>
+              <ol id="pickingRoute" class="picking-route"><li class="picking-route-empty">Agregá productos y generá la ruta para comenzar.</li></ol>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -557,6 +584,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260919-6"></script>
-    <script src="app.js?v=20260919-44"></script>
+    <script src="app.js?v=20260919-45"></script>
   </body>
 </html>
