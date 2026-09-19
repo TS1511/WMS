@@ -1245,7 +1245,9 @@ function prepare3dProjection() {
 }
 
 function expandAisleSpacing(col, minCol) {
-  const aisleIndex = Math.floor((col - minCol + 0.5) / 3);
+  const selectiveStart = Math.max(4, minCol);
+  if (col < selectiveStart) return col;
+  const aisleIndex = Math.floor((col - selectiveStart + 0.5) / 3);
   return col + aisleIndex * 3;
 }
 

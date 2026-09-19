@@ -43,8 +43,8 @@ for (let column = 1; column <= 25; column += 1) {
       module: depth,
       depth,
       type: "drivein",
-      row: 76 + (depth - 1) * 0.95,
-      col: 4 + (column - 1) * 1.1,
+      row: 55 + (depth - 1) * 0.95,
+      col: -40 + (column - 1) * 1.1,
       occupiedLevels: 0,
       levels,
     });
