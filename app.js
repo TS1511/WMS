@@ -67,6 +67,7 @@ const state = {
   centralBlocks: new Map(),
   skuMaster: [],
   slottingRules: [],
+  pickingOrders: [],
 };
 
 const shadeCache = new Map();
@@ -273,6 +274,9 @@ function bindEvents() {
   });
   $("#pickingLines").addEventListener("input", renderPickingDraft);
   $("#pickingDraft").addEventListener("click", removePickingLine);
+  $("#pickingImport").addEventListener("change", importPickingFile);
+  $("#pickingOrderSelect").addEventListener("change", loadImportedPickingOrder);
+  $("#downloadPickingTemplate").addEventListener("click", downloadPickingTemplate);
   $("#registerMovement").addEventListener("submit", handleMovement);
   $("#registerMovement").addEventListener("keydown", handleRegisterEnter);
   $$("[data-move-type]").forEach((button) => {
@@ -1071,6 +1075,96 @@ function serializePickingLines(requests) {
   return requests.map((item) => `${item.sku}, ${item.quantity}`).join("\n");
 }
 
+async function importPickingFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const rows = parseDelimited(await file.text());
+    const normalized = rows.map((row) => ({
+      trip: pickingColumn(row, ["numero de viaje", "nro de viaje", "viaje"]),
+      delivery: pickingColumn(row, ["numero de entrega", "nro de entrega", "entrega"]),
+      sku: pickingColumn(row, ["sku", "material", "codigo de producto"]),
+      quantity: Number(String(pickingColumn(row, ["cantidad", "qty", "unidades"])).replace(",", ".")),
+    })).filter((row) => row.trip && row.delivery && row.sku && row.quantity > 0);
+    if (!normalized.length) throw new Error("No se encontraron filas válidas. Revisá los encabezados de la plantilla.");
+
+    const groups = new Map();
+    normalized.forEach((row) => {
+      const key = `${row.trip}||${row.delivery}`;
+      if (!groups.has(key)) groups.set(key, { trip: row.trip, delivery: row.delivery, lines: [] });
+      groups.get(key).lines.push({ sku: row.sku, quantity: row.quantity });
+    });
+    state.pickingOrders = [...groups.values()].map((order) => ({
+      ...order,
+      lines: parsePickingLines(serializePickingLines(order.lines)),
+    }));
+    renderPickingOrderSelector(file.name, normalized.length);
+    loadImportedPickingOrder();
+    $("#pickingMessage").textContent = `${state.pickingOrders.length} entregas importadas correctamente.`;
+  } catch (error) {
+    $("#pickingMessage").textContent = error.message;
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function pickingColumn(row, aliases) {
+  const entries = Object.entries(row);
+  const match = entries.find(([header]) => aliases.includes(normalizePickingHeader(header)));
+  return String(match?.[1] || "").trim();
+}
+
+function normalizePickingHeader(value) {
+  return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[character]);
+}
+
+function renderPickingOrderSelector(fileName, rowCount) {
+  const select = $("#pickingOrderSelect");
+  select.innerHTML = state.pickingOrders.map((order, index) =>
+    `<option value="${index}">Viaje ${escapeHtml(order.trip)} · Entrega ${escapeHtml(order.delivery)} · ${order.lines.length} SKU</option>`
+  ).join("");
+  $("#pickingImportSummary").textContent = `${fileName} · ${rowCount} líneas · ${state.pickingOrders.length} entregas`;
+  $("#pickingImportPanel").classList.remove("hidden");
+}
+
+function loadImportedPickingOrder() {
+  const order = state.pickingOrders[Number($("#pickingOrderSelect").value) || 0];
+  if (!order) return;
+  $("#pickingOrderRef").value = `V${order.trip}-E${order.delivery}`;
+  $("#pickingLines").value = serializePickingLines(order.lines);
+  clearPickingResults();
+  renderPickingDraft();
+}
+
+function clearPickingResults() {
+  $("#pickingRoute").innerHTML = '<li class="picking-route-empty">Agregá productos y generá la ruta para comenzar.</li>';
+  $("#pickingShortages").classList.add("hidden");
+  $("#pickingSummary").textContent = "Sin calcular";
+  $("#pickingUnits").textContent = "0";
+  $("#pickingStops").textContent = "0";
+  $("#pickingMissing").textContent = "0";
+}
+
+function downloadPickingTemplate() {
+  const csv = [
+    ["Numero de viaje", "Numero de entrega", "SKU", "Cantidad"],
+    ["V001", "E001", "100360", 12],
+    ["V001", "E001", "5555555", 4],
+    ["V001", "E002", "100360", 3],
+  ].map((row) => row.join(";")).join("\n");
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  link.download = "plantilla_pedidos.csv";
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
 function renderPickingDraft() {
   const requests = parsePickingLines($("#pickingLines").value);
   const container = $("#pickingDraft");
@@ -1101,13 +1195,8 @@ function renderPickingDraft() {
 
 function clearPickingRoute() {
   $("#pickingLines").value = "";
-  $("#pickingRoute").innerHTML = '<li class="picking-route-empty">Agregá productos y generá la ruta para comenzar.</li>';
-  $("#pickingShortages").classList.add("hidden");
-  $("#pickingSummary").textContent = "Sin calcular";
+  clearPickingResults();
   $("#pickingMessage").textContent = "";
-  $("#pickingUnits").textContent = "0";
-  $("#pickingStops").textContent = "0";
-  $("#pickingMissing").textContent = "0";
   renderPickingDraft();
 }
 
