@@ -1214,10 +1214,10 @@ function update3dTransform() {
   draw3dMap();
 }
 
-function project3d(col, row, z, width, height) {
+function project3d(col, row, z, width, height, preserveSpacing = false) {
   const bounds = state.layout3d.bounds;
   const projection = state.projection3d;
-  const expandedCol = expandAisleSpacing(col, bounds.minCol);
+  const expandedCol = preserveSpacing ? col : expandAisleSpacing(col, bounds.minCol);
   const x = (expandedCol - projection.expandedCenter) * 11;
   const y = (row - (bounds.minRow + bounds.maxRow) / 2) * 11;
   const rx = x * projection.cosAngle - y * projection.sinAngle;
@@ -1283,7 +1283,8 @@ function draw3dMap() {
       0.8,
       "#dce8ed",
       width,
-      height
+      height,
+      true
     );
   }
 
@@ -1302,10 +1303,10 @@ function draw3dMap() {
   draw3dGuides(ctx, width, height);
 }
 
-function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height) {
+function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height, preserveSpacing = false) {
   const points = [
-    project3d(minCol, minRow, z, width, height), project3d(maxCol, minRow, z, width, height),
-    project3d(maxCol, maxRow, z, width, height), project3d(minCol, maxRow, z, width, height),
+    project3d(minCol, minRow, z, width, height, preserveSpacing), project3d(maxCol, minRow, z, width, height, preserveSpacing),
+    project3d(maxCol, maxRow, z, width, height, preserveSpacing), project3d(minCol, maxRow, z, width, height, preserveSpacing),
   ];
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
@@ -1323,19 +1324,20 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
   const top = bottom + POSITION_3D.height;
   const halfWidth = POSITION_3D.halfWidth;
   const halfLength = POSITION_3D.halfLength;
+  const preserveSpacing = stack.type === "drivein";
   const base = [
-    project3d(stack.col - halfWidth, stack.row - halfLength, bottom, width, height),
-    project3d(stack.col + halfWidth, stack.row - halfLength, bottom, width, height),
-    project3d(stack.col + halfWidth, stack.row + halfLength, bottom, width, height),
-    project3d(stack.col - halfWidth, stack.row + halfLength, bottom, width, height),
+    project3d(stack.col - halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
+    project3d(stack.col + halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
+    project3d(stack.col + halfWidth, stack.row + halfLength, bottom, width, height, preserveSpacing),
+    project3d(stack.col - halfWidth, stack.row + halfLength, bottom, width, height, preserveSpacing),
   ];
   const cap = [
-    project3d(stack.col - halfWidth, stack.row - halfLength, top, width, height),
-    project3d(stack.col + halfWidth, stack.row - halfLength, top, width, height),
-    project3d(stack.col + halfWidth, stack.row + halfLength, top, width, height),
-    project3d(stack.col - halfWidth, stack.row + halfLength, top, width, height),
+    project3d(stack.col - halfWidth, stack.row - halfLength, top, width, height, preserveSpacing),
+    project3d(stack.col + halfWidth, stack.row - halfLength, top, width, height, preserveSpacing),
+    project3d(stack.col + halfWidth, stack.row + halfLength, top, width, height, preserveSpacing),
+    project3d(stack.col - halfWidth, stack.row + halfLength, top, width, height, preserveSpacing),
   ];
-  const center = project3d(stack.col, stack.row, top, width, height);
+  const center = project3d(stack.col, stack.row, top, width, height, preserveSpacing);
   if (center.x < -30 || center.x > width + 30 || center.y < -30 || center.y > height + 30) return;
   if (simplified) {
     drawCanvasFace(ctx, cap, color);
@@ -1356,7 +1358,8 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
 
 function stackDepth3d(stack) {
   const bounds = state.layout3d.bounds;
-  const x = (expandAisleSpacing(stack.col, bounds.minCol) - expandAisleSpacing(bounds.minCol, bounds.minCol)) * 11;
+  const projectedCol = stack.type === "drivein" ? stack.col : expandAisleSpacing(stack.col, bounds.minCol);
+  const x = (projectedCol - expandAisleSpacing(bounds.minCol, bounds.minCol)) * 11;
   const y = (stack.row - bounds.minRow) * 11;
   const angle = (state.view3d.rotation * Math.PI) / 180;
   return x * Math.sin(angle) + y * Math.cos(angle);
@@ -1446,7 +1449,8 @@ function draw3dGuides(ctx, width, height) {
       Math.max(...driveInStacks.map((stack) => stack.row)) + 2.2,
       2,
       width,
-      height
+      height,
+      true
     );
     drawGuideLabel(ctx, "DRIVE-IN", point.x, point.y);
   }
@@ -1488,7 +1492,7 @@ function pick3dLocation(clientX, clientY) {
   let nearest = null;
   let bestDistance = 12;
   for (const stack of state.render3dStacks) {
-    const point = project3d(stack.col, stack.row, 38, rect.width, rect.height);
+    const point = project3d(stack.col, stack.row, 38, rect.width, rect.height, stack.type === "drivein");
     const distance = Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y);
     if (distance < bestDistance) {
       bestDistance = distance;
