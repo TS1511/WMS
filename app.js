@@ -263,6 +263,7 @@ function bindEvents() {
   ["#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity"].forEach((selector) => {
     $(selector).addEventListener("input", renderMovementPreview);
   });
+  $("#useSuggestedPosition").addEventListener("click", applyPutawaySuggestion);
   $("#closeDetail").addEventListener("click", () => $("#detailPanel").classList.add("hidden"));
   $("#toggleLocationBlock").addEventListener("click", toggleLocationBlock);
   $("#blockLocationForm").addEventListener("submit", saveLocationBlock);
@@ -776,6 +777,7 @@ async function pullSkuMaster() {
       state.skuMaster = result.items.map(normalizeSku);
       localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
       renderSkuMaster();
+      renderMovementPreview();
     }
   } catch (error) {
     console.warn("Maestro SKU central no disponible:", error);
@@ -879,6 +881,7 @@ async function pullSlottingRules() {
       localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
       renderSlottingRules();
       renderSkuAlerts();
+      renderMovementPreview();
     }
   } catch (error) {
     console.warn("Zonificación central no disponible:", error);
@@ -1635,6 +1638,7 @@ function renderMovementPreview() {
   $("#registerToInfo").textContent = positionInfo(to, data.to, "destino");
   $("#registerFromInfo").classList.toggle("error", Boolean(data.from) && (!from || !from.occupied));
   $("#registerToInfo").classList.toggle("error", Boolean(data.to) && (!to || to.occupied || to.blocked));
+  renderPutawaySuggestion(data.type, data.material, data.to);
 
   const typeLabel = { IN: "Ingreso", MOVE: "Traslado", OUT: "Egreso" }[data.type];
   const route = data.type === "IN" ? `a ${data.to || "—"}` : data.type === "OUT" ? `desde ${data.from || "—"}` : `${data.from || "—"} → ${data.to || "—"}`;
@@ -2339,6 +2343,53 @@ function openDetail(item) {
   action.textContent = item.blocked ? "Desbloquear posición" : "Bloquear posición";
   action.classList.toggle("unblock", item.blocked);
   $("#detailPanel").classList.remove("hidden");
+}
+
+function recommendPutawayLocation(sku) {
+  const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
+  if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
+  const available = state.locations.filter((location) => !location.occupied && !location.blocked);
+  const preferred = available.find((location) => location.id === normalizePosition(item.preferredLocation));
+  if (preferred) return { location: preferred, reason: "Ubicación preferida del maestro SKU." };
+
+  const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
+  const zoned = rules.length ? available.filter((location) => rules.some((rule) => locationMatchesRule(location, rule))) : available;
+  const fastMover = item.velocityClass === "SUPER_A" || item.velocityClass === "A";
+  const sorted = zoned.sort((a, b) => {
+    const levelA = fastMover ? (Number(a.level) === 0 ? 0 : 100000 + Number(a.level) * 1000) : Number(a.level) * 20;
+    const levelB = fastMover ? (Number(b.level) === 0 ? 0 : 100000 + Number(b.level) * 1000) : Number(b.level) * 20;
+    const distanceA = aisleNumber(a.aisle) * 10000 + Number(a.rack) * 100 + Number(a.module);
+    const distanceB = aisleNumber(b.aisle) * 10000 + Number(b.rack) * 100 + Number(b.module);
+    return levelA + distanceA - levelB - distanceB;
+  });
+  if (!sorted.length) return { location: null, reason: `No hay posiciones libres en la zona ${formatVelocityClass(item.velocityClass)}.` };
+  const levelReason = fastMover && Number(sorted[0].level) === 0 ? " y nivel 0 para picking" : "";
+  const zoneReason = rules.length ? `zona ${formatVelocityClass(item.velocityClass)}` : "sin zona configurada";
+  return { location: sorted[0], reason: `Primera posición libre en ${zoneReason}${levelReason}.` };
+}
+
+function renderPutawaySuggestion(type, sku, selectedPosition) {
+  const panel = $("#putawaySuggestion");
+  if (type !== "IN" || !String(sku || "").trim() || String(selectedPosition || "").trim()) {
+    panel.classList.add("hidden");
+    panel.dataset.position = "";
+    return;
+  }
+  const recommendation = recommendPutawayLocation(sku);
+  panel.classList.remove("hidden");
+  panel.dataset.position = recommendation.location?.id || "";
+  $("#suggestedPosition").textContent = recommendation.location?.id || "Sin sugerencia";
+  $("#suggestionReason").textContent = recommendation.reason;
+  $("#useSuggestedPosition").disabled = !recommendation.location;
+}
+
+function applyPutawaySuggestion() {
+  const position = $("#putawaySuggestion").dataset.position;
+  if (!position) return;
+  $("#registerTo").value = position;
+  $("#registerTo").dispatchEvent(new Event("input", { bubbles: true }));
+  $("#registerQuantity").focus();
+  $("#registerQuantity").select();
 }
 
 function openRackDetail(side, rack) {

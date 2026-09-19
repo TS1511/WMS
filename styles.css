@@ -886,9 +886,39 @@ dd {
 .register-form label:first-of-type,
 .register-form #registerFromGroup,
 .register-form #registerToGroup,
+.putaway-suggestion,
 .movement-summary,
 .primary-action {
   grid-column: 1 / -1;
+}
+
+.putaway-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-left: 4px solid #23835b;
+  background: #eef8f3;
+}
+
+.putaway-suggestion > div {
+  display: grid;
+  gap: 2px;
+}
+
+.putaway-suggestion span,
+.putaway-suggestion small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.putaway-suggestion strong {
+  font-size: 18px;
+}
+
+.putaway-suggestion.hidden {
+  display: none;
 }
 
 .register-form input {
