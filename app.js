@@ -277,6 +277,7 @@ function bindEvents() {
   $("#pickingImport").addEventListener("change", importPickingFile);
   $("#pickingOrderSelect").addEventListener("change", loadImportedPickingOrder);
   $("#downloadPickingTemplate").addEventListener("click", downloadPickingTemplate);
+  $("#printPickingRoute").addEventListener("click", printPickingRoute);
   $("#registerMovement").addEventListener("submit", handleMovement);
   $("#registerMovement").addEventListener("keydown", handleRegisterEnter);
   $$("[data-move-type]").forEach((button) => {
@@ -1149,6 +1150,20 @@ function clearPickingResults() {
   $("#pickingUnits").textContent = "0";
   $("#pickingStops").textContent = "0";
   $("#pickingMissing").textContent = "0";
+  $("#printPickingRoute").disabled = true;
+}
+
+function printPickingRoute() {
+  if (!$("#pickingRoute").querySelector(".pick-step")) {
+    $("#pickingMessage").textContent = "Generá una ruta antes de imprimir.";
+    return;
+  }
+  $("#printPickingReference").textContent = $("#pickingOrderRef").value.trim() || "Sin referencia";
+  $("#printPickingPriority").textContent = $("#pickingPriority").value;
+  $("#printPickingSummary").textContent = $("#pickingSummary").textContent;
+  document.body.classList.add("printing-picking");
+  window.print();
+  setTimeout(() => document.body.classList.remove("printing-picking"), 0);
 }
 
 function downloadPickingTemplate() {
@@ -1304,6 +1319,7 @@ function renderPickingRoute(route, shortages, requests) {
   $("#pickingUnits").textContent = fmt.format(assignedUnits);
   $("#pickingStops").textContent = fmt.format(route.length);
   $("#pickingMissing").textContent = fmt.format(shortages.reduce((sum, item) => sum + item.missing, 0));
+  $("#printPickingRoute").disabled = route.length === 0;
   $("#pickingMessage").textContent = route.length ? "Ruta calculada con posiciones disponibles y no bloqueadas." : "No hay stock disponible para el pedido.";
 
   const shortageBox = $("#pickingShortages");

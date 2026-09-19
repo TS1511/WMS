@@ -484,6 +484,9 @@ label select {
   min-height: 420px;
 }
 
+.picking-result .panel-head button:disabled { cursor: not-allowed; opacity: 0.45; }
+.picking-print-head { display: none; }
+
 .picking-output { display: grid; gap: 12px; }
 .picking-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .picking-kpis article { padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 6px; }
@@ -1936,13 +1939,45 @@ dd {
 }
 
 @media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  body { display: block; color: #111; background: #fff; }
+  .sidebar,
+  .topbar,
+  .picking-page-head,
+  .picking-form,
+  .picking-kpis,
+  .picking-result .panel-head,
+  .message,
+  body > dialog { display: none !important; }
+  main { padding: 0; }
+  .view { display: none !important; }
+  #picking.view { display: block !important; }
+  .picking-layout,
+  .picking-output { display: block; }
+  .picking-result { min-height: 0; padding: 0; border: 0; box-shadow: none; }
+  .picking-print-head { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 12px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #1d2733; }
+  .picking-print-head h1 { grid-column: 1 / -1; margin: 0; font-size: 22px; }
+  .picking-print-head span { display: block; color: #555; font-size: 10px; text-transform: uppercase; }
+  .picking-print-head strong { display: block; margin-top: 3px; font-size: 12px; }
+  .picking-shortages { break-inside: avoid; }
+  .picking-route { gap: 5px; }
+  .picking-route li { position: relative; grid-template-columns: 28px minmax(0, 1fr) 100px 24px; min-height: 52px; padding: 8px 38px 8px 8px; break-inside: avoid; background: #fff; border-color: #777; }
+  .picking-route li::after { content: ""; position: absolute; right: 10px; width: 17px; height: 17px; border: 1.5px solid #333; }
+  .pick-step { width: 24px; height: 24px; color: #111; background: #fff; border: 1px solid #333; font-size: 11px; }
+  .pick-quantity { text-align: right; }
+  .pick-quantity > strong { font-size: 16px; }
+  .picking-route small,
+  .pick-quantity small { color: #333; font-size: 10px; }
+}
+
+@media print {
   body {
     display: block;
     background: #fff;
   }
 
   body > .sidebar,
-  main > :not(#labels),
+  body:not(.printing-picking) main > :not(#labels),
   #labels .toolbar,
   body > .detail,
   body > dialog,
@@ -1954,7 +1989,7 @@ dd {
     padding: 0;
   }
 
-  #labels {
+  body:not(.printing-picking) #labels {
     display: block !important;
   }
 

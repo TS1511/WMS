@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260919-11" />
+    <link rel="stylesheet" href="styles.css?v=20260919-12" />
   </head>
   <body>
     <aside class="sidebar">
@@ -219,6 +219,13 @@
             <section class="panel picking-result">
               <div class="panel-head">
                 <div><h2>Ruta de preparación</h2><span id="pickingSummary">Sin calcular</span></div>
+                <button id="printPickingRoute" type="button" class="ghost" disabled>Imprimir hoja</button>
+              </div>
+              <div class="picking-print-head">
+                <h1>Hoja de preparación</h1>
+                <div><span>Pedido</span><strong id="printPickingReference">Sin referencia</strong></div>
+                <div><span>Prioridad</span><strong id="printPickingPriority">Normal</strong></div>
+                <div><span>Resumen</span><strong id="printPickingSummary">Sin calcular</strong></div>
               </div>
               <div id="pickingShortages" class="picking-shortages hidden"></div>
               <ol id="pickingRoute" class="picking-route"><li class="picking-route-empty">Agregá productos y generá la ruta para comenzar.</li></ol>
@@ -592,6 +599,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260919-6"></script>
-    <script src="app.js?v=20260919-47"></script>
+    <script src="app.js?v=20260919-48"></script>
   </body>
 </html>
