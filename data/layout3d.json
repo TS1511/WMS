@@ -127742,7 +127742,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": -10.095652173913043,
+      "col": -11.139130434782608,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127798,7 +127798,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": -7.591304347826086,
+      "col": -9.678260869565218,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127854,7 +127854,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": -5.086956521739129,
+      "col": -8.217391304347826,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127910,7 +127910,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": -2.5826086956521728,
+      "col": -6.756521739130434,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127966,7 +127966,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": -0.0782608695652165,
+      "col": -5.295652173913043,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128022,7 +128022,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 2.4260869565217416,
+      "col": -3.8347826086956527,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128078,7 +128078,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 4.930434782608698,
+      "col": -2.373913043478261,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128134,7 +128134,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 7.434782608695654,
+      "col": -0.9130434782608692,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128190,7 +128190,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 9.93913043478261,
+      "col": 0.5478260869565226,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128246,7 +128246,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 12.443478260869567,
+      "col": 2.0086956521739143,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128302,7 +128302,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 14.947826086956523,
+      "col": 3.4695652173913043,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128358,7 +128358,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 17.45217391304348,
+      "col": 4.930434782608694,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128414,7 +128414,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 19.956521739130437,
+      "col": 6.391304347826088,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128470,7 +128470,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 22.460869565217394,
+      "col": 7.852173913043478,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128526,7 +128526,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 24.96521739130435,
+      "col": 9.313043478260871,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128582,7 +128582,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 27.469565217391306,
+      "col": 10.773913043478261,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128638,7 +128638,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 29.973913043478262,
+      "col": 12.234782608695651,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128694,7 +128694,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 32.47826086956522,
+      "col": 13.695652173913045,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128750,7 +128750,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 34.982608695652175,
+      "col": 15.156521739130435,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128806,7 +128806,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 37.48695652173913,
+      "col": 16.617391304347827,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128862,7 +128862,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 39.99130434782609,
+      "col": 18.07826086956522,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128918,7 +128918,7 @@
       "position": 1,
       "type": "wallrack",
       "row": 59.5,
-      "col": 42.495652173913044,
+      "col": 19.539130434782606,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128974,7 +128974,7 @@
       "position": 2,
       "type": "wallrack",
       "row": 59.5,
-      "col": 45,
+      "col": 21,
       "occupiedLevels": 0,
       "levels": [
         {
