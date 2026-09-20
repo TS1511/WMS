@@ -1512,7 +1512,7 @@ function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height
 function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = false) {
   const bottom = POSITION_3D.base + level * POSITION_3D.levelPitch;
   const top = bottom + POSITION_3D.height;
-  const halfWidth = POSITION_3D.halfWidth;
+  const halfWidth = stack.type === "wallrack" ? 1.18 : POSITION_3D.halfWidth;
   const halfLength = POSITION_3D.halfLength;
   const preserveSpacing = stack.type === "drivein" || stack.type === "wallrack";
   const base = [
