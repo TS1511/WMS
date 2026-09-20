@@ -83,8 +83,8 @@ for (let module = 1; module <= 12; module += 1) {
       module,
       position,
       type: "wallrack",
-      row: 59.5,
-      col: -12.6 + ((module - 1) * 2 + (position - 1)) * (33.6 / 23),
+      row: 58.8,
+      col: -10 + ((module - 1) * 2 + (position - 1)) * (32 / 23),
       occupiedLevels: 0,
       levels,
     });

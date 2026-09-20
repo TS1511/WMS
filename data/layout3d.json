@@ -6,7 +6,7 @@
   },
   "bounds": {
     "minRow": 8,
-    "maxRow": 59.5,
+    "maxRow": 58.8,
     "minCol": -54.3,
     "maxCol": 80
   },
@@ -127685,8 +127685,8 @@
       "module": 1,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -12.6,
+      "row": 58.8,
+      "col": -10,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127741,8 +127741,8 @@
       "module": 1,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -11.139130434782608,
+      "row": 58.8,
+      "col": -8.608695652173914,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127797,8 +127797,8 @@
       "module": 2,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -9.678260869565218,
+      "row": 58.8,
+      "col": -7.217391304347826,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127853,8 +127853,8 @@
       "module": 2,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -8.217391304347826,
+      "row": 58.8,
+      "col": -5.826086956521739,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127909,8 +127909,8 @@
       "module": 3,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -6.756521739130434,
+      "row": 58.8,
+      "col": -4.434782608695652,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -127965,8 +127965,8 @@
       "module": 3,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -5.295652173913043,
+      "row": 58.8,
+      "col": -3.0434782608695654,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128021,8 +128021,8 @@
       "module": 4,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -3.8347826086956527,
+      "row": 58.8,
+      "col": -1.6521739130434785,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128077,8 +128077,8 @@
       "module": 4,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -2.373913043478261,
+      "row": 58.8,
+      "col": -0.2608695652173907,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128133,8 +128133,8 @@
       "module": 5,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": -0.9130434782608692,
+      "row": 58.8,
+      "col": 1.1304347826086953,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128189,8 +128189,8 @@
       "module": 5,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 0.5478260869565226,
+      "row": 58.8,
+      "col": 2.5217391304347814,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128245,8 +128245,8 @@
       "module": 6,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 2.0086956521739143,
+      "row": 58.8,
+      "col": 3.913043478260869,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128301,8 +128301,8 @@
       "module": 6,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 3.4695652173913043,
+      "row": 58.8,
+      "col": 5.304347826086957,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128357,8 +128357,8 @@
       "module": 7,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 4.930434782608694,
+      "row": 58.8,
+      "col": 6.695652173913043,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128413,8 +128413,8 @@
       "module": 7,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 6.391304347826088,
+      "row": 58.8,
+      "col": 8.086956521739129,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128469,8 +128469,8 @@
       "module": 8,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 7.852173913043478,
+      "row": 58.8,
+      "col": 9.478260869565219,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128525,8 +128525,8 @@
       "module": 8,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 9.313043478260871,
+      "row": 58.8,
+      "col": 10.869565217391305,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128581,8 +128581,8 @@
       "module": 9,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 10.773913043478261,
+      "row": 58.8,
+      "col": 12.26086956521739,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128637,8 +128637,8 @@
       "module": 9,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 12.234782608695651,
+      "row": 58.8,
+      "col": 13.652173913043477,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128693,8 +128693,8 @@
       "module": 10,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 13.695652173913045,
+      "row": 58.8,
+      "col": 15.043478260869563,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128749,8 +128749,8 @@
       "module": 10,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 15.156521739130435,
+      "row": 58.8,
+      "col": 16.434782608695652,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128805,8 +128805,8 @@
       "module": 11,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 16.617391304347827,
+      "row": 58.8,
+      "col": 17.82608695652174,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128861,8 +128861,8 @@
       "module": 11,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 18.07826086956522,
+      "row": 58.8,
+      "col": 19.217391304347824,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128917,8 +128917,8 @@
       "module": 12,
       "position": 1,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 19.539130434782606,
+      "row": 58.8,
+      "col": 20.608695652173914,
       "occupiedLevels": 0,
       "levels": [
         {
@@ -128973,8 +128973,8 @@
       "module": 12,
       "position": 2,
       "type": "wallrack",
-      "row": 59.5,
-      "col": 21,
+      "row": 58.8,
+      "col": 22,
       "occupiedLevels": 0,
       "levels": [
         {
