@@ -10,7 +10,7 @@ const layoutPayload = JSON.parse(fs.readFileSync(layoutPath, "utf8"));
 locationsPayload.locations = locationsPayload.locations.filter((item) => item.storageType !== "drivein");
 layoutPayload.stacks = layoutPayload.stacks.filter((item) => item.type !== "drivein");
 
-for (let column = 1; column <= 25; column += 1) {
+for (let column = 1; column <= 38; column += 1) {
   for (let depth = 1; depth <= 5; depth += 1) {
     const columnCode = String(column).padStart(2, "0");
     const depthCode = String(depth).padStart(2, "0");
@@ -78,4 +78,4 @@ layoutPayload.bounds = {
 
 fs.writeFileSync(locationsPath, JSON.stringify(locationsPayload, null, 2) + "\n");
 fs.writeFileSync(layoutPath, JSON.stringify(layoutPayload, null, 2) + "\n");
-console.log("Drive-In agregado: 25 columnas x 5 niveles x 5 profundidades = 625 posiciones.");
+console.log("Drive-In agregado: 38 columnas x 5 niveles x 5 profundidades = 950 posiciones.");
