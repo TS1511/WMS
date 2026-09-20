@@ -1262,8 +1262,7 @@ function pickingAge(location) {
 }
 
 function pickingPoint(location) {
-  const key = location.id.split(".").slice(0, -1).join(".");
-  const stack = state.layout3d?.stacks?.find((item) => item.key === key);
+  const stack = state.layout3d?.stacks?.find((item) => item.levels?.some((level) => level.id === location.id));
   return stack ? { x: Number(stack.col), y: Number(stack.row) } : { x: Number(location.module), y: Number(location.side) * 100 + Number(location.rack) };
 }
 
@@ -1374,13 +1373,20 @@ function render3dMap() {
     .filter((stack) => !query || [stack.baseId, stack.aisle, stack.side, stack.rack, stack.module].join(" ").toLowerCase().includes(query))
     .map((stack) => {
       const levels = [0, 1, 2, 3, 4].map((level) => {
-        const location = locationsById.get(stack.type === "drivein" ? `DI.${String(stack.column).padStart(2, "0")}.${level}.${String(stack.depth).padStart(2, "0")}` : `${stack.key}.${level}`);
+        const locationId = stack.type === "drivein"
+          ? `DI.${String(stack.column).padStart(2, "0")}.${level}.${String(stack.depth).padStart(2, "0")}`
+          : stack.type === "wallrack"
+            ? `E.${String(stack.module).padStart(2, "0")}.${level}.${String(stack.position).padStart(2, "0")}`
+            : `${stack.key}.${level}`;
+        const location = locationsById.get(locationId);
         return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked) };
       });
       const firstRelevant = levels.findIndex((level) => level.blocked || level.occupied);
       const detailId = stack.type === "drivein"
         ? `DI.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.depth).padStart(2, "0")}`
-        : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
+        : stack.type === "wallrack"
+          ? `E.${String(stack.module).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.position).padStart(2, "0")}`
+          : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
       return { ...stack, levels, detailId };
     });
   state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
@@ -1508,7 +1514,7 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
   const top = bottom + POSITION_3D.height;
   const halfWidth = POSITION_3D.halfWidth;
   const halfLength = POSITION_3D.halfLength;
-  const preserveSpacing = stack.type === "drivein";
+  const preserveSpacing = stack.type === "drivein" || stack.type === "wallrack";
   const base = [
     project3d(stack.col - halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
     project3d(stack.col + halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
@@ -1542,7 +1548,7 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
 
 function stackDepth3d(stack) {
   const bounds = state.layout3d.bounds;
-  const projectedCol = stack.type === "drivein" ? stack.col : expandAisleSpacing(stack.col, bounds.minCol);
+  const projectedCol = stack.type === "drivein" || stack.type === "wallrack" ? stack.col : expandAisleSpacing(stack.col, bounds.minCol);
   const x = (projectedCol - expandAisleSpacing(bounds.minCol, bounds.minCol)) * 11;
   const y = (stack.row - bounds.minRow) * 11;
   const angle = (state.view3d.rotation * Math.PI) / 180;
@@ -2614,10 +2620,10 @@ function openDetail(item) {
   $("#detailPanel").dataset.locationId = item.id;
   $("#detailTitle").textContent = item.id;
   renderDetailFields([
-    ["Sector", item.storageType === "drivein" ? "Drive-In" : item.aisle],
+    ["Sector", item.storageType === "drivein" ? "Drive-In" : item.storageType === "wallrack" ? "Este" : item.aisle],
     [item.storageType === "drivein" ? "Acceso" : "Lado", item.storageType === "drivein" ? "Único" : item.side],
-    [item.storageType === "drivein" ? "Columna" : "Rack", item.rack],
-    [item.storageType === "drivein" ? "Profundidad" : "Módulo", item.depth || item.module],
+    [item.storageType === "drivein" ? "Columna" : "Módulo", item.rack],
+    [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
     ["Nivel", item.level],
     ["Material", item.material || "Sin stock"],
     ["Cantidad", item.quantity || 0],

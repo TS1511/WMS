@@ -6,7 +6,7 @@
   },
   "bounds": {
     "minRow": 8,
-    "maxRow": 58.8,
+    "maxRow": 61,
     "minCol": -54.3,
     "maxCol": 80
   },
@@ -127669,6 +127669,1350 @@
           "id": "DI.38.4.05",
           "level": 4,
           "rack": 38,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.01.01",
+      "baseId": "E.01.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 1,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -12.3,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.01.0.01",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.1.01",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.2.01",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.3.01",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.4.01",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.01.02",
+      "baseId": "E.01.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 1,
+      "column": 1,
+      "module": 1,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -11.280000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.01.0.02",
+          "level": 0,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.1.02",
+          "level": 1,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.2.02",
+          "level": 2,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.3.02",
+          "level": 3,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.01.4.02",
+          "level": 4,
+          "rack": 1,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.02.01",
+      "baseId": "E.02.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 2,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -10.260000000000002,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.02.0.01",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.1.01",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.2.01",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.3.01",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.4.01",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.02.02",
+      "baseId": "E.02.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 2,
+      "column": 2,
+      "module": 2,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -9.24,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.02.0.02",
+          "level": 0,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.1.02",
+          "level": 1,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.2.02",
+          "level": 2,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.3.02",
+          "level": 3,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.02.4.02",
+          "level": 4,
+          "rack": 2,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.03.01",
+      "baseId": "E.03.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 3,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -8.22,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.03.0.01",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.1.01",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.2.01",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.3.01",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.4.01",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.03.02",
+      "baseId": "E.03.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 3,
+      "column": 3,
+      "module": 3,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -7.200000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.03.0.02",
+          "level": 0,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.1.02",
+          "level": 1,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.2.02",
+          "level": 2,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.3.02",
+          "level": 3,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.03.4.02",
+          "level": 4,
+          "rack": 3,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.04.01",
+      "baseId": "E.04.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 4,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -6.180000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.04.0.01",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.1.01",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.2.01",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.3.01",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.4.01",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.04.02",
+      "baseId": "E.04.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 4,
+      "column": 4,
+      "module": 4,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -5.16,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.04.0.02",
+          "level": 0,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.1.02",
+          "level": 1,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.2.02",
+          "level": 2,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.3.02",
+          "level": 3,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.04.4.02",
+          "level": 4,
+          "rack": 4,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.05.01",
+      "baseId": "E.05.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 5,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -4.140000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.05.0.01",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.1.01",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.2.01",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.3.01",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.4.01",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.05.02",
+      "baseId": "E.05.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 5,
+      "column": 5,
+      "module": 5,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -3.120000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.05.0.02",
+          "level": 0,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.1.02",
+          "level": 1,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.2.02",
+          "level": 2,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.3.02",
+          "level": 3,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.05.4.02",
+          "level": 4,
+          "rack": 5,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.06.01",
+      "baseId": "E.06.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 6,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -2.1000000000000014,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.06.0.01",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.1.01",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.2.01",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.3.01",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.4.01",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.06.02",
+      "baseId": "E.06.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 6,
+      "column": 6,
+      "module": 6,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": -1.08,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.06.0.02",
+          "level": 0,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.1.02",
+          "level": 1,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.2.02",
+          "level": 2,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.3.02",
+          "level": 3,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.06.4.02",
+          "level": 4,
+          "rack": 6,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.07.01",
+      "baseId": "E.07.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 7,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": -0.0600000000000005,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.07.0.01",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.1.01",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.2.01",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.3.01",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.4.01",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.07.02",
+      "baseId": "E.07.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 7,
+      "column": 7,
+      "module": 7,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 0.9599999999999991,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.07.0.02",
+          "level": 0,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.1.02",
+          "level": 1,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.2.02",
+          "level": 2,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.3.02",
+          "level": 3,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.07.4.02",
+          "level": 4,
+          "rack": 7,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.08.01",
+      "baseId": "E.08.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 8,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": 1.9800000000000004,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.08.0.01",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.1.01",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.2.01",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.3.01",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.4.01",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.08.02",
+      "baseId": "E.08.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 8,
+      "column": 8,
+      "module": 8,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 3,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.08.0.02",
+          "level": 0,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.1.02",
+          "level": 1,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.2.02",
+          "level": 2,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.3.02",
+          "level": 3,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.08.4.02",
+          "level": 4,
+          "rack": 8,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.09.01",
+      "baseId": "E.09.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 9,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": 4.02,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.09.0.01",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.1.01",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.2.01",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.3.01",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.4.01",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.09.02",
+      "baseId": "E.09.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 9,
+      "column": 9,
+      "module": 9,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 5.039999999999999,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.09.0.02",
+          "level": 0,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.1.02",
+          "level": 1,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.2.02",
+          "level": 2,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.3.02",
+          "level": 3,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.09.4.02",
+          "level": 4,
+          "rack": 9,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.10.01",
+      "baseId": "E.10.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 10,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": 6.059999999999999,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.10.0.01",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.1.01",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.2.01",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.3.01",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.4.01",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.10.02",
+      "baseId": "E.10.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 10,
+      "column": 10,
+      "module": 10,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 7.079999999999998,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.10.0.02",
+          "level": 0,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.1.02",
+          "level": 1,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.2.02",
+          "level": 2,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.3.02",
+          "level": 3,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.10.4.02",
+          "level": 4,
+          "rack": 10,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.11.01",
+      "baseId": "E.11.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 11,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": 8.099999999999998,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.11.0.01",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.1.01",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.2.01",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.3.01",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.4.01",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.11.02",
+      "baseId": "E.11.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 11,
+      "column": 11,
+      "module": 11,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 9.120000000000001,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.11.0.02",
+          "level": 0,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.1.02",
+          "level": 1,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.2.02",
+          "level": 2,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.3.02",
+          "level": 3,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.11.4.02",
+          "level": 4,
+          "rack": 11,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.12.01",
+      "baseId": "E.12.0.01",
+      "aisle": "E",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 12,
+      "position": 1,
+      "type": "wallrack",
+      "row": 61,
+      "col": 10.14,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.12.0.01",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.1.01",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.2.01",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.3.01",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.4.01",
+          "level": 4,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        }
+      ]
+    },
+    {
+      "key": "E.12.02",
+      "baseId": "E.12.0.02",
+      "aisle": "E",
+      "side": 2,
+      "rack": 12,
+      "column": 12,
+      "module": 12,
+      "position": 2,
+      "type": "wallrack",
+      "row": 61,
+      "col": 11.16,
+      "occupiedLevels": 0,
+      "levels": [
+        {
+          "id": "E.12.0.02",
+          "level": 0,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.1.02",
+          "level": 1,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.2.02",
+          "level": 2,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.3.02",
+          "level": 3,
+          "rack": 12,
+          "occupied": false,
+          "material": "",
+          "quantity": 0
+        },
+        {
+          "id": "E.12.4.02",
+          "level": 4,
+          "rack": 12,
           "occupied": false,
           "material": "",
           "quantity": 0
