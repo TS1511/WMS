@@ -720,7 +720,7 @@ function setSkuMessage(text, error = false) {
 
 function renderSkuMaster() {
   const query = String($("#skuSearch")?.value || "").trim().toLowerCase();
-  const items = state.skuMaster.filter((item) => !query || [item.sku,item.description,item.ean,item.category].some((value) => String(value || "").toLowerCase().includes(query)));
+  const items = state.skuMaster.filter((item) => !query || SKU_FIELDS.some((field) => String(item[field] ?? "").toLowerCase().includes(query)));
   const currentStock = stockBySku();
   $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU`;
   const body = $("#skuTable");
@@ -732,7 +732,28 @@ function renderSkuMaster() {
     const coverage = item.dailyConsumption > 0 ? quantity / item.dailyConsumption : null;
     const stockStatus = quantity <= 0 ? "Sin stock" : item.minStock > 0 && quantity < item.minStock ? "Reponer" : item.maxStock > 0 && quantity > item.maxStock ? "Exceso" : "Normal";
     row.dataset.stockStatus = stockStatus.toLowerCase().replace(" ", "-");
-    [item.sku,item.description,formatVelocityClass(item.velocityClass),quantity,item.minStock || "—",item.maxStock || "—",item.dailyConsumption || "—",coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),stockStatus].forEach((value) => {
+    [
+      item.sku,
+      item.description,
+      item.ean || "—",
+      item.category || "—",
+      formatVelocityClass(item.velocityClass),
+      item.unit || "UN",
+      item.unitsPerCase || "—",
+      item.casesPerPallet || "—",
+      item.unitsPerPallet || "—",
+      item.weightKg || "—",
+      item.lotControl ? "Sí" : "No",
+      item.expiryControl ? "Sí" : "No",
+      item.preferredLocation || "—",
+      quantity,
+      item.minStock || "—",
+      item.maxStock || "—",
+      item.dailyConsumption || "—",
+      coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),
+      item.active ? "Sí" : "No",
+      stockStatus,
+    ].forEach((value) => {
       const cell = document.createElement("td"); cell.textContent = value; row.appendChild(cell);
     });
     body.appendChild(row);

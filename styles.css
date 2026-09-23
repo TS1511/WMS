@@ -662,6 +662,55 @@ label select {
   background: #eef5f8;
 }
 
+.sku-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-gutter: stable;
+}
+
+.sku-master-table {
+  min-width: 2120px;
+}
+
+.sku-master-table th,
+.sku-master-table td {
+  white-space: nowrap;
+}
+
+.sku-master-table th:nth-child(1),
+.sku-master-table td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 120px;
+  background: #fff;
+}
+
+.sku-master-table th:nth-child(2),
+.sku-master-table td:nth-child(2) {
+  position: sticky;
+  left: 120px;
+  z-index: 2;
+  min-width: 220px;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #fff;
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.sku-master-table th:nth-child(1),
+.sku-master-table th:nth-child(2) {
+  z-index: 3;
+  color: inherit;
+  background: inherit;
+}
+
+#skuTable tr:hover td:nth-child(1),
+#skuTable tr:hover td:nth-child(2) {
+  background: #eef5f8;
+}
+
 #skuTable tr[data-stock-status="sin-stock"] td:last-child,
 #skuTable tr[data-stock-status="reponer"] td:last-child {
   color: var(--danger);
