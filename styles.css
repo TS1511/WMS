@@ -712,6 +712,17 @@ label select {
   gap: 10px;
 }
 
+.register-content-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+#registerMultiGroup textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
 .dashboard-insight-grid article,
 .reconciliation-kpis article {
   display: grid;
@@ -1724,6 +1735,10 @@ dd {
   body {
     display: block;
     padding-bottom: 72px;
+  }
+
+  .register-content-grid {
+    grid-template-columns: 1fr;
   }
 
   .picking-route li {

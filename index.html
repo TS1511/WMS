@@ -107,8 +107,19 @@
             </div>
 
             <form id="registerMovement" class="register-form" data-operation="IN">
+              <label id="registerLoadTypeGroup">Tipo de carga
+                <select name="loadType" id="registerLoadType">
+                  <option value="PALLET_MONO">Pallet monoproducto</option>
+                  <option value="PALLET_MULTI">Pallet multiproducto</option>
+                  <option value="BULTOS">Bultos sin pallet</option>
+                </select>
+              </label>
               <label id="registerMaterialGroup">SKU / Material
                 <span class="scan-field"><input name="material" id="registerMaterial" autocomplete="off" placeholder="Escanear o ingresar SKU" /><button type="button" class="scan-button" data-scan-target="registerMaterial" aria-label="Escanear SKU">Escanear SKU</button></span>
+              </label>
+              <label id="registerMultiGroup" hidden>Contenido multiproducto
+                <textarea name="multiContents" id="registerMultiContents" rows="5" placeholder="SKU; bultos; unidades por bulto&#10;100360; 12; 6&#10;555555; 8; 10"></textarea>
+                <small>Una línea por SKU. Las unidades por bulto son opcionales si están definidas en el maestro.</small>
               </label>
               <div id="putawaySuggestion" class="putaway-suggestion hidden" aria-live="polite">
                 <div><span>Posición sugerida</span><strong id="suggestedPosition"></strong><small id="suggestionReason"></small></div>
@@ -122,8 +133,18 @@
                 <span class="scan-field"><input name="to" id="registerTo" autocomplete="off" placeholder="Escanear posición destino" /><button type="button" class="scan-button" data-scan-target="registerTo" aria-label="Escanear posición destino">Escanear</button></span>
                 <small id="registerToInfo" class="field-info"></small>
               </label>
-              <label>Cantidad
-                <input name="quantity" id="registerQuantity" type="number" min="1" value="1" inputmode="numeric" />
+              <div class="register-content-grid">
+                <label id="registerPalletCountGroup">Pallets
+                  <input name="palletCount" id="registerPalletCount" type="number" min="1" value="1" inputmode="numeric" />
+                </label>
+                <label id="registerQuantityGroup">Bultos
+                  <input name="quantity" id="registerQuantity" type="number" min="1" value="1" inputmode="numeric" />
+                </label>
+                <label id="registerUnitsPerPackageGroup">Unidades por bulto
+                  <input name="unitsPerPackage" id="registerUnitsPerPackage" type="number" min="0" value="0" inputmode="numeric" />
+                </label>
+              </div>
+              <p id="registerContentTotal" class="field-info"></p>
               </label>
               <div id="movementSummary" class="movement-summary"></div>
               <button id="registerSubmit" type="submit" class="primary-action">Registrar ingreso</button>
@@ -134,8 +155,8 @@
           <aside class="register-side">
             <section class="register-stats">
               <article><span>Movimientos hoy</span><strong id="todayMoves">0</strong></article>
-              <article><span>Unidades ingresadas</span><strong id="todayIn">0</strong></article>
-              <article><span>Unidades egresadas</span><strong id="todayOut">0</strong></article>
+              <article><span>Bultos ingresados</span><strong id="todayIn">0</strong></article>
+              <article><span>Bultos egresados</span><strong id="todayOut">0</strong></article>
             </section>
             <section class="panel recent-registers">
               <div class="panel-head"><h2>Últimos movimientos</h2><span id="lastMovementTime"></span></div>
@@ -299,7 +320,7 @@
                   <th>Módulo</th>
                   <th>Nivel</th>
                   <th>Material</th>
-                  <th>Cantidad</th>
+                  <th>Bultos</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -324,7 +345,7 @@
                   <th>Material</th>
                   <th>Desde</th>
                   <th>Hasta</th>
-                  <th>Cantidad</th>
+                  <th>Bultos</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -541,7 +562,7 @@
         <label>Hasta
           <input name="to" autocomplete="off" />
         </label>
-        <label>Cantidad
+        <label>Bultos / pallets (registros anteriores)
           <input name="quantity" type="number" min="1" />
         </label>
         <p id="editMovementMessage" class="message"></p>
@@ -592,7 +613,7 @@
     <input id="barcodeCapture" type="file" accept="image/*" capture="environment" hidden />
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
-    <script src="data/embedded-data.js?v=20260925-1"></script>
-    <script src="app.js?v=20260925-1"></script>
+    <script src="data/embedded-data.js?v=20260925-2"></script>
+    <script src="app.js?v=20260925-2"></script>
   </body>
 </html>
