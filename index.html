@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260925-1" />
+    <link rel="stylesheet" href="styles.css?v=20260925-3" />
   </head>
   <body>
     <aside class="sidebar">
@@ -111,15 +111,14 @@
                 <select name="loadType" id="registerLoadType">
                   <option value="PALLET_MONO">Pallet monoproducto</option>
                   <option value="PALLET_MULTI">Pallet multiproducto</option>
-                  <option value="BULTOS">Bultos sin pallet</option>
                 </select>
               </label>
               <label id="registerMaterialGroup">SKU / Material
                 <span class="scan-field"><input name="material" id="registerMaterial" autocomplete="off" placeholder="Escanear o ingresar SKU" /><button type="button" class="scan-button" data-scan-target="registerMaterial" aria-label="Escanear SKU">Escanear SKU</button></span>
               </label>
               <label id="registerMultiGroup" hidden>Contenido multiproducto
-                <textarea name="multiContents" id="registerMultiContents" rows="5" placeholder="SKU; bultos; unidades por bulto&#10;100360; 12; 6&#10;555555; 8; 10"></textarea>
-                <small>Una línea por SKU. Las unidades por bulto son opcionales si están definidas en el maestro.</small>
+                <textarea name="multiContents" id="registerMultiContents" rows="5" placeholder="SKU; bultos&#10;100360; 12&#10;555555; 8"></textarea>
+                <small>Una línea por SKU. La cantidad de bultos sólo se informa para pallets multiproducto.</small>
               </label>
               <div id="putawaySuggestion" class="putaway-suggestion hidden" aria-live="polite">
                 <div><span>Posición sugerida</span><strong id="suggestedPosition"></strong><small id="suggestionReason"></small></div>
@@ -140,15 +139,17 @@
                 <label id="registerQuantityGroup">Bultos
                   <input name="quantity" id="registerQuantity" type="number" min="1" value="1" inputmode="numeric" />
                 </label>
-                <label id="registerUnitsPerPackageGroup">Unidades por bulto
-                  <input name="unitsPerPackage" id="registerUnitsPerPackage" type="number" min="0" value="0" inputmode="numeric" />
-                </label>
               </div>
               <p id="registerContentTotal" class="field-info"></p>
               </label>
               <div id="movementSummary" class="movement-summary"></div>
               <button id="registerSubmit" type="submit" class="primary-action">Registrar ingreso</button>
             </form>
+            <div class="picking-file-bar movement-import-bar">
+              <label class="ghost file-action">Importar movimientos<input id="movementImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
+              <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
+            </div>
+            <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
             <p id="registerMessage" class="message register-message" aria-live="polite"></p>
           </section>
 
@@ -183,20 +184,21 @@
             </div>
             <div class="picking-order-fields">
               <label>Pedido / referencia<input id="pickingOrderRef" placeholder="Ej. PED-1048"></label>
+              <label>Sucursal destino<input id="pickingDestination" placeholder="Ej. Sucursal Centro" required></label>
               <label>Prioridad<select id="pickingPriority"><option>Normal</option><option>Urgente</option></select></label>
             </div>
             <div class="picking-file-bar">
               <label class="ghost file-action">Importar archivo<input id="pickingImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadPickingTemplate" type="button" class="ghost">Descargar plantilla</button>
             </div>
-            <p class="import-format">Formato requerido: número de viaje, número de entrega, SKU y cantidad. Una fila por SKU y entrega.</p>
+            <p class="import-format">Formato requerido: número de viaje, número de entrega, sucursal destino, SKU y bultos. Una fila por SKU y entrega.</p>
             <div id="pickingImportPanel" class="picking-import-panel hidden">
               <label>Viaje y entrega<select id="pickingOrderSelect"></select></label>
               <span id="pickingImportSummary"></span>
             </div>
             <div class="picking-quick-add">
               <label>SKU<input id="pickingSku" autocomplete="off" placeholder="Escanear o ingresar SKU"></label>
-              <label>Cantidad<input id="pickingQuantity" type="number" min="1" step="1" value="1"></label>
+              <label>Bultos<input id="pickingQuantity" type="number" min="1" step="1" value="1"></label>
               <button id="addPickingLine" type="button" class="primary-action">Agregar</button>
             </div>
             <div id="pickingDraft" class="picking-draft"><p class="empty-state">Todavía no agregaste productos.</p></div>
@@ -214,7 +216,7 @@
           </form>
           <div class="picking-output">
             <section class="picking-kpis" aria-label="Resumen del pedido">
-              <article><span>Unidades</span><strong id="pickingUnits">0</strong></article>
+              <article><span>Bultos</span><strong id="pickingUnits">0</strong></article>
               <article><span>Paradas</span><strong id="pickingStops">0</strong></article>
               <article><span>Faltantes</span><strong id="pickingMissing">0</strong></article>
             </section>
@@ -227,6 +229,7 @@
                 <h1>Hoja de preparación</h1>
                 <div><span>Pedido</span><strong id="printPickingReference">Sin referencia</strong></div>
                 <div><span>Prioridad</span><strong id="printPickingPriority">Normal</strong></div>
+                <div><span>Destino</span><strong id="printPickingDestination">Sin destino</strong></div>
                 <div><span>Resumen</span><strong id="printPickingSummary">Sin calcular</strong></div>
               </div>
               <div id="pickingShortages" class="picking-shortages hidden"></div>
@@ -322,6 +325,8 @@
                   <th>Material</th>
                   <th>Bultos</th>
                   <th>Estado</th>
+                  <th>Última actividad</th>
+                  <th>Movimiento</th>
                 </tr>
               </thead>
               <tbody id="locationsTable"></tbody>
@@ -427,15 +432,12 @@
               <label>EAN / código de barras<input name="ean" inputmode="numeric" /></label>
               <label>Categoría<input name="category" /></label>
               <label>Clasificación<select name="velocityClass"><option value="">Sin clasificar</option><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select></label>
-              <label>Unidad de medida<select name="unit"><option>UN</option><option>CJ</option><option>KG</option><option>LT</option><option>PL</option></select></label>
-              <label>Unidades por caja<input name="unitsPerCase" type="number" min="0" value="0" /></label>
-              <label>Cajas por pallet<input name="casesPerPallet" type="number" min="0" value="0" /></label>
-              <label>Unidades por pallet<input name="unitsPerPallet" type="number" min="0" value="0" /></label>
+              <label>Bultos por pallet<input name="casesPerPallet" type="number" min="0" value="0" /></label>
               <label>Peso unitario (kg)<input name="weightKg" type="number" min="0" step="0.001" value="0" /></label>
               <label>Posiciones requeridas<input name="positionsRequired" type="number" min="1" max="10" value="1" /></label>
-              <label>Stock mínimo<input name="minStock" type="number" min="0" value="0" /></label>
-              <label>Stock máximo<input name="maxStock" type="number" min="0" value="0" /></label>
-              <label>Consumo diario estimado<input name="dailyConsumption" type="number" min="0" step="0.01" value="0" /></label>
+              <label>Días de stock mínimo<input name="minDays" type="number" min="0" value="45" /></label>
+              <label>Días de stock máximo<input name="maxDays" type="number" min="0" value="90" /></label>
+              <label>Consumo diario estimado (bultos)<input name="dailyConsumption" type="number" min="0" step="0.01" value="0" /></label>
             </div>
             <div class="sku-checks"><label><input name="active" type="checkbox" checked /> Activo</label></div>
             <button type="submit" class="primary-action">Guardar SKU</button>
@@ -448,8 +450,8 @@
               <label class="ghost file-action">Importar CSV/TSV<input id="skuImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadSkuTemplate" type="button" class="ghost">Descargar plantilla</button>
             </div>
-            <p class="import-format">Formato: SKU, descripción, EAN, categoría, unidad, unidades por caja, cajas por pallet, unidades por pallet, peso, posiciones requeridas, mínimos, máximos, activo, consumo diario y clase.</p>
-            <div class="table-wrap sku-table-wrap"><table class="sku-master-table"><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Categoría</th><th>Clase</th><th>Unidad</th><th>Unid./caja</th><th>Cajas/pallet</th><th>Unid./pallet</th><th>Peso kg</th><th>Posiciones requeridas</th><th>Stock actual</th><th>Mín.</th><th>Máx.</th><th>Consumo/día</th><th>Stock en días</th><th>Activo</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
+            <p class="import-format">Campos: SKU, descripción, EAN, categoría, clasificación, bultos por pallet, peso kg, posiciones requeridas, días de stock mínimo, días de stock máximo, consumo diario en bultos y activo.</p>
+            <div class="table-wrap sku-table-wrap"><table class="sku-master-table"><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Categoría</th><th>Clase</th><th>Bultos/pallet</th><th>Peso kg</th><th>Posiciones</th><th>Stock actual</th><th>Días mín.</th><th>Días máx.</th><th>Stock mín.</th><th>Stock máx.</th><th>Consumo/día</th><th>Stock en días</th><th>Activo</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
           </section>
           </div>
         </div>
@@ -614,6 +616,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260925-2"></script>
-    <script src="app.js?v=20260925-2"></script>
+    <script src="app.js?v=20260925-3"></script>
   </body>
 </html>

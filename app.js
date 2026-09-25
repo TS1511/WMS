@@ -6,7 +6,7 @@ const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
-const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","positionsRequired","minStock","maxStock","active","dailyConsumption","velocityClass"];
+const SKU_FIELDS = ["sku","description","ean","category","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
 const POSITION_3D = {
   halfWidth: 0.38,
@@ -274,6 +274,8 @@ function bindEvents() {
   $("#skuSearch").addEventListener("input", renderSkuMaster);
   $("#skuImport").addEventListener("change", importSkuFile);
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
+  $("#movementImport").addEventListener("change", importMovementFile);
+  $("#downloadMovementTemplate").addEventListener("click", downloadMovementTemplate);
   $("#skuTable").addEventListener("click", editSkuFromTable);
   $("#slottingForm").addEventListener("submit", saveSlottingRule);
   $("#slottingTable").addEventListener("click", deleteSlottingRule);
@@ -299,11 +301,10 @@ function bindEvents() {
   $$("[data-move-type]").forEach((button) => {
     button.addEventListener("click", () => setMovementType(button.dataset.moveType));
   });
-  ["#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerUnitsPerPackage", "#registerMultiContents", "#registerLoadType"].forEach((selector) => {
+  ["#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerMultiContents", "#registerLoadType"].forEach((selector) => {
     $(selector).addEventListener("input", renderMovementPreview);
   });
   $("#registerLoadType").addEventListener("change", updateRegisterLoadFields);
-  $("#registerMaterial").addEventListener("input", suggestUnitsPerPackage);
   $("#useSuggestedPosition").addEventListener("click", applyPutawaySuggestion);
   $("#closeDetail").addEventListener("click", () => $("#detailPanel").classList.add("hidden"));
   $("#toggleLocationBlock").addEventListener("click", toggleLocationBlock);
@@ -700,18 +701,31 @@ function switchSkuSection(section) {
 }
 
 function normalizeSku(source) {
+  source = normalizeSkuHeaders(source);
   const item = {};
   SKU_FIELDS.forEach((field) => item[field] = source[field] ?? "");
   item.sku = String(item.sku).trim();
   item.description = String(item.description).trim();
   item.ean = String(item.ean).trim();
-  item.unit = String(item.unit || "UN").trim().toUpperCase();
   item.velocityClass = String(item.velocityClass || "").trim().toUpperCase();
-  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","positionsRequired","minStock","maxStock","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
+  ["casesPerPallet","weightKg","positionsRequired","minDays","maxDays","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
   item.positionsRequired = Math.max(1, item.positionsRequired || 1);
+  item.minDays = Math.max(0, item.minDays || 0);
+  item.maxDays = Math.max(item.minDays, item.maxDays || 0);
   item.active = item.active === true || ["1","true","si","sí","yes"].includes(String(item.active).toLowerCase());
-  if (!item.unitsPerPallet && item.unitsPerCase && item.casesPerPallet) item.unitsPerPallet = item.unitsPerCase * item.casesPerPallet;
   return item;
+}
+
+function normalizeSkuHeaders(source = {}) {
+  const aliases = {
+    sku: "sku", descripcion: "description", descripción: "description", ean: "ean", categoria: "category", categoría: "category",
+    clasificacion: "velocityClass", clasificación: "velocityClass", clase: "velocityClass", "bultos por pallet": "casesPerPallet",
+    bultos_por_pallet: "casesPerPallet", "peso kg": "weightKg", peso_kg: "weightKg", "posiciones requeridas": "positionsRequired",
+    posiciones_requeridas: "positionsRequired", "dias de stock minimo": "minDays", "días de stock mínimo": "minDays",
+    dias_stock_minimo: "minDays", "dias de stock maximo": "maxDays", "días de stock máximo": "maxDays", dias_stock_maximo: "maxDays",
+    "consumo diario en bultos": "dailyConsumption", consumo_diario_bultos: "dailyConsumption", activo: "active",
+  };
+  return Object.fromEntries(Object.entries(source).map(([key, value]) => [aliases[key.trim().toLowerCase()] || key, value]));
 }
 
 function formatVelocityClass(value) {
@@ -721,16 +735,14 @@ function formatVelocityClass(value) {
 function normalizeContentLine(source = {}) {
   const sku = String(source.sku || source.material || "").trim();
   const packages = Math.max(0, Number(source.packages ?? source.bultos ?? 0));
-  const unitsPerPackage = Math.max(0, Number(source.unitsPerPackage ?? source.unidadesPorBulto ?? 0));
-  const units = Math.max(0, Number(source.units ?? (packages * unitsPerPackage)));
   const legacyPallets = Math.max(0, Number(source.legacyPallets || 0));
-  return { sku, packages, unitsPerPackage, units, ...(legacyPallets ? { legacyPallets } : {}) };
+  return { sku, packages, ...(legacyPallets ? { legacyPallets } : {}) };
 }
 
 function normalizeLocationLoad(location) {
   if (!Array.isArray(location.contents) || !location.contents.length) {
     location.contents = location.occupied && location.material
-      ? [{ sku: location.material, packages: 0, unitsPerPackage: 0, units: 0, legacyPallets: Number(location.quantity || 1) }]
+      ? [{ sku: location.material, packages: 0, legacyPallets: Number(location.quantity || 1) }]
       : [];
   } else {
     location.contents = location.contents.map(normalizeContentLine).filter((item) => item.sku);
@@ -741,7 +753,7 @@ function normalizeLocationLoad(location) {
 }
 
 function syncLocationLoad(location) {
-  const contents = (location.contents || []).filter((item) => item.sku && (item.packages > 0 || item.units > 0 || item.legacyPallets > 0));
+  const contents = (location.contents || []).filter((item) => item.sku && (item.packages > 0 || item.legacyPallets > 0 || Number(location.palletCount || 0) > 0));
   location.contents = contents;
   location.occupied = contents.length > 0 || Number(location.palletCount || 0) > 0;
   location.material = contents.length > 1 ? "MULTIPRODUCTO" : contents[0]?.sku || "";
@@ -756,11 +768,12 @@ function stockMetricsBySku() {
   const totals = {};
   state.locations.filter((location) => location.occupied).forEach((location) => {
     (location.contents || []).forEach((content) => {
-      const item = totals[content.sku] || { units: 0, packages: 0, pallets: 0, unknownConversion: false };
-      item.units += Number(content.units || 0);
-      item.packages += Number(content.packages || 0);
+      const item = totals[content.sku] || { packages: 0, pallets: 0, unknownConversion: false };
+      const master = state.skuMaster.find((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase());
+      const derivedPackages = Number(content.packages || 0) || Number(content.legacyPallets || location.palletCount || 0) * Number(master?.casesPerPallet || 0);
+      item.packages += derivedPackages;
       item.pallets += Number(content.legacyPallets || 0) || Number(location.palletCount || 0) / Math.max(1, location.contents.length);
-      if (!content.unitsPerPackage && !content.units) item.unknownConversion = true;
+      if (!derivedPackages && item.pallets) item.unknownConversion = true;
       totals[content.sku] = item;
     });
   });
@@ -768,7 +781,7 @@ function stockMetricsBySku() {
 }
 
 function stockBySku() {
-  return Object.fromEntries(Object.entries(stockMetricsBySku()).map(([sku, item]) => [sku, item.units]));
+  return Object.fromEntries(Object.entries(stockMetricsBySku()).map(([sku, item]) => [sku, item.packages]));
 }
 
 async function saveSku(event) {
@@ -821,7 +834,9 @@ function renderSkuMaster() {
     const quantity = Number(currentStock[item.sku] || 0);
     const conversionPending = Boolean(stockMetrics[item.sku]?.unknownConversion);
     const coverage = item.dailyConsumption > 0 ? quantity / item.dailyConsumption : null;
-    const stockStatus = conversionPending ? "Conversión pendiente" : quantity <= 0 ? "Sin stock" : item.minStock > 0 && quantity < item.minStock ? "Reponer" : item.maxStock > 0 && quantity > item.maxStock ? "Exceso" : "Normal";
+    const minStock = Number(item.dailyConsumption || 0) * Number(item.minDays || 0);
+    const maxStock = Number(item.dailyConsumption || 0) * Number(item.maxDays || 0);
+    const stockStatus = conversionPending ? "Definir bultos/pallet" : quantity <= 0 ? "Sin stock" : minStock > 0 && quantity < minStock ? "Reponer" : maxStock > 0 && quantity > maxStock ? "Exceso" : "Normal";
     row.dataset.stockStatus = stockStatus.toLowerCase().replace(" ", "-");
     [
       item.sku,
@@ -829,15 +844,14 @@ function renderSkuMaster() {
       item.ean || "—",
       item.category || "—",
       formatVelocityClass(item.velocityClass),
-      item.unit || "UN",
-      item.unitsPerCase || "—",
       item.casesPerPallet || "—",
-      item.unitsPerPallet || "—",
       item.weightKg || "—",
       item.positionsRequired,
-      conversionPending ? "Sin conversión" : quantity,
-      item.minStock || "—",
-      item.maxStock || "—",
+      conversionPending ? "Pendiente" : quantity,
+      item.minDays || "—",
+      item.maxDays || "—",
+      minStock || "—",
+      maxStock || "—",
       item.dailyConsumption || "—",
       conversionPending || coverage === null ? "—" : coverage.toLocaleString("es-AR", { maximumFractionDigits: 1 }),
       item.active ? "Sí" : "No",
@@ -874,6 +888,7 @@ async function importSkuFile(event) {
     renderSkuMaster();
     const result = await centralRequest("sku_bulk", { items, admin_password: ADMIN_PASSWORD_HASH });
     if (!result.ok) throw new Error(result.error || "No se pudo importar centralmente");
+    localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
     setSkuMessage(`${items.length} SKU importados.`);
   } catch (error) {
     setSkuMessage(error.message, true);
@@ -888,6 +903,71 @@ function parseDelimited(text) {
   const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : ",";
   const headers = lines.shift().split(delimiter).map((value) => value.trim());
   return lines.map((line) => Object.fromEntries(headers.map((header, index) => [header, (line.split(delimiter)[index] || "").trim()])));
+}
+
+function downloadMovementTemplate() {
+  const rows = [
+    ["Referencia", "Tipo", "Posición origen", "Posición destino", "Tipo de carga", "SKU", "Bultos"],
+    ["ING-001", "INGRESO", "", "A1.01.0", "PALLET", "100360", ""],
+    ["ING-002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "100360", 12],
+    ["ING-002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "555555", 8],
+    ["EGR-001", "EGRESO", "A1.01.1", "", "BULTOS", "100360", 4],
+    ["REU-001", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
+  ];
+  downloadCsv("plantilla_movimientos.csv", rows);
+}
+
+async function importMovementFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const message = $("#registerMessage");
+  try {
+    const rows = parseDelimited(await file.text()).map((row) => ({
+      reference: pickingColumn(row, ["referencia"]),
+      type: pickingColumn(row, ["tipo"]).toUpperCase(),
+      from: pickingColumn(row, ["posicion origen"]),
+      to: pickingColumn(row, ["posicion destino"]),
+      loadType: pickingColumn(row, ["tipo de carga"]).toUpperCase(),
+      sku: pickingColumn(row, ["sku", "material"]),
+      packages: Number(String(pickingColumn(row, ["bultos", "cantidad"]) || 0).replace(",", ".")),
+    })).filter((row) => row.reference && row.type);
+    if (!rows.length) throw new Error("No se encontraron movimientos válidos.");
+    const groups = Object.values(groupBy(rows, (row) => row.reference));
+    let imported = 0;
+    for (const group of groups) {
+      const row = group[0];
+      const type = row.type.startsWith("ING") ? "IN" : row.type.startsWith("EGR") ? "OUT" : "MOVE";
+      const form = $("#registerMovement");
+      setMovementType(type);
+      $("#registerFrom").value = row.from;
+      $("#registerTo").value = row.to;
+      $("#registerMaterial").value = row.sku;
+      $("#registerQuantity").value = row.packages || 1;
+      if (type === "IN") {
+        const multi = row.loadType.includes("MULTI") || group.length > 1;
+        $("#registerLoadType").value = multi ? "PALLET_MULTI" : "PALLET_MONO";
+        $("#registerMultiContents").value = multi ? group.map((item) => `${item.sku};${item.packages}`).join("\n") : "";
+      }
+      const before = state.movements.length;
+      handleMovement({ preventDefault() {}, currentTarget: form });
+      if (state.movements.length === before) throw new Error(`No se pudo importar ${row.reference}: ${message.textContent}`);
+      imported += 1;
+    }
+    message.textContent = `${imported} movimientos importados correctamente.`;
+  } catch (error) {
+    message.textContent = error.message;
+    message.style.color = "var(--danger)";
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function downloadCsv(name, rows) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((row) => row.join(";")).join("\n")], { type: "text/csv;charset=utf-8" }));
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 async function importSapStock(event) {
@@ -926,12 +1006,13 @@ function renderSapComparison() {
   $("#sapCompared").textContent = fmt.format(rows.length);
   $("#sapDifferences").textContent = fmt.format(differences.length);
   $("#sapNetDifference").textContent = fmt.format(rows.filter((item) => !item.unknownConversion).reduce((sum, item) => sum + item.difference, 0));
-  body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference || item.unknownConversion ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${item.unknownConversion ? "Sin conversión" : fmt.format(item.app)}</td><td>${item.unknownConversion ? "—" : `${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}`}</td><td>${item.positions.join(", ") || "—"}</td><td>${item.unknownConversion ? "Definir unidades/bulto" : item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
+  body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference || item.unknownConversion ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${item.unknownConversion ? "Sin conversión" : fmt.format(item.app)}</td><td>${item.unknownConversion ? "—" : `${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}`}</td><td>${item.positions.join(", ") || "—"}</td><td>${item.unknownConversion ? "Definir bultos/pallet" : item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
 }
 
 function downloadSkuTemplate() {
-  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,1,10,1000,true,25,"SUPER_A"];
-  const csv = [SKU_FIELDS, sample].map((row) => row.join(";")).join("\n");
+  const headers = ["SKU","Descripción","EAN","Categoría","Clasificación","Bultos por pallet","Peso kg","Posiciones requeridas","Días de stock mínimo","Días de stock máximo","Consumo diario en bultos","Activo"];
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","A",50,0.5,1,45,90,25,"Sí"];
+  const csv = [headers, sample].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
   link.download = "plantilla_maestro_sku.csv";
@@ -955,7 +1036,7 @@ function centralRequest(action, payload = {}) {
 async function pullSkuMaster() {
   try {
     const result = await centralRequest("sku_list");
-    if (result.ok && Array.isArray(result.items)) {
+    if (result.ok && Array.isArray(result.items) && (result.items.length || !state.skuMaster.length)) {
       state.skuMaster = result.items.map(normalizeSku);
       localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
       renderSkuMaster();
@@ -1041,10 +1122,12 @@ function renderSkuAlerts() {
   const missingZones = new Set();
   state.skuMaster.filter((item) => item.active).forEach((item) => {
     const quantity = Number(stocks[item.sku] || 0);
-    if (metrics[item.sku]?.unknownConversion) alerts.push({ type: "config", level: "warning", title: `${item.sku} sin conversión completa`, detail: "Definí unidades por bulto para calcular stock, días y diferencias con SAP." });
+    if (metrics[item.sku]?.unknownConversion) alerts.push({ type: "config", level: "warning", title: `${item.sku} sin bultos por pallet`, detail: "Definí bultos por pallet para calcular stock, días y diferencias con SAP." });
     else {
-      if (item.minStock > 0 && quantity < item.minStock) alerts.push({ type: "stock", level: "critical", title: `${item.sku} por debajo del mínimo`, detail: `${fmt.format(quantity)} u. actuales · mínimo ${fmt.format(item.minStock)}` });
-      if (item.maxStock > 0 && quantity > item.maxStock) alerts.push({ type: "stock", level: "warning", title: `${item.sku} supera el máximo`, detail: `${fmt.format(quantity)} u. actuales · máximo ${fmt.format(item.maxStock)}` });
+      const minStock = Number(item.dailyConsumption || 0) * Number(item.minDays || 0);
+      const maxStock = Number(item.dailyConsumption || 0) * Number(item.maxDays || 0);
+      if (minStock > 0 && quantity < minStock) alerts.push({ type: "stock", level: "critical", title: `${item.sku} por debajo del mínimo`, detail: `${fmt.format(quantity)} bultos actuales · mínimo ${fmt.format(minStock)}` });
+      if (maxStock > 0 && quantity > maxStock) alerts.push({ type: "stock", level: "warning", title: `${item.sku} supera el máximo`, detail: `${fmt.format(quantity)} bultos actuales · máximo ${fmt.format(maxStock)}` });
     }
     if (item.velocityClass && !state.slottingRules.some((rule) => rule.velocityClass === item.velocityClass)) missingZones.add(item.velocityClass);
   });
@@ -1158,10 +1241,13 @@ function renderDashboardInsights() {
     .sort((a, b) => b.positions - a.positions || b.packages - a.packages)[0];
   const last = state.movements[0];
   const blocked = state.locations.filter((item) => item.blocked).length;
+  const driveIn = state.locations.filter((item) => item.storageType === "drivein");
+  const driveInOccupied = driveIn.filter((item) => item.occupied).length;
   const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso" };
   container.innerHTML = `
     <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
     <article><span>Último movimiento</span><strong>${last ? typeLabel[last.type] || last.type : "Sin movimientos"}</strong><small>${last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad"}</small></article>
+    <article><span>Ocupación Drive-In</span><strong>${driveIn.length ? formatRate(driveInOccupied / driveIn.length * 100) : "0%"}</strong><small>${fmt.format(driveInOccupied)} de ${fmt.format(driveIn.length)} posiciones</small></article>
     <article><span>Posiciones bloqueadas</span><strong>${fmt.format(blocked)}</strong><small>No disponibles para ingreso ni picking</small></article>`;
 }
 
@@ -1185,10 +1271,13 @@ function renderSideBars() {
 
 function renderMap() {
   const items = mapLocations();
-  const bySideRack = groupBy(items, (item) => `${item.side}-${item.rack}`);
-  const sides = [...new Set(items.map((item) => item.side))].sort((a, b) => a - b);
+  const selective = items.filter((item) => !["drivein", "wallrack"].includes(item.storageType));
+  const driveIn = items.filter((item) => item.storageType === "drivein");
+  const wall = items.filter((item) => item.storageType === "wallrack");
+  const bySideRack = groupBy(selective, (item) => `${item.side}-${item.rack}`);
+  const sides = [...new Set(selective.map((item) => item.side))].sort((a, b) => a - b);
 
-  $("#warehouseMap").innerHTML = sides
+  const selectiveHtml = sides
     .map((side) => {
       const racks = [...new Set(items.filter((item) => item.side === side).map((item) => item.rack))].sort(
         (a, b) => a - b
@@ -1203,12 +1292,21 @@ function renderMap() {
       `;
     })
     .join("");
+  const specialSection = (title, rows, label) => rows.length ? `<section class="side-section special-storage"><h2>${title}</h2><div class="rack-grid">${Object.entries(groupBy(rows, (item) => item.rack)).map(([rack, positions]) => storageCard(label, rack, positions)).join("")}</div></section>` : "";
+  $("#warehouseMap").innerHTML = selectiveHtml + specialSection("Drive-In penetrable", driveIn, "Calle") + specialSection("Rack simple de pared · Lado 2", wall, "Módulo");
 
   $$(".rack-card").forEach((card) => {
     card.addEventListener("click", () => {
       openRackDetail(Number(card.dataset.side), Number(card.dataset.rack));
     });
   });
+  $$(".storage-card").forEach((card) => card.addEventListener("click", () => openDetail(findLocation(card.dataset.id))));
+}
+
+function storageCard(label, rack, positions) {
+  const occupied = positions.filter((item) => item.occupied).length;
+  const blocked = positions.filter((item) => item.blocked).length;
+  return `<button class="rack-card storage-card${blocked ? " has-blocked" : ""}" data-id="${positions[0].id}"><strong>${label} ${String(rack).padStart(2, "0")}</strong><span>${occupied}/${positions.length} posiciones ocupadas</span>${blocked ? `<span class="rack-blocked-count">${blocked} bloqueadas</span>` : ""}</button>`;
 }
 
 function loadPickingExample() {
@@ -1260,15 +1358,16 @@ async function importPickingFile(event) {
     const normalized = rows.map((row) => ({
       trip: pickingColumn(row, ["numero de viaje", "nro de viaje", "viaje"]),
       delivery: pickingColumn(row, ["numero de entrega", "nro de entrega", "entrega"]),
+      destination: pickingColumn(row, ["sucursal destino", "destino", "sucursal"]),
       sku: pickingColumn(row, ["sku", "material", "codigo de producto"]),
-      quantity: Number(String(pickingColumn(row, ["cantidad", "qty", "unidades"])).replace(",", ".")),
+      quantity: Number(String(pickingColumn(row, ["bultos", "cantidad"])).replace(",", ".")),
     })).filter((row) => row.trip && row.delivery && row.sku && row.quantity > 0);
     if (!normalized.length) throw new Error("No se encontraron filas válidas. Revisá los encabezados de la plantilla.");
 
     const groups = new Map();
     normalized.forEach((row) => {
       const key = `${row.trip}||${row.delivery}`;
-      if (!groups.has(key)) groups.set(key, { trip: row.trip, delivery: row.delivery, lines: [] });
+      if (!groups.has(key)) groups.set(key, { trip: row.trip, delivery: row.delivery, destination: row.destination, lines: [] });
       groups.get(key).lines.push({ sku: row.sku, quantity: row.quantity });
     });
     state.pickingOrders = [...groups.values()].map((order) => ({
@@ -1314,6 +1413,7 @@ function loadImportedPickingOrder() {
   const order = state.pickingOrders[Number($("#pickingOrderSelect").value) || 0];
   if (!order) return;
   $("#pickingOrderRef").value = `V${order.trip}-E${order.delivery}`;
+  $("#pickingDestination").value = order.destination || "";
   $("#pickingLines").value = serializePickingLines(order.lines);
   clearPickingResults();
   renderPickingDraft();
@@ -1336,6 +1436,7 @@ function printPickingRoute() {
   }
   $("#printPickingReference").textContent = $("#pickingOrderRef").value.trim() || "Sin referencia";
   $("#printPickingPriority").textContent = $("#pickingPriority").value;
+  $("#printPickingDestination").textContent = $("#pickingDestination").value.trim() || "Sin destino";
   $("#printPickingSummary").textContent = $("#pickingSummary").textContent;
   document.body.classList.add("printing-picking");
   window.print();
@@ -1344,10 +1445,10 @@ function printPickingRoute() {
 
 function downloadPickingTemplate() {
   const csv = [
-    ["Numero de viaje", "Numero de entrega", "SKU", "Cantidad"],
-    ["V001", "E001", "100360", 12],
-    ["V001", "E001", "5555555", 4],
-    ["V001", "E002", "100360", 3],
+    ["Número de viaje", "Número de entrega", "Sucursal destino", "SKU", "Bultos"],
+    ["V001", "E001", "Sucursal Centro", "100360", 12],
+    ["V001", "E001", "Sucursal Centro", "5555555", 4],
+    ["V001", "E002", "Sucursal Norte", "100360", 3],
   ].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
@@ -1370,15 +1471,15 @@ function renderPickingDraft() {
   }
   requests.forEach((request) => {
     const stock = state.locations
-      .filter((item) => item.occupied && !item.blocked && String(item.material).toLowerCase() === request.sku.toLowerCase())
-      .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      .filter((item) => item.occupied && !item.blocked && item.contents?.some((content) => content.sku.toLowerCase() === request.sku.toLowerCase()))
+      .reduce((sum, item) => sum + availablePackages(item, request.sku), 0);
     const master = state.skuMaster.find((item) => item.sku.toLowerCase() === request.sku.toLowerCase());
     const row = document.createElement("div");
     row.className = `picking-draft-row${stock < request.quantity ? " has-shortage" : ""}`;
     row.innerHTML = `<div><strong></strong><small></small></div><span></span><button type="button" aria-label="Eliminar SKU">×</button>`;
     row.querySelector("strong").textContent = request.sku;
     row.querySelector("small").textContent = master?.description || "Sin descripción";
-    row.querySelector("span").textContent = `${fmt.format(request.quantity)} u. · Stock ${fmt.format(stock)}`;
+    row.querySelector("span").textContent = `${fmt.format(request.quantity)} bultos · Stock ${fmt.format(stock)}`;
     row.querySelector("button").dataset.removePicking = request.sku;
     container.appendChild(row);
   });
@@ -1404,12 +1505,13 @@ function calculatePickingRoute(event) {
   requests.forEach(({ sku, quantity }) => {
     let pending = quantity;
     const positions = state.locations
-      .filter((item) => item.occupied && !item.blocked && String(item.material).toLowerCase() === sku.toLowerCase())
+      .filter((item) => item.occupied && !item.blocked && item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase()))
       .sort((a, b) => pickingAge(a) - pickingAge(b) || a.id.localeCompare(b.id));
     positions.forEach((location) => {
       if (pending <= 0) return;
-      const pick = Math.min(pending, Number(location.quantity || 0));
-      if (pick > 0) allocations.push({ sku, quantity: pick, location, point: pickingPoint(location) });
+      const available = availablePackages(location, sku);
+      const pick = Math.min(pending, available);
+      if (pick > 0) allocations.push({ sku, quantity: pick, fullPallet: location.contents.length === 1 && pick === available, location, point: pickingPoint(location) });
       pending -= pick;
     });
     if (pending > 0) shortages.push({ sku, requested: quantity, missing: pending });
@@ -1430,6 +1532,14 @@ function parsePickingLines(value) {
     combined.set(sku, (combined.get(sku) || 0) + quantity);
   });
   return [...combined].map(([sku, quantity]) => ({ sku, quantity }));
+}
+
+function availablePackages(location, sku) {
+  const content = location.contents?.find((item) => item.sku.toLowerCase() === String(sku).toLowerCase());
+  if (!content) return 0;
+  if (Number(content.packages) > 0) return Number(content.packages);
+  const master = state.skuMaster.find((item) => item.sku.toLowerCase() === content.sku.toLowerCase());
+  return Number(content.legacyPallets || location.palletCount || 0) * Number(master?.casesPerPallet || 0);
 }
 
 function pickingAge(location) {
@@ -1481,17 +1591,17 @@ function renderPickingRoute(route, shortages, requests) {
     locationId.textContent = stop.location.id;
     locationDetail.textContent = `Pasillo ${stop.location.aisle} · Rack ${String(stop.location.rack).padStart(2, "0")} · Módulo ${stop.location.module} · Nivel ${stop.location.level}`;
     quantityValue.textContent = fmt.format(stop.quantity);
-    sku.textContent = stop.sku;
+    sku.textContent = `${stop.sku}${stop.fullPallet ? " · PALLET COMPLETO" : " · bultos"}`;
     location.append(locationId, locationDetail);
     quantity.append(quantityValue, sku);
     item.append(step, location, quantity);
     list.appendChild(item);
   });
 
-  const requestedUnits = requests.reduce((sum, item) => sum + item.quantity, 0);
-  const assignedUnits = route.reduce((sum, item) => sum + item.quantity, 0);
-  $("#pickingSummary").textContent = `${route.length} paradas · ${fmt.format(assignedUnits)}/${fmt.format(requestedUnits)} unidades · ${fmt.format(cumulative)} tramos`;
-  $("#pickingUnits").textContent = fmt.format(assignedUnits);
+  const requestedPackages = requests.reduce((sum, item) => sum + item.quantity, 0);
+  const assignedPackages = route.reduce((sum, item) => sum + item.quantity, 0);
+  $("#pickingSummary").textContent = `${route.length} paradas · ${fmt.format(assignedPackages)}/${fmt.format(requestedPackages)} bultos · ${fmt.format(cumulative)} tramos`;
+  $("#pickingUnits").textContent = fmt.format(assignedPackages);
   $("#pickingStops").textContent = fmt.format(route.length);
   $("#pickingMissing").textContent = fmt.format(shortages.reduce((sum, item) => sum + item.missing, 0));
   $("#printPickingRoute").disabled = route.length === 0;
@@ -1555,9 +1665,14 @@ function render3dMap() {
             ? `E.${String(stack.module).padStart(2, "0")}.${level}.${String(stack.position).padStart(2, "0")}`
             : `${stack.key}.${level}`;
         const location = locationsById.get(locationId);
-        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location };
+        const skuQuery = state.view3d.sku.toLowerCase();
+        const skuMatch = !skuQuery || Boolean(location?.occupied && location.contents?.some((content) => content.sku.toLowerCase().includes(skuQuery)));
+        const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => String(rule.velocityClass).toUpperCase() === state.view3d.zone);
+        const stockClassMatch = location?.contents?.some((content) => state.skuMaster.some((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase() && sku.velocityClass === state.view3d.zone));
+        const zoneMatch = state.view3d.zone === "all" || zoneRules.some((rule) => location && locationMatchesRule(location, rule)) || (!zoneRules.length && stockClassMatch);
+        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, visible: skuMatch && zoneMatch };
       });
-      const firstRelevant = levels.findIndex((level) => level.blocked || level.occupied);
+      const firstRelevant = levels.findIndex((level) => level.visible && (level.blocked || level.occupied));
       const detailId = stack.type === "drivein"
         ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
         : stack.type === "wallrack"
@@ -1566,12 +1681,7 @@ function render3dMap() {
       return { ...stack, levels, detailId };
     })
     .filter((stack) => {
-      const sku = state.view3d.sku.toLowerCase();
-      const skuMatch = !sku || stack.levels.some((item) => item.location?.contents?.some((content) => content.sku.toLowerCase().includes(sku)));
-      const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => rule.velocityClass === state.view3d.zone);
-      const zoneMatch = state.view3d.zone === "all"
-        || stack.levels.some((item) => item.location && zoneRules.some((rule) => locationMatchesRule(item.location, rule)));
-      return skuMatch && zoneMatch;
+      return stack.levels.some((item) => item.visible);
     });
   state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
     minCol: Math.min(...items.map((item) => item.col)),
@@ -1586,7 +1696,7 @@ function render3dMap() {
 function update3dFilterSummary() {
   const summary = $("#map3dFilterSummary");
   if (!summary) return;
-  const positions = state.render3dStacks.flatMap((stack) => stack.levels.map((item) => item.location).filter(Boolean));
+  const positions = state.render3dStacks.flatMap((stack) => stack.levels.filter((item) => item.visible).map((item) => item.location).filter(Boolean));
   const occupied = positions.filter((item) => item.occupied);
   summary.textContent = state.view3d.sku
     ? `${occupied.length} posiciones: ${occupied.map((item) => item.id).join(", ") || "sin coincidencias"}`
@@ -1702,6 +1812,7 @@ function draw3dMap() {
       const columnBand = Math.floor((stack.row - bounds.minRow) / 2) % 2;
       const freeColor = shadeColor(levelColors[level], columnBand ? -7 : 0);
       const status = stack.levels[level];
+      if (!status?.visible) continue;
       const zoneColors = { SUPER_A: "#7b4cc2", A: "#237fb4", B: "#23835b", C: "#b58a16", ESTACIONAL: "#b65a8a" };
       const color = status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : state.view3d.zone !== "all" ? zoneColors[state.view3d.zone] : freeColor;
       draw3dRackLevel(ctx, stack, level, color, width, height, state.view3d.dragging);
@@ -1938,13 +2049,19 @@ function pick3dLocation(clientX, clientY) {
   if (!canvas) return null;
   const rect = canvas.getBoundingClientRect();
   let nearest = null;
-  let bestDistance = 12;
+  let bestDistance = 26;
+  const levels = state.view3d.level === "all" ? [0, 1, 2, 3, 4] : [Number(state.view3d.level)];
   for (const stack of state.render3dStacks) {
-    const point = project3d(stack.col, stack.row, 38, rect.width, rect.height, stack.type === "drivein");
-    const distance = Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      nearest = stack.detailId;
+    for (const level of levels) {
+      const status = stack.levels[level];
+      if (!status?.visible || !status.location) continue;
+      const z = POSITION_3D.base + level * POSITION_3D.levelPitch + POSITION_3D.height / 2;
+      const point = project3d(stack.col, stack.row, z, rect.width, rect.height, stack.type === "drivein" || stack.type === "wallrack");
+      const distance = Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = status.location.id;
+      }
     }
   }
   return nearest;
@@ -1962,6 +2079,8 @@ function renderLocationsTable() {
 function locationRow(item) {
   const status = item.blocked ? "Bloqueada" : item.occupied ? "Ocupada" : "Libre";
   const statusClass = item.blocked ? "blocked" : item.occupied ? "occupied" : "available";
+  const activity = state.movements.find((move) => move.from === item.id || move.to === item.id);
+  const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === item.id ? "Reubicación recibida" : "Reubicación salida", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
   return `
     <tr data-id="${item.id}">
       <td>${item.id}</td>
@@ -1973,6 +2092,8 @@ function locationRow(item) {
       <td>${item.material === "MULTIPRODUCTO" ? `${item.contents.length} SKU` : item.material || ""}</td>
       <td>${item.quantity || ""}</td>
       <td><span class="pill ${statusClass}" title="${item.blockReason || ""}">${status}</span></td>
+      <td>${activity ? formatMovementDate(activity) : "—"}</td>
+      <td>${activity ? activityLabel[activity.type] || activity.type : "—"}</td>
     </tr>
   `;
 }
@@ -2126,31 +2247,20 @@ function updateRegisterLoadFields() {
   const multi = type === "IN" && loadType === "PALLET_MULTI";
   $("#registerMultiGroup").hidden = !multi;
   $("#registerMaterialGroup").hidden = multi;
-  $("#registerPalletCountGroup").hidden = type !== "IN" || loadType === "BULTOS";
-  $("#registerUnitsPerPackageGroup").hidden = multi || type === "MOVE";
-  $("#registerQuantityGroup").hidden = multi || type === "MOVE";
+  $("#registerPalletCountGroup").hidden = type !== "IN";
+  $("#registerQuantityGroup").hidden = type === "MOVE" || (type === "IN");
   $("#registerMaterial").required = type === "IN" && !multi;
   if (type !== "IN") $("#registerMaterialGroup").hidden = false;
   renderMovementPreview();
 }
 
-function suggestUnitsPerPackage() {
-  const sku = $("#registerMaterial").value.trim().toLowerCase();
-  const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === sku);
-  if (item && Number(item.unitsPerCase) > 0 && !Number($("#registerUnitsPerPackage").value)) {
-    $("#registerUnitsPerPackage").value = Number(item.unitsPerCase);
-  }
-}
-
 function parseMultiContents(text) {
   return String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line, index) => {
-    const [skuValue, packagesValue, unitsValue] = line.split(/[;,\t]/).map((value) => value.trim());
+    const [skuValue, packagesValue] = line.split(/[;,\t]/).map((value) => value.trim());
     const sku = skuValue || "";
-    const master = state.skuMaster.find((item) => item.sku.toLowerCase() === sku.toLowerCase());
     const packages = Number(packagesValue || 0);
-    const unitsPerPackage = Number(unitsValue || master?.unitsPerCase || 0);
     if (!sku || !(packages > 0)) throw new Error(`Revisá la línea ${index + 1} del contenido multiproducto.`);
-    return normalizeContentLine({ sku, packages, unitsPerPackage });
+    return normalizeContentLine({ sku, packages });
   });
 }
 
@@ -2195,12 +2305,11 @@ function renderMovementPreview() {
   try {
     contents = data.type === "IN" && data.loadType === "PALLET_MULTI"
       ? parseMultiContents(data.multiContents)
-      : data.material ? [normalizeContentLine({ sku: data.material, packages: data.quantity, unitsPerPackage: data.unitsPerPackage })] : [];
+      : data.material ? [normalizeContentLine({ sku: data.material, packages: data.type === "OUT" ? data.quantity : 0, legacyPallets: data.type === "IN" ? data.palletCount : 0 })] : [];
   } catch {}
   const totalPackages = contents.reduce((sum, item) => sum + item.packages, 0);
-  const totalUnits = contents.reduce((sum, item) => sum + item.units, 0);
   const material = data.type === "IN" ? (contents.length > 1 ? `${contents.length} SKU` : contents[0]?.sku || "Sin SKU") : from?.material || "Sin material";
-  const quantityText = data.type === "MOVE" ? "pallet completo" : `${fmt.format(totalPackages || Number(data.quantity || 0))} bultos${totalUnits ? ` · ${fmt.format(totalUnits)} unidades` : " · conversión pendiente"}`;
+  const quantityText = data.type === "MOVE" ? "pallet completo" : data.type === "IN" && data.loadType === "PALLET_MONO" ? `${fmt.format(Number(data.palletCount || 1))} pallet` : `${fmt.format(totalPackages || Number(data.quantity || 0))} bultos`;
   $("#registerContentTotal").textContent = data.type === "IN" ? `Contenido: ${quantityText}` : "";
   $("#movementSummary").innerHTML = `<span>${typeLabel}</span><strong>${material}</strong><small>${route} · ${quantityText}</small>`;
 }
@@ -2443,9 +2552,9 @@ function renderAnalytics() {
   const inQty = sumMovementQuantity(inMoves);
   const outQty = sumMovementQuantity(outMoves);
   const transferQty = sumMovementQuantity(transferMoves);
-  const currentUnits = Object.values(stockMetricsBySku()).reduce((sum, item) => sum + Number(item.units || 0), 0);
-  const outUnits = outMoves.reduce((sum, move) => sum + Number(move.units || 0), 0);
-  const turnover = currentUnits > 0 && outUnits > 0 ? outUnits / currentUnits : null;
+  const currentPackages = Object.values(stockMetricsBySku()).reduce((sum, item) => sum + Number(item.packages || 0), 0);
+  const outPackages = outMoves.reduce((sum, move) => sum + Number(move.packages || move.quantity || 0), 0);
+  const turnover = currentPackages > 0 && outPackages > 0 ? outPackages / currentPackages : null;
   const dwellSamples = movements.map((move) => Number(move.dwellHours)).filter((hours) => Number.isFinite(hours) && hours >= 0);
   const averageDwell = dwellSamples.length ? dwellSamples.reduce((sum, hours) => sum + hours, 0) / dwellSamples.length : null;
   const stagnant = state.locations.filter((item) => item.occupiedSince && now - Date.parse(item.occupiedSince) >= 30 * 86400000).length;
@@ -2607,7 +2716,7 @@ function renderAnalyticsSides() {
 function renderTopMaterials() {
   const metrics = stockMetricsBySku();
   const ranking = Object.entries(metrics)
-    .map(([material, item]) => ({ material, quantity: item.units || item.packages, unit: item.units ? "u." : "bultos", positions: state.locations.filter((location) => location.contents?.some((content) => content.sku === material)).length }))
+    .map(([material, item]) => ({ material, quantity: item.packages, unit: "bultos", positions: state.locations.filter((location) => location.contents?.some((content) => content.sku === material)).length }))
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 6);
   $("#topMaterials").innerHTML = ranking.length
@@ -2770,7 +2879,7 @@ function handleMovement(event) {
   const type = event.currentTarget.id === "registerMovement" ? event.currentTarget.dataset.operation : data.type;
   const loadType = String(data.loadType || "PALLET_MONO");
   const quantity = Number(data.quantity || 0);
-  const palletCount = type === "IN" && loadType !== "BULTOS" ? Number(data.palletCount || 1) : 0;
+  const palletCount = type === "IN" ? Number(data.palletCount || 1) : 0;
   const material = String(data.material || "").trim();
   const from = normalizePosition(data.from);
   const to = normalizePosition(data.to);
@@ -2783,7 +2892,6 @@ function handleMovement(event) {
   const originPalletCount = Number(originBefore?.palletCount || 0);
   const originContent = originBefore?.contents?.find((item) => item.sku.toLowerCase() === material.toLowerCase())
     || (originBefore?.contents?.length === 1 ? originBefore.contents[0] : null);
-  const outputUnits = type === "OUT" ? quantity * Number(originContent?.unitsPerPackage || 0) : 0;
   const dwellHours = originBefore?.occupiedSince
     ? Math.max(0, (Date.parse(timestamp) - Date.parse(originBefore.occupiedSince)) / 3600000)
     : null;
@@ -2792,12 +2900,12 @@ function handleMovement(event) {
     const contents = type === "IN"
       ? loadType === "PALLET_MULTI"
         ? parseMultiContents(data.multiContents)
-        : [normalizeContentLine({ sku: material, packages: quantity, unitsPerPackage: data.unitsPerPackage })]
+        : [normalizeContentLine({ sku: material, legacyPallets: palletCount })]
       : [];
     const movementPackages = type === "IN" ? contents.reduce((sum, item) => sum + item.packages, 0) : type === "MOVE" ? Number(originBefore?.quantity || 0) : quantity;
-    if (type !== "MOVE" && quantity <= 0 && !contents.length) throw new Error("La cantidad de bultos debe ser mayor a cero.");
+    if (type === "OUT" && quantity <= 0) throw new Error("La cantidad de bultos debe ser mayor a cero.");
     if (type === "IN" && !contents.length) throw new Error("Indicá el contenido de la carga.");
-    if (type === "IN" && contents.some((item) => !item.sku || item.packages <= 0)) throw new Error("Cada SKU debe tener una cantidad de bultos mayor a cero.");
+    if (type === "IN" && contents.some((item) => !item.sku || (loadType === "PALLET_MULTI" && item.packages <= 0))) throw new Error("Cada SKU multiproducto debe tener una cantidad de bultos mayor a cero.");
     if (type === "IN") registerIn(material, to, quantity, timestamp, contents, palletCount);
     if (type === "OUT") registerOut(material, from, quantity);
     if (type === "MOVE") registerMove(from, to, quantity, timestamp, material);
@@ -2813,15 +2921,14 @@ function handleMovement(event) {
       from,
       to: type === "OUT" ? "" : to,
       quantity: movementPackages,
-      logisticsUnit: type === "IN" ? (loadType === "BULTOS" ? "BULTO" : "PALLET") : type === "MOVE" ? "PALLET" : "BULTO",
+      logisticsUnit: type === "IN" || type === "MOVE" ? "PALLET" : "BULTO",
       palletCount: type === "MOVE" ? (originPalletCount || 1) : palletCount,
       packages: movementPackages,
-      units: type === "IN" ? contents.reduce((sum, item) => sum + item.units, 0) : outputUnits,
       contents: type === "IN"
         ? contents
         : type === "MOVE"
           ? originContents
-          : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, units: outputUnits, legacyPallets: originContent.legacyPallets ? quantity : 0 })] : [],
+          : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0 })] : [],
       occupancyDelta: occupiedAfter - occupiedBefore,
       dwellHours: type === "IN" ? null : dwellHours,
     };
@@ -2867,11 +2974,13 @@ function registerOut(material, from, quantity) {
   if (!target) throw new Error(contents.length > 1 ? "Indicá qué SKU sale del pallet multiproducto." : "El material no coincide con la posición origen.");
   if (quantity > target.packages && !target.legacyPallets) throw new Error("La cantidad de bultos supera el stock disponible.");
   if (target.legacyPallets) {
-    if (quantity > target.legacyPallets) throw new Error("La cantidad supera los pallets disponibles del registro anterior.");
-    target.legacyPallets -= quantity;
+    const master = state.skuMaster.find((item) => item.sku.toLowerCase() === target.sku.toLowerCase());
+    const packagesPerPallet = Number(master?.casesPerPallet || 0);
+    if (!packagesPerPallet) throw new Error("Definí los bultos por pallet en el maestro para registrar este egreso.");
+    if (quantity !== packagesPerPallet * target.legacyPallets) throw new Error(`Este pallet es monoproducto: registrá el pallet completo (${packagesPerPallet * target.legacyPallets} bultos).`);
+    target.legacyPallets = 0;
   } else {
     target.packages -= quantity;
-    target.units = Math.max(0, target.packages * Number(target.unitsPerPackage || 0));
   }
   syncLocationLoad(origin);
 }
@@ -2991,8 +3100,9 @@ function openDetail(item) {
   $("#detailPanel").dataset.locationId = item.id;
   $("#detailTitle").textContent = item.id;
   const contentText = (item.contents || []).map((content) => {
-    const conversion = content.units ? ` · ${fmt.format(content.units)} unidades` : content.legacyPallets ? ` · ${fmt.format(content.legacyPallets)} pallet` : " · sin conversión";
-    return `${content.sku}: ${fmt.format(content.packages || 0)} bultos${conversion}`;
+    const master = state.skuMaster.find((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase());
+    const packages = Number(content.packages || 0) || Number(content.legacyPallets || item.palletCount || 0) * Number(master?.casesPerPallet || 0);
+    return `${content.sku}: ${packages ? `${fmt.format(packages)} bultos` : `${fmt.format(content.legacyPallets || item.palletCount || 0)} pallet`}`;
   }).join(" | ") || "Sin stock";
   renderDetailFields([
     ["Sector", item.storageType === "drivein" ? item.aisle : item.storageType === "wallrack" ? "Este" : item.aisle],
@@ -3066,7 +3176,6 @@ function openRackDetail(side, rack) {
   const available = items.filter((item) => !item.occupied && !item.blocked).length;
   const usableCapacity = items.length - blockedItems.length;
   const packages = occupiedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const units = occupiedItems.reduce((sum, item) => sum + (item.contents || []).reduce((lineSum, content) => lineSum + Number(content.units || 0), 0), 0);
   const skus = [...new Set(occupiedItems.flatMap((item) => (item.contents || []).map((content) => content.sku)).filter(Boolean))];
   const levelSummary = [0, 1, 2, 3, 4].map((level) => {
     const levelItems = items.filter((item) => item.level === level);
@@ -3085,7 +3194,6 @@ function openRackDetail(side, rack) {
     ["Disponibles", available],
     ["Ocupación útil", usableCapacity ? formatRate((occupiedItems.length / usableCapacity) * 100) : "Sin capacidad"],
     ["Bultos", fmt.format(packages)],
-    ["Unidades conocidas", fmt.format(units)],
     ["SKU distintos", skus.length],
     ["Materiales", skuSummary],
     ["Por nivel", levelSummary],
