@@ -1,4 +1,4 @@
-const SERVER_VERSION = 19;
+const SERVER_VERSION = 20;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
 const SLOTTING_SHEET_NAME = "Zonas SKU";
@@ -298,6 +298,14 @@ function getSheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = spreadsheet.getSheetByName(SHEET_NAME);
   if (!sheet) throw new Error(`No existe la hoja ${SHEET_NAME}.`);
+  const values = sheet.getDataRange().getDisplayValues();
+  const hasHeader = values.some((row) => row.some((cell) => normalizeHeader(cell) === "id_movimiento"));
+  if (!hasHeader) {
+    sheet.insertRowsBefore(1, 1);
+    sheet.getRange(1, 1, 1, COLUMNS.length).setValues([COLUMNS]);
+    sheet.setFrozenRows(1);
+    SpreadsheetApp.flush();
+  }
   return sheet;
 }
 
