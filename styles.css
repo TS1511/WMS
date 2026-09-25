@@ -663,13 +663,20 @@ label select {
 }
 
 .sku-table-wrap {
+  width: 100%;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-gutter: stable;
 }
 
+.sku-subsection,
+.sku-master-layout,
+.sku-list-panel {
+  min-width: 0;
+}
+
 .sku-master-table {
-  min-width: 2120px;
+  min-width: 1900px;
 }
 
 .sku-master-table th,
@@ -679,32 +686,64 @@ label select {
 
 .sku-master-table th:nth-child(1),
 .sku-master-table td:nth-child(1) {
-  position: sticky;
-  left: 0;
-  z-index: 2;
+  position: static;
   min-width: 120px;
-  background: #fff;
 }
 
 .sku-master-table th:nth-child(2),
 .sku-master-table td:nth-child(2) {
-  position: sticky;
-  left: 120px;
-  z-index: 2;
+  position: static;
   min-width: 220px;
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: #fff;
-  box-shadow: 1px 0 0 var(--line);
+  box-shadow: none;
 }
 
 .sku-master-table th:nth-child(1),
 .sku-master-table th:nth-child(2) {
-  z-index: 3;
   color: inherit;
-  background: inherit;
 }
+
+.dashboard-insight-grid,
+.reconciliation-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-insight-grid article,
+.reconciliation-kpis article {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f7fafb;
+}
+
+.dashboard-insight-grid span,
+.dashboard-insight-grid small,
+.reconciliation-kpis span { color: var(--muted); }
+.dashboard-insight-grid strong,
+.reconciliation-kpis strong { font-size: 20px; }
+
+.map3d-toolbar input,
+.map3d-toolbar select,
+.analytics-toolbar input {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.analytics-toolbar label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.import-format { margin: 8px 0 12px; color: var(--muted); font-size: 12px; }
+.reconciliation-import { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.reconciliation-kpis { margin-bottom: 14px; }
+.has-difference td:nth-child(4), .has-difference td:last-child { color: var(--danger); font-weight: 700; }
+.is-balanced td:last-child { color: var(--available-text); font-weight: 700; }
 
 #skuTable tr:hover td:nth-child(1),
 #skuTable tr:hover td:nth-child(2) {
@@ -1715,6 +1754,10 @@ dd {
   .sku-import-bar {
     grid-template-columns: 1fr;
   }
+
+  .dashboard-insight-grid,
+  .reconciliation-kpis { grid-template-columns: 1fr; }
+  .reconciliation-import { align-items: stretch; flex-direction: column; }
 
   .sidebar {
     min-height: 0;

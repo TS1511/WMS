@@ -7,8 +7,8 @@ const layoutPath = path.join(root, "data", "layout3d.json");
 const locationsPayload = JSON.parse(fs.readFileSync(locationsPath, "utf8"));
 const layoutPayload = JSON.parse(fs.readFileSync(layoutPath, "utf8"));
 
-locationsPayload.locations = locationsPayload.locations.filter((item) => !["drivein", "wallrack"].includes(item.storageType));
-layoutPayload.stacks = layoutPayload.stacks.filter((item) => !["drivein", "wallrack"].includes(item.type));
+locationsPayload.locations = locationsPayload.locations.filter((item) => !["drivein", "penetrable", "wallrack"].includes(item.storageType));
+layoutPayload.stacks = layoutPayload.stacks.filter((item) => !["drivein", "penetrable", "wallrack"].includes(item.type));
 
 for (let column = 1; column <= 38; column += 1) {
   for (let depth = 1; depth <= 5; depth += 1) {
@@ -44,6 +44,45 @@ for (let column = 1; column <= 38; column += 1) {
       depth,
       type: "drivein",
       row: 55 + (depth - 1) * 0.95,
+      col: -54.3 + (column - 1) * 1.1,
+      occupiedLevels: 0,
+      levels,
+    });
+  }
+}
+
+for (let column = 1; column <= 38; column += 1) {
+  for (let depth = 0; depth <= 4; depth += 1) {
+    const columnCode = String(column).padStart(2, "0");
+    const levels = [];
+    for (let level = 0; level <= 4; level += 1) {
+      const id = `PE.${columnCode}.${level}.${depth}`;
+      locationsPayload.locations.push({
+        id,
+        aisle: "PE",
+        side: 2,
+        rack: column,
+        module: depth,
+        level,
+        depth,
+        storageType: "drivein",
+        material: "",
+        quantity: 0,
+        occupied: false,
+      });
+      levels.push({ id, level, rack: column, occupied: false, material: "", quantity: 0 });
+    }
+    layoutPayload.stacks.push({
+      key: `PE.${columnCode}.${depth}`,
+      baseId: `PE.${columnCode}.0.${depth}`,
+      aisle: "PE",
+      side: 2,
+      rack: column,
+      column,
+      module: depth,
+      depth,
+      type: "drivein",
+      row: 66 + depth * 0.95,
       col: -54.3 + (column - 1) * 1.1,
       occupiedLevels: 0,
       levels,
@@ -119,4 +158,5 @@ layoutPayload.bounds = {
 fs.writeFileSync(locationsPath, JSON.stringify(locationsPayload, null, 2) + "\n");
 fs.writeFileSync(layoutPath, JSON.stringify(layoutPayload, null, 2) + "\n");
 console.log("Drive-In agregado: 38 columnas x 5 niveles x 5 profundidades = 950 posiciones.");
+console.log("Penetrable PE agregado: 38 columnas x 5 niveles x 5 profundidades = 950 posiciones.");
 console.log("Rack Este agregado: 12 módulos x 2 posiciones x 5 niveles = 120 posiciones.");

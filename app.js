@@ -6,7 +6,7 @@ const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const ADMIN_USER = "Usuario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
-const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass"];
+const SKU_FIELDS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","positionsRequired","minStock","maxStock","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
 const POSITION_3D = {
   halfWidth: 0.38,
@@ -22,7 +22,8 @@ const state = {
   layout3d: null,
   movements: [],
   history: [],
-  analyticsPeriod: "12",
+  analyticsStartDate: "",
+  analyticsEndDate: "",
   waterfallGranularity: "day",
   waterfallWindow: 0,
   scanTarget: null,
@@ -50,6 +51,8 @@ const state = {
     scale: 0.35,
     panX: 0,
     panY: 0,
+    sku: "",
+    zone: "all",
     dragging: false,
     dragMode: "orbit",
     didDrag: false,
@@ -68,6 +71,8 @@ const state = {
   skuMaster: [],
   slottingRules: [],
   pickingOrders: [],
+  sapStock: [],
+  scanReadyAt: 0,
 };
 
 const shadeCache = new Map();
@@ -226,6 +231,16 @@ function bindEvents() {
     update3dTransform();
   });
 
+  $("#sku3dFilter").addEventListener("input", (event) => {
+    state.view3d.sku = event.target.value.trim();
+    focus3dFilter();
+  });
+
+  $("#zone3dFilter").addEventListener("change", (event) => {
+    state.view3d.zone = event.target.value;
+    focus3dFilter();
+  });
+
   $("#rotateLeft").addEventListener("click", () => {
     state.view3d.rotation -= 8;
     update3dTransform();
@@ -253,7 +268,6 @@ function bindEvents() {
 
   bind3dMouseControls();
 
-  $("#quickMove").addEventListener("submit", handleMovement);
   $("#skuForm").addEventListener("submit", saveSku);
   $("#clearSkuForm").addEventListener("click", clearSkuForm);
   $("#skuSearch").addEventListener("input", renderSkuMaster);
@@ -275,6 +289,7 @@ function bindEvents() {
   $("#pickingLines").addEventListener("input", renderPickingDraft);
   $("#pickingDraft").addEventListener("click", removePickingLine);
   $("#pickingImport").addEventListener("change", importPickingFile);
+  $("#sapStockImport").addEventListener("change", importSapStock);
   $("#pickingOrderSelect").addEventListener("change", loadImportedPickingOrder);
   $("#downloadPickingTemplate").addEventListener("click", downloadPickingTemplate);
   $("#printPickingRoute").addEventListener("click", printPickingRoute);
@@ -308,8 +323,13 @@ function bindEvents() {
   $("#scannerDialog").addEventListener("close", stopScannerCamera);
   ["#labelSide", "#labelLevel", "#labelRack"].forEach((selector) => $(selector).addEventListener("change", renderLabels));
   $("#printLabels").addEventListener("click", () => window.print());
-  $("#analyticsPeriod").addEventListener("change", (event) => {
-    state.analyticsPeriod = event.target.value;
+  $("#analyticsStartDate").addEventListener("change", updateAnalyticsDates);
+  $("#analyticsEndDate").addEventListener("change", updateAnalyticsDates);
+  $("#clearAnalyticsDates").addEventListener("click", () => {
+    state.analyticsStartDate = "";
+    state.analyticsEndDate = "";
+    $("#analyticsStartDate").value = "";
+    $("#analyticsEndDate").value = "";
     renderAnalytics();
   });
   $("#waterfallGranularity").addEventListener("change", (event) => {
@@ -634,6 +654,7 @@ function switchView(view) {
 
 function renderAll() {
   renderKpis();
+  renderDashboardInsights();
   renderSideBars();
   renderMap();
   render3dMap();
@@ -644,6 +665,7 @@ function renderAll() {
   renderSkuMaster();
   renderSlottingRules();
   renderSkuAlerts();
+  renderSapComparison();
 }
 
 function switchSkuSection(section) {
@@ -663,8 +685,9 @@ function normalizeSku(source) {
   item.ean = String(item.ean).trim();
   item.unit = String(item.unit || "UN").trim().toUpperCase();
   item.velocityClass = String(item.velocityClass || "").trim().toUpperCase();
-  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","minStock","maxStock","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
-  ["lotControl","expiryControl","active"].forEach((field) => item[field] = item[field] === true || ["1","true","si","sí","yes"].includes(String(item[field]).toLowerCase()));
+  ["unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","positionsRequired","minStock","maxStock","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
+  item.positionsRequired = Math.max(1, item.positionsRequired || 1);
+  item.active = item.active === true || ["1","true","si","sí","yes"].includes(String(item.active).toLowerCase());
   if (!item.unitsPerPallet && item.unitsPerCase && item.casesPerPallet) item.unitsPerPallet = item.unitsPerCase * item.casesPerPallet;
   return item;
 }
@@ -683,8 +706,6 @@ function stockBySku() {
 async function saveSku(event) {
   event.preventDefault();
   const raw = Object.fromEntries(new FormData(event.currentTarget));
-  raw.lotControl = event.currentTarget.elements.lotControl.checked;
-  raw.expiryControl = event.currentTarget.elements.expiryControl.checked;
   raw.active = event.currentTarget.elements.active.checked;
   const item = normalizeSku(raw);
   if (!item.sku || !item.description) return setSkuMessage("SKU y descripción son obligatorios.", true);
@@ -743,9 +764,7 @@ function renderSkuMaster() {
       item.casesPerPallet || "—",
       item.unitsPerPallet || "—",
       item.weightKg || "—",
-      item.lotControl ? "Sí" : "No",
-      item.expiryControl ? "Sí" : "No",
-      item.preferredLocation || "—",
+      item.positionsRequired,
       quantity,
       item.minStock || "—",
       item.maxStock || "—",
@@ -801,8 +820,46 @@ function parseDelimited(text) {
   return lines.map((line) => Object.fromEntries(headers.map((header, index) => [header, (line.split(delimiter)[index] || "").trim()])));
 }
 
+async function importSapStock(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const rows = parseDelimited(await file.text());
+    state.sapStock = rows.map((row) => {
+      const entries = Object.entries(row);
+      const sku = entries.find(([key]) => ["sku", "material", "codigo", "código"].includes(key.trim().toLowerCase()))?.[1];
+      const stock = entries.find(([key]) => ["stock", "cantidad", "existencia", "stock sap"].includes(key.trim().toLowerCase()))?.[1];
+      return { sku: String(sku || "").trim(), stock: Number(String(stock || "0").replace(",", ".")) };
+    }).filter((item) => item.sku && Number.isFinite(item.stock));
+    if (!state.sapStock.length) throw new Error("El archivo debe contener las columnas SKU y stock.");
+    $("#sapFileSummary").textContent = `${file.name} · ${state.sapStock.length} SKU`;
+    renderSapComparison();
+  } catch (error) {
+    $("#sapFileSummary").textContent = error.message;
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function renderSapComparison() {
+  const body = $("#sapComparisonTable");
+  if (!body || !state.sapStock.length) return;
+  const appStock = stockBySku();
+  const rows = state.sapStock.map((item) => {
+    const app = Number(appStock[item.sku] || 0);
+    const difference = app - item.stock;
+    const positions = state.locations.filter((location) => location.occupied && location.material === item.sku).map((location) => location.id);
+    return { ...item, app, difference, positions };
+  });
+  const differences = rows.filter((item) => item.difference !== 0);
+  $("#sapCompared").textContent = fmt.format(rows.length);
+  $("#sapDifferences").textContent = fmt.format(differences.length);
+  $("#sapNetDifference").textContent = fmt.format(rows.reduce((sum, item) => sum + item.difference, 0));
+  body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${fmt.format(item.app)}</td><td>${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}</td><td>${item.positions.join(", ") || "—"}</td><td>${item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
+}
+
 function downloadSkuTemplate() {
-  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,false,false,10,1000,"A2.01.0",true,25,"SUPER_A"];
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","UN",12,50,600,0.5,1,10,1000,true,25,"SUPER_A"];
   const csv = [SKU_FIELDS, sample].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
@@ -1008,6 +1065,22 @@ function renderKpis() {
   $("#kpiAvailable").textContent = fmt.format(available);
   $("#kpiRate").textContent = formatRate(rate);
   $("#lastUpdate").textContent = `Actualizado ${formatDateTime()}`;
+}
+
+function renderDashboardInsights() {
+  const container = $("#dashboardInsights");
+  if (!container) return;
+  const bySku = groupBy(state.locations.filter((item) => item.occupied && item.material), (item) => item.material);
+  const leader = Object.entries(bySku)
+    .map(([sku, locations]) => ({ sku, positions: locations.length, quantity: locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0) }))
+    .sort((a, b) => b.positions - a.positions || b.quantity - a.quantity)[0];
+  const last = state.movements[0];
+  const blocked = state.locations.filter((item) => item.blocked).length;
+  const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso" };
+  container.innerHTML = `
+    <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.quantity)} unidades` : "Sin ocupación registrada"}</small></article>
+    <article><span>Último movimiento</span><strong>${last ? typeLabel[last.type] || last.type : "Sin movimientos"}</strong><small>${last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad"}</small></article>
+    <article><span>Posiciones bloqueadas</span><strong>${fmt.format(blocked)}</strong><small>No disponibles para ingreso ni picking</small></article>`;
 }
 
 function renderSideBars() {
@@ -1395,20 +1468,28 @@ function render3dMap() {
     .map((stack) => {
       const levels = [0, 1, 2, 3, 4].map((level) => {
         const locationId = stack.type === "drivein"
-          ? `DI.${String(stack.column).padStart(2, "0")}.${level}.${String(stack.depth).padStart(2, "0")}`
+          ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${level}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
           : stack.type === "wallrack"
             ? `E.${String(stack.module).padStart(2, "0")}.${level}.${String(stack.position).padStart(2, "0")}`
             : `${stack.key}.${level}`;
         const location = locationsById.get(locationId);
-        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked) };
+        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location };
       });
       const firstRelevant = levels.findIndex((level) => level.blocked || level.occupied);
       const detailId = stack.type === "drivein"
-        ? `DI.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.depth).padStart(2, "0")}`
+        ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
         : stack.type === "wallrack"
           ? `E.${String(stack.module).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.position).padStart(2, "0")}`
           : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
       return { ...stack, levels, detailId };
+    })
+    .filter((stack) => {
+      const sku = state.view3d.sku.toLowerCase();
+      const skuMatch = !sku || stack.levels.some((item) => String(item.location?.material || "").toLowerCase().includes(sku));
+      const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => rule.velocityClass === state.view3d.zone);
+      const zoneMatch = state.view3d.zone === "all"
+        || stack.levels.some((item) => item.location && zoneRules.some((rule) => locationMatchesRule(item.location, rule)));
+      return skuMatch && zoneMatch;
     });
   state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
     minCol: Math.min(...items.map((item) => item.col)),
@@ -1416,6 +1497,38 @@ function render3dMap() {
     minRow: Math.min(...items.map((item) => item.row)),
     maxRow: Math.max(...items.map((item) => item.row)),
   }));
+  update3dTransform();
+  update3dFilterSummary();
+}
+
+function update3dFilterSummary() {
+  const summary = $("#map3dFilterSummary");
+  if (!summary) return;
+  const positions = state.render3dStacks.flatMap((stack) => stack.levels.map((item) => item.location).filter(Boolean));
+  const occupied = positions.filter((item) => item.occupied);
+  summary.textContent = state.view3d.sku
+    ? `${occupied.length} posiciones: ${occupied.map((item) => item.id).join(", ") || "sin coincidencias"}`
+    : state.view3d.zone !== "all"
+      ? `${formatVelocityClass(state.view3d.zone)} · ${positions.length} posiciones`
+      : "Todas las posiciones";
+}
+
+function focus3dFilter() {
+  render3dMap();
+  if (!state.view3d.sku && state.view3d.zone === "all") return;
+  const stacks = state.render3dStacks;
+  if (!stacks.length) return;
+  const shell = $(".map3d-shell");
+  const rect = shell.getBoundingClientRect();
+  state.view3d.scale = stacks.length < 12 ? 1.15 : stacks.length < 60 ? 0.8 : 0.5;
+  state.view3d.panX = 0;
+  state.view3d.panY = 0;
+  prepare3dProjection();
+  const col = stacks.reduce((sum, item) => sum + item.col, 0) / stacks.length;
+  const row = stacks.reduce((sum, item) => sum + item.row, 0) / stacks.length;
+  const point = project3d(col, row, 80, rect.width, rect.height, stacks.every((item) => item.type === "drivein" || item.type === "wallrack"));
+  state.view3d.panX = rect.width / 2 - point.x;
+  state.view3d.panY = rect.height / 2 - point.y;
   update3dTransform();
 }
 
@@ -1483,7 +1596,6 @@ function draw3dMap() {
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
   draw3dQuad(ctx, bounds.minCol - 2, 28.5, bounds.maxCol + 2, 33.5, 0.5, "#cfd8df", width, height);
-  draw3dCoordinateGrid(ctx, width, height);
   const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
   if (driveInStacks.length) {
     draw3dQuad(
@@ -1508,7 +1620,8 @@ function draw3dMap() {
       const columnBand = Math.floor((stack.row - bounds.minRow) / 2) % 2;
       const freeColor = shadeColor(levelColors[level], columnBand ? -7 : 0);
       const status = stack.levels[level];
-      const color = status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : freeColor;
+      const zoneColors = { SUPER_A: "#7b4cc2", A: "#237fb4", B: "#23835b", C: "#b58a16", ESTACIONAL: "#b65a8a" };
+      const color = status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : state.view3d.zone !== "all" ? zoneColors[state.view3d.zone] : freeColor;
       draw3dRackLevel(ctx, stack, level, color, width, height, state.view3d.dragging);
     }
   }
@@ -1912,7 +2025,7 @@ function setMovementType(type) {
   $("#registerMaterial").required = type === "IN";
   $("#registerFrom").required = type !== "IN";
   $("#registerTo").required = type !== "OUT";
-  $("#registerSubmit").textContent = `Registrar ${{ IN: "ingreso", MOVE: "traslado", OUT: "egreso" }[type]}`;
+  $("#registerSubmit").textContent = `Registrar ${{ IN: "ingreso", MOVE: "reubicación", OUT: "egreso" }[type]}`;
   $("#registerMessage").textContent = "";
   renderMovementPreview();
   focusRegisterField();
@@ -1953,7 +2066,7 @@ function renderMovementPreview() {
   $("#registerToInfo").classList.toggle("error", Boolean(data.to) && (!to || to.occupied || to.blocked));
   renderPutawaySuggestion(data.type, data.material, data.to);
 
-  const typeLabel = { IN: "Ingreso", MOVE: "Traslado", OUT: "Egreso" }[data.type];
+  const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso" }[data.type];
   const route = data.type === "IN" ? `a ${data.to || "—"}` : data.type === "OUT" ? `desde ${data.from || "—"}` : `${data.from || "—"} → ${data.to || "—"}`;
   const material = data.type === "IN" ? data.material || "Sin SKU" : from?.material || "Sin material";
   $("#movementSummary").innerHTML = `<span>${typeLabel}</span><strong>${material}</strong><small>${route} · ${Number(data.quantity || 0)} unidades</small>`;
@@ -2022,6 +2135,7 @@ async function startBarcodeCapture(targetId) {
     video.srcObject = state.scanStream;
     dialog.showModal();
     await video.play();
+    state.scanReadyAt = performance.now() + 2000;
     status.classList.add("hidden");
     scanVideoFrame();
   } catch (error) {
@@ -2038,6 +2152,13 @@ async function scanVideoFrame() {
   const video = $("#scannerVideo");
   if (!state.scanStream || !state.scanDetector) return;
   try {
+    const waitMs = state.scanReadyAt - performance.now();
+    if (waitMs > 0) {
+      $("#scannerMessage").textContent = `Centrando cámara… ${Math.ceil(waitMs / 1000)}`;
+      state.scanFrame = requestAnimationFrame(scanVideoFrame);
+      return;
+    }
+    $("#scannerMessage").textContent = "Buscando código…";
     if (video.readyState >= 2) {
       const codes = await state.scanDetector.detect(video);
       if (codes.length) {
@@ -2162,18 +2283,17 @@ function renderAnalytics() {
   const section = $("#analytics");
   if (!section) return;
   const now = Date.now();
-  const periodMonths = state.analyticsPeriod === "all" ? null : Number(state.analyticsPeriod);
-  const cutoffDate = new Date();
-  if (periodMonths) cutoffDate.setMonth(cutoffDate.getMonth() - periodMonths + 1, 1);
-  cutoffDate.setHours(0, 0, 0, 0);
-  const cutoff = periodMonths ? cutoffDate.getTime() : 0;
-  const movements = state.movements.filter((move) => movementTimestamp(move) >= cutoff);
-  const history = state.history
-    .filter((snapshot) => Date.parse(snapshot.timestamp) >= cutoff)
-    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  const start = state.analyticsStartDate ? new Date(`${state.analyticsStartDate}T00:00:00`).getTime() : 0;
+  const end = state.analyticsEndDate ? new Date(`${state.analyticsEndDate}T23:59:59.999`).getTime() : now;
+  const movements = state.movements.filter((move) => {
+    const timestamp = movementTimestamp(move);
+    return timestamp >= start && timestamp <= end;
+  });
   const total = state.locations.length;
-  const occupied = state.locations.filter((item) => item.occupied).length;
-  const chartHistory = monthlyOccupancyHistory(history, occupied);
+  const currentOccupied = state.locations.filter((item) => item.occupied).length;
+  const afterEndDelta = state.movements.filter((move) => movementTimestamp(move) > end).reduce((sum, move) => sum + Number(move.occupancyDelta || 0), 0);
+  const occupied = currentOccupied - afterEndDelta;
+  const chartHistory = occupancyHistoryForRange(state.movements, currentOccupied, start, end);
   const occupancyRate = total ? (occupied / total) * 100 : 0;
   const firstOccupied = chartHistory[0]?.occupied ?? occupied;
   const changePoints = ((occupied - firstOccupied) / total) * 100;
@@ -2182,16 +2302,15 @@ function renderAnalytics() {
     : occupied;
   const averageRate = total ? (averageOccupied / total) * 100 : 0;
   const peakRate = total && chartHistory.length ? (Math.max(...chartHistory.map((item) => item.occupied)) / total) * 100 : occupancyRate;
-  const observedDays = Math.max(1, Math.min(periodMonths ? periodMonths * 30.44 : Infinity, historySpanDays(history)));
+  const firstTimestamp = movements.length ? Math.min(...movements.map(movementTimestamp)) : start || end;
+  const observedDays = Math.max(1, (end - firstTimestamp) / 86400000 + 1);
   const inMoves = movements.filter((move) => move.type === "IN");
   const outMoves = movements.filter((move) => move.type === "OUT");
   const transferMoves = movements.filter((move) => move.type === "MOVE");
   const inQty = sumMovementQuantity(inMoves);
   const outQty = sumMovementQuantity(outMoves);
   const transferQty = sumMovementQuantity(transferMoves);
-  const averageQty = chartHistory.length
-    ? chartHistory.reduce((sum, item) => sum + Number(item.quantity || 0), 0) / chartHistory.length
-    : state.locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const averageQty = state.locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const turnover = averageQty > 0 ? outQty / averageQty : 0;
   const dwellSamples = movements.map((move) => Number(move.dwellHours)).filter((hours) => Number.isFinite(hours) && hours >= 0);
   const averageDwell = dwellSamples.length ? dwellSamples.reduce((sum, hours) => sum + hours, 0) / dwellSamples.length : null;
@@ -2210,7 +2329,7 @@ function renderAnalytics() {
   $("#analyticsDwell").textContent = averageDwell === null ? "Sin datos" : formatDuration(averageDwell);
   $("#analyticsDwellSamples").textContent = `${dwellSamples.length} salidas medibles`;
   $("#analyticsStagnant").textContent = fmt.format(stagnant);
-  $("#analyticsCoverage").textContent = coverageText(chartHistory);
+  $("#analyticsCoverage").textContent = state.analyticsStartDate || state.analyticsEndDate ? `${state.analyticsStartDate || "Inicio"} a ${state.analyticsEndDate || "Hoy"}` : coverageText(chartHistory);
   $("#analyticsRange").textContent = chartHistory.length > 1 ? `${chartHistory.length} meses` : "Mes actual";
   $("#waterfallRange").textContent = dailyFlow.length
     ? `${dailyFlow.length} ${state.waterfallGranularity === "hour" ? "franjas horarias" : "fechas"}`
@@ -2219,7 +2338,7 @@ function renderAnalytics() {
   $("#flowMetrics").innerHTML = [
     ["Ingresos", inMoves.length, inQty, "flow-in"],
     ["Egresos", outMoves.length, outQty, "flow-out"],
-    ["Traslados", transferMoves.length, transferQty, "flow-move"],
+    ["Reubicaciones", transferMoves.length, transferQty, "flow-move"],
   ].map(([label, count, quantity, cssClass]) => `
     <div class="flow-row ${cssClass}"><span>${label}</span><strong>${fmt.format(count)}</strong><small>${fmt.format(quantity)} unidades</small></div>
   `).join("");
@@ -2258,13 +2377,38 @@ function occupancyFlow(movements, currentOccupied, granularity) {
   });
 }
 
+function updateAnalyticsDates() {
+  state.analyticsStartDate = $("#analyticsStartDate").value;
+  state.analyticsEndDate = $("#analyticsEndDate").value;
+  if (state.analyticsStartDate && state.analyticsEndDate && state.analyticsStartDate > state.analyticsEndDate) {
+    [state.analyticsStartDate, state.analyticsEndDate] = [state.analyticsEndDate, state.analyticsStartDate];
+    $("#analyticsStartDate").value = state.analyticsStartDate;
+    $("#analyticsEndDate").value = state.analyticsEndDate;
+  }
+  state.waterfallWindow = 0;
+  renderAnalytics();
+}
+
+function occupancyHistoryForRange(allMovements, currentOccupied, start, end) {
+  const ordered = [...allMovements].sort((a, b) => movementTimestamp(a) - movementTimestamp(b));
+  const afterEnd = ordered.filter((move) => movementTimestamp(move) > end).reduce((sum, move) => sum + Number(move.occupancyDelta || 0), 0);
+  let running = currentOccupied - afterEnd - ordered.filter((move) => movementTimestamp(move) >= start && movementTimestamp(move) <= end).reduce((sum, move) => sum + Number(move.occupancyDelta || 0), 0);
+  const byMonth = new Map();
+  ordered.filter((move) => movementTimestamp(move) >= start && movementTimestamp(move) <= end).forEach((move) => {
+    running += Number(move.occupancyDelta || 0);
+    const date = new Date(movementTimestamp(move));
+    const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    byMonth.set(month, { month, timestamp: date.toISOString(), occupied: running, quantity: 0 });
+  });
+  if (!byMonth.size) byMonth.set("actual", { month: "actual", timestamp: new Date(end).toISOString(), occupied: currentOccupied - afterEnd, quantity: state.locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0) });
+  return [...byMonth.values()];
+}
+
 function changeWaterfallZoom(direction) {
   const occupied = state.locations.filter((item) => item.occupied).length;
-  const periodMonths = state.analyticsPeriod === "all" ? null : Number(state.analyticsPeriod);
-  const cutoffDate = new Date();
-  if (periodMonths) cutoffDate.setMonth(cutoffDate.getMonth() - periodMonths + 1, 1);
-  cutoffDate.setHours(0, 0, 0, 0);
-  const movements = state.movements.filter((move) => movementTimestamp(move) >= (periodMonths ? cutoffDate.getTime() : 0));
+  const start = state.analyticsStartDate ? new Date(`${state.analyticsStartDate}T00:00:00`).getTime() : 0;
+  const end = state.analyticsEndDate ? new Date(`${state.analyticsEndDate}T23:59:59.999`).getTime() : Date.now();
+  const movements = state.movements.filter((move) => movementTimestamp(move) >= start && movementTimestamp(move) <= end);
   const length = occupancyFlow(movements, occupied, state.waterfallGranularity).length;
   if (!length) return;
   const current = state.waterfallWindow || length;
@@ -2498,6 +2642,7 @@ function handleMovement(event) {
   const movementId = crypto.randomUUID ? crypto.randomUUID() : `move-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const occupiedBefore = state.locations.filter((item) => item.occupied).length;
   const originBefore = findLocation(from);
+  const originMaterial = originBefore?.material || "";
   const dwellHours = originBefore?.occupiedSince
     ? Math.max(0, (Date.parse(timestamp) - Date.parse(originBefore.occupiedSince)) / 3600000)
     : null;
@@ -2516,9 +2661,9 @@ function handleMovement(event) {
       date: formatDateTime(timestamp),
       timestamp,
       type,
-      material: material || findLocation(to)?.material || findLocation(from)?.material || "",
+      material: type === "OUT" || type === "MOVE" ? originMaterial : material,
       from,
-      to,
+      to: type === "OUT" ? "" : to,
       quantity,
       occupancyDelta: occupiedAfter - occupiedBefore,
       dwellHours: type === "IN" ? null : dwellHours,
@@ -2589,7 +2734,7 @@ function registerMove(from, to, quantity, timestamp) {
 }
 
 function driveInLane(location) {
-  return state.locations.filter((item) => item.storageType === "drivein" && item.rack === location.rack && item.level === location.level);
+  return state.locations.filter((item) => item.storageType === "drivein" && item.aisle === location.aisle && item.rack === location.rack && item.level === location.level);
 }
 
 function validateDriveInPutaway(destination, material) {
@@ -2641,6 +2786,8 @@ function normalizePosition(value) {
   const normalized = String(value || "").trim().toUpperCase().replaceAll(" ", "");
   const driveInMatch = normalized.match(/^DI\.(\d{1,2})\.([0-4])\.(\d{1,2})$/);
   if (driveInMatch) return `DI.${driveInMatch[1].padStart(2, "0")}.${driveInMatch[2]}.${driveInMatch[3].padStart(2, "0")}`;
+  const penetrableMatch = normalized.match(/^PE\.(\d{1,2})\.([0-4])\.([0-4])$/);
+  if (penetrableMatch) return `PE.${penetrableMatch[1].padStart(2, "0")}.${penetrableMatch[2]}.${penetrableMatch[3]}`;
   const match = normalized.match(/^([A-Z]+)([12])\.(\d{1,2})\.([0-4])$/);
   return match ? `${match[1]}${match[2]}.${match[3].padStart(2, "0")}.${match[4]}` : normalized;
 }
@@ -2683,7 +2830,7 @@ function openDetail(item) {
   $("#detailPanel").dataset.locationId = item.id;
   $("#detailTitle").textContent = item.id;
   renderDetailFields([
-    ["Sector", item.storageType === "drivein" ? "Drive-In" : item.storageType === "wallrack" ? "Este" : item.aisle],
+    ["Sector", item.storageType === "drivein" ? item.aisle : item.storageType === "wallrack" ? "Este" : item.aisle],
     [item.storageType === "drivein" ? "Acceso" : "Lado", item.storageType === "drivein" ? "Único" : item.side],
     [item.storageType === "drivein" ? "Columna" : "Módulo", item.rack],
     [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
@@ -2704,9 +2851,6 @@ function recommendPutawayLocation(sku) {
   const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
   if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
   const available = state.locations.filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku));
-  const preferred = available.find((location) => location.id === normalizePosition(item.preferredLocation));
-  if (preferred) return { location: preferred, reason: "Ubicación preferida del maestro SKU." };
-
   const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
   const zoned = rules.length ? available.filter((location) => rules.some((rule) => locationMatchesRule(location, rule))) : available;
   const fastMover = item.velocityClass === "SUPER_A" || item.velocityClass === "A";

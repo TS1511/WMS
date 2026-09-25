@@ -18,7 +18,7 @@ const COLUMNS = [
   "estado",
   "actualizado_en",
 ];
-const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass"];
+const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass","positionsRequired"];
 const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level"];
 
 const BASELINE_STOCK = {
@@ -103,6 +103,10 @@ function getSkuSheet() {
     sheet.appendRow(SKU_COLUMNS);
     sheet.setFrozenRows(1);
   }
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), SKU_COLUMNS.length)).getDisplayValues()[0];
+  SKU_COLUMNS.forEach((column, index) => {
+    if (headers[index] !== column) sheet.getRange(1, index + 1).setValue(column);
+  });
   return sheet;
 }
 
@@ -222,10 +226,20 @@ function reconstructWarehouse(records) {
     if (type === "IN" && to) stock.set(to, { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 });
     if (type === "MOVE" && from && to) {
       const item = stock.get(from) || { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 };
-      stock.delete(from);
-      stock.set(to, item);
+      const quantity = Number(record.cantidad) || 1;
+      const remaining = Number(item.cantidad || 0) - quantity;
+      if (remaining > 0) stock.set(from, { sku: item.sku, cantidad: remaining });
+      else stock.delete(from);
+      stock.set(to, { sku: item.sku || clean(record.sku), cantidad: quantity });
     }
-    if (type === "OUT" && from) stock.delete(from);
+    if (type === "OUT" && from) {
+      const item = stock.get(from);
+      if (item) {
+        const remaining = Number(item.cantidad || 0) - (Number(record.cantidad) || 1);
+        if (remaining > 0) stock.set(from, { sku: item.sku, cantidad: remaining });
+        else stock.delete(from);
+      }
+    }
     if (type === "BLOCK" && to) blocks.add(to);
     if (type === "UNBLOCK" && from) blocks.delete(from);
   });
