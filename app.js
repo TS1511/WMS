@@ -2981,6 +2981,7 @@ function handleMovement(event) {
         : [normalizeContentLine({ sku: material, legacyPallets: palletCount })]
       : [];
     const movementPackages = type === "IN" ? contents.reduce((sum, item) => sum + item.packages, 0) : type === "MOVE" ? Number(originBefore?.quantity || 0) : quantity;
+    const movementQuantity = type === "IN" && loadType === "PALLET_MONO" ? palletCount : movementPackages;
     if (type === "OUT" && quantity <= 0) throw new Error("La cantidad de bultos debe ser mayor a cero.");
     if (type === "IN" && !contents.length) throw new Error("Indicá el contenido de la carga.");
     if (type === "IN" && contents.some((item) => !item.sku || (loadType === "PALLET_MULTI" && item.packages <= 0))) throw new Error("Cada SKU multiproducto debe tener una cantidad de bultos mayor a cero.");
@@ -2998,7 +2999,7 @@ function handleMovement(event) {
       material: type === "OUT" ? (material || originMaterial) : type === "MOVE" ? originMaterial : contents.length > 1 ? "MULTIPRODUCTO" : contents[0].sku,
       from,
       to: type === "OUT" ? "" : to,
-      quantity: movementPackages,
+      quantity: movementQuantity,
       logisticsUnit: type === "IN" || type === "MOVE" ? "PALLET" : "BULTO",
       palletCount: type === "MOVE" ? (originPalletCount || 1) : palletCount,
       packages: movementPackages,
