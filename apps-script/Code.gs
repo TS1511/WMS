@@ -1,7 +1,8 @@
-const SERVER_VERSION = 22;
+const SERVER_VERSION = 23;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
 const SLOTTING_SHEET_NAME = "Zonas SKU";
+const COUNT_SHEET_NAME = "Conteos Inventario";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
 const COLUMNS = [
   "id_movimiento",
@@ -22,9 +23,13 @@ const COLUMNS = [
   "bultos",
   "unidades",
   "contenido_json",
+  "id_conteo",
+  "motivo_ajuste",
+  "contenido_anterior_json",
 ];
 const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass","positionsRequired","minDays","maxDays"];
 const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level"];
+const COUNT_COLUMNS = ["id_conteo","fecha_hora_utc","fecha_local","posicion","esperado_json","encontrado_json","resultado","estado","observacion","usuario","ajuste_id","ajustado_por","ajustado_en"];
 
 const BASELINE_STOCK = {
   "A2.02.0": { sku: "5555555", cantidad: 1 },
@@ -40,11 +45,14 @@ function doGet(event) {
     if (action === "list") return jsonp(callback, { ok: true, version: SERVER_VERSION, records: readRecords() });
     if (action === "sku_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readSkuMaster() });
     if (action === "slotting_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readSlottingRules() });
+    if (action === "count_list") return jsonp(callback, { ok: true, version: SERVER_VERSION, items: readInventoryCounts() });
     const payload = JSON.parse(clean(event.parameter.payload) || "{}");
     if (action === "sku_save") return jsonp(callback, saveSkuItems([payload.item], payload.admin_password));
     if (action === "sku_bulk") return jsonp(callback, saveSkuItems(payload.items, payload.admin_password));
     if (action === "slotting_save") return jsonp(callback, saveSlottingRule(payload.rule, payload.admin_password));
     if (action === "slotting_delete") return jsonp(callback, deleteSlottingRule(payload.id, payload.admin_password));
+    if (action === "count_save") return jsonp(callback, saveInventoryCount(payload.count));
+    if (action === "count_adjust") return jsonp(callback, applyInventoryCountAdjustment(payload.count_id, payload.movement, payload.admin_password));
     if (action !== "command") return jsonp(callback, { ok: false, retryable: false, error: "Acción no válida." });
 
     const result = processCommand(payload);
@@ -159,6 +167,94 @@ function getSlottingSheet() {
   return sheet;
 }
 
+function readInventoryCounts() {
+  const values = getCountSheet().getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+  return values.slice(1).filter((row) => clean(row[0])).map((row) => {
+    const item = {};
+    COUNT_COLUMNS.forEach((column, index) => item[column] = row[index] == null ? "" : row[index]);
+    return item;
+  });
+}
+
+function saveInventoryCount(source) {
+  const item = {};
+  COUNT_COLUMNS.forEach((column) => item[column] = source && source[column] != null ? source[column] : "");
+  item.id_conteo = clean(item.id_conteo);
+  item.posicion = normalizePosition(item.posicion);
+  item.estado = clean(item.estado).toUpperCase();
+  item.resultado = clean(item.resultado).toUpperCase();
+  if (!item.id_conteo || !item.posicion || !clean(item.fecha_hora_utc) || !clean(item.usuario)) {
+    return { ok: false, retryable: false, error: "El conteo está incompleto." };
+  }
+  if (!["COINCIDE", "DIFERENCIA"].includes(item.resultado)) return { ok: false, retryable: false, error: "Resultado de conteo no válido." };
+  item.estado = item.resultado === "COINCIDE" ? "CERRADO" : "PENDIENTE";
+
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) return { ok: false, retryable: true, error: "Los conteos están ocupados. Reintenta en unos segundos." };
+  try {
+    const sheet = getCountSheet();
+    const duplicate = sheet.getDataRange().getDisplayValues().some((row, index) => index > 0 && clean(row[0]) === item.id_conteo);
+    if (duplicate) return { ok: true, duplicate: true, version: SERVER_VERSION };
+    sheet.appendRow(COUNT_COLUMNS.map((column) => item[column]));
+    SpreadsheetApp.flush();
+    return { ok: true, version: SERVER_VERSION };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function applyInventoryCountAdjustment(countId, movementSource, adminPassword) {
+  if (clean(adminPassword) !== ADMIN_PASSWORD_HASH) return { ok: false, retryable: false, error: "Se requiere autorización de supervisor o administrador." };
+  const lock = LockService.getDocumentLock();
+  if (!lock.tryLock(15000)) return { ok: false, retryable: true, error: "El inventario está ocupado. Reintenta en unos segundos." };
+  try {
+    const countSheet = getCountSheet();
+    const countRows = countSheet.getDataRange().getDisplayValues();
+    const countIndex = countRows.findIndex((row, index) => index > 0 && clean(row[0]) === clean(countId));
+    if (countIndex < 1) return { ok: false, retryable: false, error: "No existe el conteo indicado." };
+    const count = {};
+    COUNT_COLUMNS.forEach((column, index) => count[column] = countRows[countIndex][index] == null ? "" : countRows[countIndex][index]);
+    if (clean(count.estado).toUpperCase() !== "PENDIENTE") return { ok: false, retryable: false, error: "El conteo ya fue cerrado o ajustado." };
+
+    const movement = normalizeRecord(movementSource);
+    movement.tipo = "ADJUST";
+    movement.id_conteo = clean(countId);
+    const basicError = validateBasicRecord(movement);
+    if (basicError) return { ok: false, retryable: false, error: basicError };
+    const records = readRecords();
+    const validationError = validateCommand(movement, records);
+    if (validationError) return { ok: false, retryable: false, error: validationError };
+
+    createDailyBackup();
+    getSheet().appendRow(COLUMNS.map((column) => movement[column]));
+    const statusColumn = COUNT_COLUMNS.indexOf("estado") + 1;
+    countSheet.getRange(countIndex + 1, statusColumn).setValue("AJUSTADO");
+    countSheet.getRange(countIndex + 1, COUNT_COLUMNS.indexOf("ajuste_id") + 1).setValue(movement.id_movimiento);
+    countSheet.getRange(countIndex + 1, COUNT_COLUMNS.indexOf("ajustado_por") + 1).setValue(movement.usuario);
+    countSheet.getRange(countIndex + 1, COUNT_COLUMNS.indexOf("ajustado_en") + 1).setValue(movement.actualizado_en);
+    SpreadsheetApp.flush();
+    return { ok: true, version: SERVER_VERSION, movement_id: movement.id_movimiento };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getCountSheet() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = spreadsheet.getSheetByName(COUNT_SHEET_NAME);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(COUNT_SHEET_NAME);
+    sheet.appendRow(COUNT_COLUMNS);
+    sheet.setFrozenRows(1);
+  }
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), COUNT_COLUMNS.length)).getDisplayValues()[0];
+  COUNT_COLUMNS.forEach((column, index) => {
+    if (headers[index] !== column) sheet.getRange(1, index + 1).setValue(column);
+  });
+  return sheet;
+}
+
 function processCommand(payload) {
   const record = normalizeRecord(payload);
   const basicError = validateBasicRecord(record);
@@ -193,7 +289,7 @@ function validateCommand(record, records) {
   const from = record.posicion_origen;
   const to = record.posicion_destino;
 
-  if ((record.tipo === "BLOCK" || record.tipo === "UNBLOCK") && record.admin_password !== ADMIN_PASSWORD_HASH) {
+  if (["BLOCK", "UNBLOCK", "ADJUST"].includes(record.tipo) && record.admin_password !== ADMIN_PASSWORD_HASH) {
     return "Se requiere autorización de administrador.";
   }
   if (record.tipo === "IN") {
@@ -218,6 +314,21 @@ function validateCommand(record, records) {
   if (record.tipo === "UNBLOCK" && (!from || !warehouse.blocks.has(from))) {
     return `La posición ${from || "indicada"} no está bloqueada.`;
   }
+  if (record.tipo === "ADJUST") {
+    if (!to || !record.id_conteo) return "El ajuste requiere posición e identificador de conteo.";
+    let contents = [];
+    try { contents = JSON.parse(record.contenido_json || "[]"); } catch (error) { return "El contenido encontrado no es válido."; }
+    if (contents.length && warehouse.blocks.has(to)) return `La posición ${to} está bloqueada.`;
+    let previous = {};
+    try { previous = JSON.parse(record.contenido_anterior_json || "{}"); } catch (error) { return "La referencia anterior del conteo no es válida."; }
+    const current = warehouse.stock.get(to);
+    if (Boolean(previous.occupied) !== Boolean(current)) return `El stock de ${to} cambió después del conteo. Realiza un nuevo conteo.`;
+    if (previous.occupied) {
+      const expectedSkus = (previous.contents || []).map((item) => clean(item.sku).toUpperCase()).filter(Boolean).sort().join("|");
+      const currentSkus = stockItemSkus(current).join("|");
+      if (expectedSkus && currentSkus && expectedSkus !== currentSkus) return `El contenido de ${to} cambió después del conteo. Realiza un nuevo conteo.`;
+    }
+  }
   return "";
 }
 
@@ -228,14 +339,14 @@ function reconstructWarehouse(records) {
     const type = clean(record.tipo).toUpperCase();
     const from = normalizePosition(record.posicion_origen);
     const to = normalizePosition(record.posicion_destino);
-    if (type === "IN" && to) stock.set(to, { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 });
+    if (type === "IN" && to) stock.set(to, { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1, contenido_json: record.contenido_json, pallets: record.pallets });
     if (type === "MOVE" && from && to) {
       const item = stock.get(from) || { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1 };
       const quantity = Number(record.cantidad) || 1;
       const remaining = Number(item.cantidad || 0) - quantity;
       if (remaining > 0) stock.set(from, { sku: item.sku, cantidad: remaining });
       else stock.delete(from);
-      stock.set(to, { sku: item.sku || clean(record.sku), cantidad: quantity });
+      stock.set(to, { ...item, sku: item.sku || clean(record.sku), cantidad: quantity });
     }
     if (type === "OUT" && from) {
       const item = stock.get(from);
@@ -247,8 +358,24 @@ function reconstructWarehouse(records) {
     }
     if (type === "BLOCK" && to) blocks.add(to);
     if (type === "UNBLOCK" && from) blocks.delete(from);
+    if (type === "ADJUST" && to) {
+      let contents = [];
+      try { contents = JSON.parse(record.contenido_json || "[]"); } catch (error) {}
+      if (contents.length) stock.set(to, { sku: clean(record.sku), cantidad: Number(record.cantidad) || 1, contenido_json: record.contenido_json, pallets: record.pallets });
+      else stock.delete(to);
+    }
   });
   return { stock: stock, blocks: blocks };
+}
+
+function stockItemSkus(item) {
+  if (!item) return [];
+  try {
+    const contents = JSON.parse(item.contenido_json || "[]");
+    const skus = contents.map((content) => clean(content.sku).toUpperCase()).filter(Boolean).sort();
+    if (skus.length) return skus;
+  } catch (error) {}
+  return clean(item.sku) ? [clean(item.sku).toUpperCase()] : [];
 }
 
 function latestActiveRecords(records, excludedId) {
@@ -266,7 +393,7 @@ function validateBasicRecord(record) {
   if (!record.id_movimiento) return "Falta el identificador del movimiento.";
   if (!record.actualizado_en) return "Falta la fecha de actualización.";
   if (!["CREADO", "ANULADO"].includes(record.estado)) return "Estado no válido.";
-  if (record.estado !== "ANULADO" && !["IN", "MOVE", "OUT", "BLOCK", "UNBLOCK"].includes(record.tipo)) return "Tipo de movimiento no válido.";
+  if (record.estado !== "ANULADO" && !["IN", "MOVE", "OUT", "BLOCK", "UNBLOCK", "ADJUST"].includes(record.tipo)) return "Tipo de movimiento no válido.";
   if (["IN", "MOVE", "OUT"].includes(record.tipo) && !(Number(record.cantidad) > 0)) return "La cantidad debe ser mayor que cero.";
   return "";
 }

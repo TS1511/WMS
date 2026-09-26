@@ -24,16 +24,16 @@ const ROLE_LABELS = {
 const ROLE_SECTIONS = {
   operations: ["dashboard", "register", "locations", "map", "map3d"],
   picking: ["dashboard", "picking", "locations", "map", "map3d"],
-  inventory: ["dashboard", "locations", "map", "map3d", "movements", "analytics", "reconciliation", "labels"],
-  supervisor: ["dashboard", "register", "picking", "locations", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
-  admin: ["dashboard", "register", "picking", "locations", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
+  inventory: ["dashboard", "locations", "counts", "map", "map3d", "movements", "analytics", "reconciliation", "labels"],
+  supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
+  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
 };
 const ROLE_PERMISSIONS = {
   operations: ["movement_write"],
   picking: ["picking_write"],
-  inventory: ["sap_import"],
-  supervisor: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import"],
-  admin: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "block_locations", "reset_data", "admin"],
+  inventory: ["sap_import", "count_write"],
+  supervisor: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust"],
+  admin: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust", "block_locations", "reset_data", "admin"],
 };
 const SKU_FIELDS = ["sku","description","ean","category","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
@@ -103,6 +103,7 @@ const state = {
   slottingRules: [],
   pickingOrders: [],
   sapStock: [],
+  inventoryCounts: [],
   scanReadyAt: 0,
 };
 
@@ -201,7 +202,11 @@ async function init() {
   await pullSkuMaster();
   await pullCentralMovements();
   await pullSlottingRules();
-  state.syncTimer = window.setInterval(pullCentralMovements, 15000);
+  await pullInventoryCounts();
+  state.syncTimer = window.setInterval(() => {
+    pullCentralMovements();
+    pullInventoryCounts();
+  }, 15000);
 }
 
 function loadJson(key, fallback) {
@@ -334,6 +339,10 @@ function bindEvents() {
   $("#pickingDraft").addEventListener("click", removePickingLine);
   $("#pickingImport").addEventListener("change", importPickingFile);
   $("#sapStockImport").addEventListener("change", importSapStock);
+  $("#inventoryCountForm").addEventListener("submit", saveInventoryCount);
+  $("#countPosition").addEventListener("input", renderCountExpected);
+  $("#countLoadType").addEventListener("change", updateCountLoadFields);
+  $("#inventoryCountsTable").addEventListener("click", handleCountAdjustment);
   $("#pickingOrderSelect").addEventListener("change", loadImportedPickingOrder);
   $("#downloadPickingTemplate").addEventListener("click", downloadPickingTemplate);
   $("#printPickingRoute").addEventListener("click", printPickingRoute);
@@ -398,7 +407,10 @@ function bindEvents() {
   $("#syncSettingsForm").addEventListener("submit", saveSyncSettings);
   $("#retrySync").addEventListener("click", flushSyncOutbox);
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) pullCentralMovements();
+    if (!document.hidden) {
+      pullCentralMovements();
+      pullInventoryCounts();
+    }
   });
   $("#syncSettingsDialog").addEventListener("cancel", (event) => {
     if (!state.syncConfig.authenticated) event.preventDefault();
@@ -500,8 +512,10 @@ function applyRoleAccess() {
   $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
   $("#slottingForm").hidden = !hasPermission("slotting_write");
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
+  $("#inventoryCountForm").hidden = !hasPermission("count_write");
   renderMovements();
   renderRegistration();
+  renderInventoryCounts();
 }
 
 function scheduleSessionExpiry() {
@@ -528,7 +542,14 @@ function logoutSession(expired = false) {
 }
 
 function queueMovementSync(action, movement) {
-  state.syncOutbox.push({
+  state.syncOutbox.push(movementToCentralRecord(action, movement));
+  localStorage.setItem(SYNC_OUTBOX_KEY, JSON.stringify(state.syncOutbox));
+  renderSyncStatus();
+  flushSyncOutbox();
+}
+
+function movementToCentralRecord(action, movement) {
+  return {
     id_movimiento: movement.id,
     fecha_hora_utc: movement.timestamp || new Date().toISOString(),
     fecha_local: movement.timestamp ? formatDateTime(movement.timestamp) : movement.date || formatDateTime(),
@@ -548,10 +569,10 @@ function queueMovementSync(action, movement) {
     estado: action,
     actualizado_en: new Date().toISOString(),
     admin_password: movement.adminPassword || "",
-  });
-  localStorage.setItem(SYNC_OUTBOX_KEY, JSON.stringify(state.syncOutbox));
-  renderSyncStatus();
-  flushSyncOutbox();
+    id_conteo: movement.countId || "",
+    motivo_ajuste: movement.adjustmentReason || "",
+    contenido_anterior_json: JSON.stringify(movement.previousLoad || {}),
+  };
 }
 
 async function flushSyncOutbox() {
@@ -669,7 +690,7 @@ function applyCentralMovements(records) {
       if (position) blocks.delete(position);
       return;
     }
-    if (!["IN", "MOVE", "OUT"].includes(type)) return;
+    if (!["IN", "MOVE", "OUT", "ADJUST"].includes(type)) return;
     const legacyPalletMovement = !String(record.unidad_logistica || "").trim();
     current.set(id, {
       id,
@@ -687,6 +708,9 @@ function applyCentralMovements(records) {
       contents: parseMovementContents(record.contenido_json, record.sku, record.bultos || record.cantidad, record.unidades, legacyPalletMovement),
       occupancyDelta: Number(record.delta_ocupacion || 0),
       dwellHours: record.permanencia_horas === "" ? null : Number(record.permanencia_horas),
+      countId: String(record.id_conteo || ""),
+      adjustmentReason: String(record.motivo_ajuste || ""),
+      previousLoad: parseJsonValue(record.contenido_anterior_json, {}),
     });
   });
 
@@ -812,6 +836,7 @@ function switchView(view) {
   if (view === "map3d") requestAnimationFrame(update3dTransform);
   if (view === "analytics") requestAnimationFrame(renderAnalytics);
   if (view === "register") requestAnimationFrame(() => focusRegisterField());
+  if (view === "counts") requestAnimationFrame(() => $("#countPosition").focus());
   if (view === "labels") requestAnimationFrame(renderLabels);
 }
 
@@ -829,6 +854,7 @@ function renderAll() {
   renderSlottingRules();
   renderSkuAlerts();
   renderSapComparison();
+  renderInventoryCounts();
 }
 
 function switchSkuSection(section) {
@@ -1153,6 +1179,207 @@ function renderSapComparison() {
   body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference || item.unknownConversion ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${item.unknownConversion ? "Sin conversión" : fmt.format(item.app)}</td><td>${item.unknownConversion ? "—" : `${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}`}</td><td>${item.positions.join(", ") || "—"}</td><td>${item.unknownConversion ? "Definir bultos/pallet" : item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
 }
 
+function locationLoadSnapshot(location) {
+  const primary = footprintPrimaryLocation(location);
+  if (!primary?.occupied) return { occupied: false, palletCount: 0, positions: [primary?.id || location?.id || ""].filter(Boolean), contents: [] };
+  return {
+    occupied: true,
+    palletCount: Number(primary.palletCount || 0),
+    positions: footprintLocations(primary).map((item) => item.id),
+    contents: structuredClone(primary.contents || []).map(normalizeContentLine),
+  };
+}
+
+function updateCountLoadFields() {
+  const type = $("#countLoadType").value;
+  $("#countMonoFields").hidden = type !== "PALLET_MONO";
+  $("#countMultiFields").hidden = type !== "PALLET_MULTI";
+  $("#countPalletField").hidden = type === "EMPTY";
+}
+
+function renderCountExpected() {
+  const raw = normalizePosition($("#countPosition").value);
+  const location = findLocation(raw);
+  const card = $("#countExpectedLoad");
+  if (!raw) {
+    card.innerHTML = "<span>Ingresá o escaneá una posición para ver el stock esperado.</span>";
+    return;
+  }
+  if (!location) {
+    card.innerHTML = `<strong>${escapeHtml(raw)}</strong><span>La posición no existe.</span>`;
+    return;
+  }
+  const primary = footprintPrimaryLocation(location);
+  const snapshot = locationLoadSnapshot(primary);
+  $("#countPosition").dataset.primaryPosition = primary.id;
+  card.innerHTML = `<strong>${escapeHtml(primary.id)}</strong><span>${countLoadSummary(snapshot)}</span>${snapshot.positions.length > 1 ? `<small>Ocupa ${snapshot.positions.map(escapeHtml).join(" + ")}</small>` : ""}`;
+}
+
+function readCountFound() {
+  const type = $("#countLoadType").value;
+  if (type === "EMPTY") return { occupied: false, palletCount: 0, contents: [] };
+  const palletCount = Number($("#countPalletCount").value || 0);
+  if (!(palletCount > 0)) throw new Error("Indicá la cantidad de pallets encontrados.");
+  if (type === "PALLET_MULTI") {
+    const contents = parseMultiContents($("#countMultiContents").value);
+    if (palletCount !== 1) throw new Error("Un pallet multiproducto debe contarse como un pallet con su detalle de bultos.");
+    return { occupied: true, palletCount, contents };
+  }
+  const sku = String($("#countSku").value || "").trim();
+  if (!sku) throw new Error("Indicá el SKU encontrado.");
+  return { occupied: true, palletCount, contents: [normalizeContentLine({ sku, legacyPallets: palletCount })] };
+}
+
+function comparableCountLoad(load = {}) {
+  const contents = (load.contents || []).map(normalizeContentLine).sort((a, b) => a.sku.localeCompare(b.sku));
+  return {
+    occupied: Boolean(contents.length),
+    palletCount: contents.length ? Number(load.palletCount || 0) : 0,
+    contents: contents.map((item) => contents.length > 1
+      ? { sku: item.sku.toUpperCase(), packages: Number(item.packages || 0) }
+      : { sku: item.sku.toUpperCase() }),
+  };
+}
+
+function countLoadsMatch(expected, found) {
+  return JSON.stringify(comparableCountLoad(expected)) === JSON.stringify(comparableCountLoad(found));
+}
+
+function countLoadSummary(load = {}) {
+  const contents = (load.contents || []).map(normalizeContentLine).filter((item) => item.sku);
+  if (!contents.length) return "Posición vacía";
+  if (contents.length === 1) return `${fmt.format(Number(load.palletCount || 1))} pallet · ${escapeHtml(contents[0].sku)}`;
+  return `${fmt.format(Number(load.palletCount || 1))} pallet multiproducto · ${contents.map((item) => `${escapeHtml(item.sku)} (${fmt.format(item.packages)} bultos)`).join(" · ")}`;
+}
+
+async function saveInventoryCount(event) {
+  event.preventDefault();
+  if (!requirePermission("count_write")) return;
+  const message = $("#countMessage");
+  try {
+    const entered = normalizePosition($("#countPosition").value);
+    const location = findLocation(entered);
+    if (!location) throw new Error("La posición indicada no existe.");
+    const primary = footprintPrimaryLocation(location);
+    const expected = locationLoadSnapshot(primary);
+    const found = readCountFound();
+    const timestamp = new Date();
+    const matches = countLoadsMatch(expected, found);
+    const count = {
+      id_conteo: crypto.randomUUID ? crypto.randomUUID() : `count-${timestamp.getTime()}-${Math.random()}`,
+      fecha_hora_utc: timestamp.toISOString(),
+      fecha_local: formatDateTime(timestamp),
+      posicion: primary.id,
+      esperado_json: JSON.stringify(expected),
+      encontrado_json: JSON.stringify(found),
+      resultado: matches ? "COINCIDE" : "DIFERENCIA",
+      estado: matches ? "CERRADO" : "PENDIENTE",
+      observacion: String($("#countObservation").value || "").trim(),
+      usuario: state.syncConfig.operator,
+    };
+    const result = await centralRequest("count_save", { count });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
+    message.classList.remove("error");
+    message.textContent = matches ? "Conteo guardado: coincide con el sistema." : "Conteo guardado con diferencia pendiente de ajuste.";
+    event.currentTarget.reset();
+    $("#countPalletCount").value = 1;
+    updateCountLoadFields();
+    renderCountExpected();
+    await pullInventoryCounts();
+  } catch (error) {
+    message.classList.add("error");
+    message.textContent = error.message;
+  }
+}
+
+function renderInventoryCounts() {
+  const body = $("#inventoryCountsTable");
+  if (!body) return;
+  const counts = state.inventoryCounts;
+  $("#countKpiTotal").textContent = fmt.format(counts.length);
+  $("#countKpiPending").textContent = fmt.format(counts.filter((item) => item.status === "PENDIENTE").length);
+  $("#countKpiMatch").textContent = fmt.format(counts.filter((item) => item.result === "COINCIDE").length);
+  $("#countKpiAdjusted").textContent = fmt.format(counts.filter((item) => item.status === "AJUSTADO").length);
+  body.innerHTML = counts.map((count) => {
+    const difference = count.result === "DIFERENCIA";
+    const canAdjust = difference && count.status === "PENDIENTE" && hasPermission("inventory_adjust");
+    return `<tr>
+      <td>${escapeHtml(formatDateTime(count.timestamp) || count.date)}</td>
+      <td>${escapeHtml(count.position)}</td>
+      <td>${countLoadSummary(count.expected)}</td>
+      <td>${countLoadSummary(count.found)}</td>
+      <td><span class="pill ${difference ? "blocked" : "available"}">${difference ? "Diferencia" : "Coincide"}</span></td>
+      <td>${escapeHtml(count.status === "PENDIENTE" ? "Pendiente de ajuste" : count.status === "AJUSTADO" ? "Ajustado" : "Cerrado")}</td>
+      <td>${escapeHtml(count.user || "—")}</td>
+      <td>${canAdjust ? `<button type="button" class="primary-action compact" data-adjust-count="${count.id}">Aplicar ajuste</button>` : count.adjustedBy ? `Por ${escapeHtml(count.adjustedBy)}` : "—"}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="8">Todavía no hay conteos registrados.</td></tr>`;
+}
+
+async function handleCountAdjustment(event) {
+  const button = event.target.closest("[data-adjust-count]");
+  if (!button) return;
+  if (!requirePermission("inventory_adjust", "Solo Supervisión o Administración pueden aplicar ajustes.")) return;
+  const count = state.inventoryCounts.find((item) => item.id === button.dataset.adjustCount);
+  if (!count || count.status !== "PENDIENTE") return;
+  const current = findLocation(count.position);
+  if (!current) return alert("La posición del conteo ya no existe.");
+  if (!countLoadsMatch(locationLoadSnapshot(current), count.expected)) {
+    return alert("El stock de la posición cambió después del conteo. Realizá un nuevo conteo antes de ajustar.");
+  }
+  if (!confirm(`¿Aplicar el ajuste de inventario en ${count.position}?\n\nSistema: ${stripHtml(countLoadSummary(count.expected))}\nEncontrado: ${stripHtml(countLoadSummary(count.found))}`)) return;
+  const timestamp = new Date();
+  const contents = (count.found.contents || []).map(normalizeContentLine);
+  try {
+    validateAdjustmentFootprint(current, contents);
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
+  const expectedPositions = count.expected.occupied ? Math.max(1, count.expected.positions?.length || 1) : 0;
+  const foundPositions = contents.length ? positionsRequiredForContents(contents) : 0;
+  const movement = {
+    id: crypto.randomUUID ? crypto.randomUUID() : `adjust-${timestamp.getTime()}-${Math.random()}`,
+    timestamp: timestamp.toISOString(),
+    date: formatDateTime(timestamp),
+    type: "ADJUST",
+    material: contents.length > 1 ? "MULTIPRODUCTO" : contents[0]?.sku || "",
+    from: count.position,
+    to: count.position,
+    quantity: Number(count.found.palletCount || 0),
+    logisticsUnit: "PALLET",
+    palletCount: Number(count.found.palletCount || 0),
+    packages: contents.reduce((sum, item) => sum + Number(item.packages || 0), 0),
+    contents,
+    occupancyDelta: foundPositions - expectedPositions,
+    dwellHours: null,
+    countId: count.id,
+    adjustmentReason: `Diferencia de conteo${count.observation ? `: ${count.observation}` : ""}`,
+    previousLoad: count.expected,
+    adminPassword: ADMIN_PASSWORD_HASH,
+  };
+  button.disabled = true;
+  try {
+    const result = await centralRequest("count_adjust", {
+      count_id: count.id,
+      movement: movementToCentralRecord("CREADO", movement),
+      admin_password: ADMIN_PASSWORD_HASH,
+    });
+    if (!result.ok) throw new Error(result.error || "No se pudo aplicar el ajuste.");
+    await pullCentralMovements();
+    await pullInventoryCounts();
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+  }
+}
+
+function stripHtml(value) {
+  const element = document.createElement("div");
+  element.innerHTML = value;
+  return element.textContent || "";
+}
+
 function downloadSkuTemplate() {
   const headers = ["SKU","Descripción","EAN","Categoría","Clasificación","Bultos por pallet","Peso kg","Posiciones requeridas","Días de stock mínimo","Días de stock máximo","Consumo diario en bultos","Activo"];
   const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","A",50,0.5,1,45,90,25,"Sí"];
@@ -1188,6 +1415,46 @@ async function pullSkuMaster() {
     }
   } catch (error) {
     console.warn("Maestro SKU central no disponible:", error);
+  }
+}
+
+async function pullInventoryCounts() {
+  try {
+    const result = await centralRequest("count_list");
+    if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
+    state.inventoryCounts = result.items.map(normalizeInventoryCount).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    $("#countsBackendStatus").textContent = "Registro central conectado";
+    renderInventoryCounts();
+  } catch (error) {
+    $("#countsBackendStatus").textContent = "El registro central requiere la actualización de conteos";
+    console.warn("Conteos centrales no disponibles:", error);
+  }
+}
+
+function normalizeInventoryCount(source) {
+  return {
+    id: String(source.id_conteo || source.id || ""),
+    timestamp: String(source.fecha_hora_utc || source.timestamp || ""),
+    date: String(source.fecha_local || source.date || ""),
+    position: normalizePosition(source.posicion || source.position),
+    expected: parseJsonValue(source.esperado_json ?? source.expected, {}),
+    found: parseJsonValue(source.encontrado_json ?? source.found, {}),
+    result: String(source.resultado || source.result || "").toUpperCase(),
+    status: String(source.estado || source.status || "").toUpperCase(),
+    observation: String(source.observacion || source.observation || ""),
+    user: String(source.usuario || source.user || ""),
+    adjustmentId: String(source.ajuste_id || source.adjustmentId || ""),
+    adjustedBy: String(source.ajustado_por || source.adjustedBy || ""),
+    adjustedAt: String(source.ajustado_en || source.adjustedAt || ""),
+  };
+}
+
+function parseJsonValue(value, fallback) {
+  if (value && typeof value === "object") return value;
+  try {
+    return String(value || "").trim() ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
   }
 }
 
@@ -1392,7 +1659,7 @@ function renderDashboardInsights() {
     .sort((a, b) => b.positions - a.positions || b.packages - a.packages)[0];
   const last = state.movements[0];
   const blocked = state.locations.filter((item) => item.blocked).length;
-  const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso" };
+  const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste de inventario" };
   container.innerHTML = `
     <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
     <article><span>Último movimiento</span><strong>${last ? typeLabel[last.type] || last.type : "Sin movimientos"}</strong><small>${last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad"}</small></article>
@@ -2256,7 +2523,7 @@ function locationRow(item) {
   const statusClass = item.blocked ? "blocked" : item.occupied ? "occupied" : "available";
   const activityPosition = isFootprintSecondary(item) ? item.footprintPrimaryId : item.id;
   const activity = state.movements.find((move) => move.from === activityPosition || move.to === activityPosition);
-  const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === activityPosition ? "Reubicación recibida" : "Reubicación salida", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
+  const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === activityPosition ? "Reubicación recibida" : "Reubicación salida", ADJUST: "Ajuste de inventario", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
   const materialCell = item.contents?.length > 1
     ? `<details class="position-composition"><summary>${item.contents.length} SKU</summary>${item.contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`
     : escapeHtml(item.material || "");
@@ -2293,12 +2560,12 @@ function renderMovements() {
         (move) => `
           <tr>
             <td>${formatMovementDate(move)}</td>
-            <td>${move.type}</td>
+            <td>${({ IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste" })[move.type] || move.type}</td>
             <td>${movementMaterialCell(move)}</td>
             <td>${movementPositionLabel(move.from)}</td>
             <td>${movementPositionLabel(move.to)}</td>
             <td>${movementQuantityLabel(move)}</td>
-            <td class="movement-actions">${actions ? `<button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button>` : "—"}</td>
+            <td class="movement-actions">${actions && move.type !== "ADJUST" ? `<button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button>` : move.type === "ADJUST" ? "Auditable" : "—"}</td>
           </tr>
         `
       )
@@ -2324,6 +2591,8 @@ function movementQuantityLabel(move) {
   const isTransfer = move.type === "MOVE" || move.type === "TR";
   const isPallet = isTransfer || String(move.logisticsUnit || "").toUpperCase() === "PALLET" || (move.type === "IN" && !packages);
   const multiproduct = move.material === "MULTIPRODUCTO" || move.contents?.length > 1;
+  if (move.type === "ADJUST" && !(move.contents || []).length) return "Posición vacía";
+  if (move.type === "ADJUST") return `${fmt.format(pallets || 1)} pallet${(pallets || 1) === 1 ? "" : "s"}`;
   if (move.type === "IN" && multiproduct) return `${fmt.format(pallets || 1)} pallet · ${fmt.format(packages || move.quantity || 0)} bultos`;
   if (isPallet) return `${fmt.format(pallets || 1)} pallet${(pallets || 1) === 1 ? "" : "s"}`;
   return `${fmt.format(packages || move.quantity || 0)} bulto${(packages || move.quantity || 0) === 1 ? "" : "s"}`;
@@ -2335,6 +2604,7 @@ function handleDeleteMovementClick(event) {
   if (!requirePermission("movement_correct")) return;
   const movement = state.movements.find((item) => item.id === button.dataset.deleteMovement);
   if (!movement) return;
+  if (movement.type === "ADJUST") return alert("Los ajustes de inventario no se eliminan; deben conservarse para auditoría.");
   const confirmed = confirm(
     `¿Estás seguro de eliminar este movimiento?\n\n${formatMovementDate(movement)} · ${movement.material || "Sin material"} · ${movementQuantityLabel(movement)}\n\nEl inventario se recalculará automáticamente.`
   );
@@ -2353,6 +2623,7 @@ function handleEditMovementClick(event) {
   if (!requirePermission("movement_correct")) return;
   const movement = state.movements.find((item) => item.id === button.dataset.editMovement);
   if (!movement) return;
+  if (movement.type === "ADJUST") return alert("Los ajustes de inventario no se modifican; deben conservarse para auditoría.");
   if (movement.contents?.length > 1) {
     alert("Para corregir un pallet multiproducto, eliminá el movimiento y volvé a registrarlo con su composición completa.");
     return;
@@ -2425,6 +2696,7 @@ function rebuildInventoryFromMovements(nextMovements) {
       if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount);
       if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true });
       if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material);
+      if (movement.type === "ADJUST") registerAdjustment(movement.to, movement.contents, movement.palletCount, timestamp);
       state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
     }
     state.movements = nextMovements;
@@ -2553,10 +2825,10 @@ function renderRegistration() {
   $("#recentMovementList").innerHTML = state.movements.length
     ? state.movements.slice(0, 8).map((move) => `
       <div class="recent-movement">
-        <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT" }[move.type]}</span>
+        <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT", ADJUST: "AJ" }[move.type] || move.type}</span>
         <div><strong>${move.material || "Sin material"}</strong><small>${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
         <div class="recent-quantity"><strong>${movementQuantityLabel(move)}</strong><small>${formatMovementDate(move)}</small></div>
-        ${actions ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
+        ${actions && move.type !== "ADJUST" ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
       </div>
     `).join("")
     : `<p class="empty-state">Todavía no hay movimientos registrados.</p>`;
@@ -2765,6 +3037,7 @@ function renderAnalytics() {
   const inMoves = movements.filter((move) => move.type === "IN");
   const outMoves = movements.filter((move) => move.type === "OUT");
   const transferMoves = movements.filter((move) => move.type === "MOVE");
+  const adjustmentMoves = movements.filter((move) => move.type === "ADJUST");
   const inQty = sumMovementQuantity(inMoves);
   const outQty = sumMovementQuantity(outMoves);
   const transferQty = sumMovementQuantity(transferMoves);
@@ -2798,6 +3071,7 @@ function renderAnalytics() {
     ["Ingresos", inMoves.length, inQty, "flow-in"],
     ["Egresos", outMoves.length, outQty, "flow-out"],
     ["Reubicaciones", transferMoves.length, transferQty, "flow-move"],
+    ["Ajustes", adjustmentMoves.length, sumMovementQuantity(adjustmentMoves), "flow-adjust"],
   ].map(([label, count, quantity, cssClass]) => `
     <div class="flow-row ${cssClass}"><span>${label}</span><strong>${fmt.format(count)}</strong><small>${fmt.format(quantity)} bultos</small></div>
   `).join("");
@@ -3292,6 +3566,31 @@ function releaseLocationFootprint(location) {
     delete linked.footprintIndex;
     syncLocationLoad(linked);
   });
+}
+
+function validateAdjustmentFootprint(location, contents) {
+  if (!contents.length) return;
+  const primary = footprintPrimaryLocation(location);
+  const required = positionsRequiredForContents(contents);
+  if (required <= 1) return;
+  if (primary.storageType === "drivein") throw new Error(`El SKU requiere ${required} posiciones y no puede ajustarse en Drive-In.`);
+  const currentIds = new Set(footprintLocations(primary).map((item) => item.id));
+  const lane = locationFootprintLane(primary);
+  const start = lane.findIndex((item) => item.id === primary.id);
+  const positions = start >= 0 ? lane.slice(start, start + required) : [];
+  if (positions.length !== required) throw new Error(`Desde ${primary.id} no hay ${required} posiciones contiguas disponibles.`);
+  const unavailable = positions.find((item) => item.blocked || (item.occupied && !currentIds.has(item.id)));
+  if (unavailable) throw new Error(`No se puede ajustar: ${unavailable.id} está ${unavailable.blocked ? "bloqueada" : "ocupada"}.`);
+}
+
+function registerAdjustment(position, contents, palletCount, timestamp) {
+  const location = footprintPrimaryLocation(requiredLocation(position));
+  const normalizedContents = (contents || []).map(normalizeContentLine).filter((item) => item.sku);
+  validateAdjustmentFootprint(location, normalizedContents);
+  releaseLocationFootprint(location);
+  if (!normalizedContents.length) return;
+  if (location.blocked) throw new Error(`La posición está bloqueada: ${location.blockReason || "sin motivo informado"}.`);
+  occupyLocationFootprint(location, normalizedContents, Number(palletCount || 0), timestamp);
 }
 
 function registerIn(material, to, quantity, timestamp, contents = [], palletCount = 1) {

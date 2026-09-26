@@ -21,6 +21,7 @@
         <button class="nav-item" data-view="picking">Preparar pedido</button>
         <span class="nav-section-label">Inventario</span>
         <button class="nav-item" data-view="locations">Ubicaciones</button>
+        <button class="nav-item" data-view="counts">Conteos</button>
         <button class="nav-item" data-view="map">Mapa</button>
         <button class="nav-item" data-view="map3d">Mapa 3D</button>
         <span class="nav-section-label">Control</span>
@@ -340,6 +341,45 @@
         </div>
       </section>
 
+      <section id="counts" class="view">
+        <header class="section-heading">
+          <div><h1>Conteos de inventario</h1><p>Verificación física por posición y ajustes autorizados con trazabilidad.</p></div>
+          <span id="countsBackendStatus" class="muted">Conectando con el registro central…</span>
+        </header>
+        <div class="count-kpis">
+          <article><span>Conteos</span><strong id="countKpiTotal">0</strong></article>
+          <article><span>Pendientes</span><strong id="countKpiPending">0</strong></article>
+          <article><span>Coinciden</span><strong id="countKpiMatch">0</strong></article>
+          <article><span>Ajustados</span><strong id="countKpiAdjusted">0</strong></article>
+        </div>
+        <div class="count-layout">
+          <form id="inventoryCountForm" class="panel count-form">
+            <div class="panel-head"><h2>Nuevo conteo</h2><span class="muted">Una posición por vez</span></div>
+            <label>Posición
+              <span class="scan-field"><input id="countPosition" autocomplete="off" required placeholder="Ej. A2.02.0" /><button type="button" class="scan-button" data-scan-target="countPosition" aria-label="Escanear posición para conteo">Escanear</button></span>
+            </label>
+            <div id="countExpectedLoad" class="count-expected"><span>Ingresá o escaneá una posición para ver el stock esperado.</span></div>
+            <label>Resultado físico
+              <select id="countLoadType">
+                <option value="EMPTY">Posición vacía</option>
+                <option value="PALLET_MONO">Pallet monoproducto</option>
+                <option value="PALLET_MULTI">Pallet multiproducto</option>
+              </select>
+            </label>
+            <label id="countPalletField" hidden>Pallets encontrados<input id="countPalletCount" type="number" min="1" value="1" /></label>
+            <div id="countMonoFields" hidden><label>SKU encontrado<input id="countSku" autocomplete="off" placeholder="Escanear o ingresar SKU" /></label></div>
+            <div id="countMultiFields" hidden><label>Contenido multiproducto<textarea id="countMultiContents" rows="5" placeholder="SKU; bultos&#10;100360; 12&#10;555555; 8"></textarea></label><small class="muted">Una línea por SKU: SKU; bultos.</small></div>
+            <label>Observación<textarea id="countObservation" rows="3" placeholder="Daño, faltante, sobrante u otra aclaración"></textarea></label>
+            <button type="submit" class="primary-action">Guardar conteo</button>
+            <p id="countMessage" class="message"></p>
+          </form>
+          <section class="panel count-history">
+            <div class="panel-head"><h2>Historial de conteos</h2><span class="muted">Compartido entre usuarios</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Posición</th><th>Sistema</th><th>Encontrado</th><th>Resultado</th><th>Estado</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="inventoryCountsTable"><tr><td colspan="8">Todavía no hay conteos registrados.</td></tr></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
       <section id="movements" class="view">
         <div class="panel">
           <div class="panel-head">
@@ -619,6 +659,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260925-2"></script>
-    <script src="app.js?v=20260926-3"></script>
+    <script src="app.js?v=20260926-4"></script>
   </body>
 </html>

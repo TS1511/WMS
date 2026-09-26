@@ -2072,6 +2072,102 @@ dd {
   font-size: 13px;
 }
 
+.count-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.count-kpis article {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.count-kpis span,
+.count-kpis strong {
+  display: block;
+}
+
+.count-kpis span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.count-kpis strong {
+  margin-top: 4px;
+  font-size: 24px;
+}
+
+.count-layout {
+  display: grid;
+  grid-template-columns: minmax(290px, 360px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.count-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.count-form label,
+.count-form label > span:not(.scan-field) {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.count-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.count-expected {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: #f3f7f8;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.count-expected span,
+.count-expected small {
+  color: var(--muted);
+}
+
+.count-history {
+  min-width: 0;
+  padding: 16px;
+}
+
+.primary-action.compact {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.flow-adjust strong {
+  color: #805a10;
+}
+
+@media (max-width: 900px) {
+  .count-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .count-kpis {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+}
+
 @media print {
   @page { size: A4 portrait; margin: 12mm; }
   body { display: block; color: #111; background: #fff; }
