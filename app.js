@@ -2771,7 +2771,7 @@ function renderAnalytics() {
   const currentPackages = Object.values(stockMetricsBySku()).reduce((sum, item) => sum + Number(item.packages || 0), 0);
   const outPackages = outMoves.reduce((sum, move) => sum + Number(move.packages || move.quantity || 0), 0);
   const turnover = currentPackages > 0 && outPackages > 0 ? outPackages / currentPackages : null;
-  const dwellSamples = movements.map((move) => Number(move.dwellHours)).filter((hours) => Number.isFinite(hours) && hours >= 0);
+  const dwellSamples = dwellSamplesForRange(state.movements, start, end);
   const averageDwell = dwellSamples.length ? dwellSamples.reduce((sum, hours) => sum + hours, 0) / dwellSamples.length : null;
   const stagnant = state.locations.filter((item) => item.occupiedSince && now - Date.parse(item.occupiedSince) >= 30 * 86400000).length;
   const fullFlow = occupancyFlow(movements, occupied, state.waterfallGranularity);
@@ -2786,7 +2786,7 @@ function renderAnalytics() {
   $("#analyticsMovesTotal").textContent = `${fmt.format(movements.length)} movimientos`;
   $("#analyticsTurnover").textContent = turnover === null ? "Sin conversión" : `${turnover.toFixed(2)}x`;
   $("#analyticsDwell").textContent = averageDwell === null ? "Sin datos" : formatDuration(averageDwell);
-  $("#analyticsDwellSamples").textContent = `${dwellSamples.length} salidas medibles`;
+  $("#analyticsDwellSamples").textContent = `${dwellSamples.length} egresos/reubicaciones medibles`;
   $("#analyticsStagnant").textContent = fmt.format(stagnant);
   $("#analyticsCoverage").textContent = state.analyticsStartDate || state.analyticsEndDate ? `${state.analyticsStartDate || "Inicio"} a ${state.analyticsEndDate || "Hoy"}` : coverageText(chartHistory);
   $("#analyticsRange").textContent = chartHistory.length > 1 ? `${chartHistory.length} meses` : "Mes actual";
@@ -2909,7 +2909,41 @@ function sumMovementQuantity(movements) {
   return movements.reduce((sum, move) => sum + Number(move.quantity || 0), 0);
 }
 
+function dwellSamplesForRange(movements, start, end) {
+  const placements = new Map();
+  const samples = [];
+  [...movements]
+    .sort((a, b) => movementTimestamp(a) - movementTimestamp(b))
+    .forEach((move) => {
+      const timestamp = movementTimestamp(move);
+      if (!timestamp || timestamp > end) return;
+      const from = normalizePosition(move.from);
+      const to = normalizePosition(move.to);
+      if (move.type === "IN") {
+        if (to) placements.set(to, timestamp);
+        return;
+      }
+      if (!["OUT", "MOVE"].includes(move.type)) return;
+      const stored = move.dwellHours !== null && move.dwellHours !== "" && move.dwellHours !== undefined
+        ? Number(move.dwellHours)
+        : null;
+      const placedAt = placements.get(from);
+      const derived = placedAt == null ? null : Math.max(0, (timestamp - placedAt) / 3600000);
+      const hours = Number.isFinite(stored) && stored >= 0 ? stored : derived;
+      if (timestamp >= start && hours !== null && Number.isFinite(hours)) samples.push(hours);
+      if (move.type === "MOVE") {
+        placements.delete(from);
+        if (to) placements.set(to, timestamp);
+      } else if (Number(move.occupancyDelta || 0) < 0) {
+        placements.delete(from);
+      }
+    });
+  return samples;
+}
+
 function formatDuration(hours) {
+  if (hours <= 0) return "< 1 min";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))} min`;
   if (hours < 24) return `${hours.toFixed(1)} h`;
   return `${(hours / 24).toFixed(1)} días`;
 }
