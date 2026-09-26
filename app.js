@@ -4,8 +4,37 @@ const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v1";
 const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
 const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
-const ADMIN_USER = "Usuario";
+const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+const ADMIN_USER = "Escobar";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
+const USER_ACCOUNTS = [
+  { username: "Operaciones", passwordHash: "896686f12205057b7a33a2d6a5d82d55d7f63af03ee9d17073694e3d7e99cb49", role: "operations" },
+  { username: "Preparacion", passwordHash: "25a6c07493b35707c069a92e87f39d6cee9abdf37f3309935a88656de9af48e6", role: "picking" },
+  { username: "Inventario", passwordHash: "c554d63d341eced5dd8692e7362df7fbd6a82071d3f1411f8c4175f7911b0974", role: "inventory" },
+  { username: "Supervisor", passwordHash: "be160d8612a8f649c96bd0d4ef66d22e1d367f9eef7699e4892f95b4e0b5cc9f", role: "supervisor" },
+  { username: ADMIN_USER, passwordHash: ADMIN_PASSWORD_HASH, role: "admin" },
+];
+const ROLE_LABELS = {
+  operations: "Operación",
+  picking: "Preparación",
+  inventory: "Inventario",
+  supervisor: "Supervisión",
+  admin: "Administrador",
+};
+const ROLE_SECTIONS = {
+  operations: ["dashboard", "register", "locations", "map", "map3d"],
+  picking: ["dashboard", "picking", "locations", "map", "map3d"],
+  inventory: ["dashboard", "locations", "map", "map3d", "movements", "analytics", "reconciliation", "labels"],
+  supervisor: ["dashboard", "register", "picking", "locations", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
+  admin: ["dashboard", "register", "picking", "locations", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
+};
+const ROLE_PERMISSIONS = {
+  operations: ["movement_write"],
+  picking: ["picking_write"],
+  inventory: ["sap_import"],
+  supervisor: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import"],
+  admin: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "block_locations", "reset_data", "admin"],
+};
 const SKU_FIELDS = ["sku","description","ean","category","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
 const POSITION_3D = {
@@ -62,11 +91,12 @@ const state = {
   render3dStacks: [],
   render3dRacks: [],
   projection3d: null,
-  syncConfig: { operator: "", endpoint: DEFAULT_SYNC_ENDPOINT, authenticated: false },
+  syncConfig: { operator: "", role: "", endpoint: DEFAULT_SYNC_ENDPOINT, authenticated: false },
   syncOutbox: [],
   syncBusy: false,
   syncPulling: false,
   syncTimer: 0,
+  sessionTimer: 0,
   syncError: "",
   centralBlocks: new Map(),
   skuMaster: [],
@@ -146,6 +176,14 @@ async function init() {
   state.history = saved?.history || [createSnapshot(new Date().toISOString())];
   state.syncConfig = loadJson(SYNC_CONFIG_KEY, state.syncConfig);
   if (!state.syncConfig.endpoint) state.syncConfig.endpoint = DEFAULT_SYNC_ENDPOINT;
+  const storedAccount = userAccount(state.syncConfig.operator);
+  if (!storedAccount || storedAccount.role !== state.syncConfig.role || Number(state.syncConfig.expiresAt || 0) <= Date.now()) {
+    state.syncConfig.authenticated = false;
+    state.syncConfig.operator = "";
+    state.syncConfig.role = "";
+    state.syncConfig.expiresAt = 0;
+    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
+  }
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
   state.slottingRules = loadJson(SLOTTING_RULES_KEY, []);
@@ -154,12 +192,14 @@ async function init() {
   fillLevelFilter();
   fillLabelRackFilter();
   bindEvents();
+  applyRoleAccess();
   renderAll();
   renderSyncStatus();
   if (!state.syncConfig.authenticated) openSyncSettings();
+  else scheduleSessionExpiry();
   flushSyncOutbox();
-  await pullCentralMovements();
   await pullSkuMaster();
+  await pullCentralMovements();
   await pullSlottingRules();
   state.syncTimer = window.setInterval(pullCentralMovements, 15000);
 }
@@ -353,6 +393,7 @@ function bindEvents() {
     changeWaterfallZoom(event.deltaY < 0 ? 1 : -1);
   }, { passive: false });
   $("#openSyncSettings").addEventListener("click", openSyncSettings);
+  $("#logoutSession").addEventListener("click", () => logoutSession(false));
   $("#closeSyncSettings").addEventListener("click", closeSyncSettings);
   $("#syncSettingsForm").addEventListener("submit", saveSyncSettings);
   $("#retrySync").addEventListener("click", flushSyncOutbox);
@@ -367,7 +408,6 @@ function bindEvents() {
 function openSyncSettings() {
   $("#operatorName").value = state.syncConfig.operator || "";
   $("#operatorPassword").value = "";
-  $("#syncEndpoint").value = state.syncConfig.endpoint || "";
   $("#syncSettingsMessage").textContent = state.syncOutbox.length
     ? `${state.syncOutbox.length} registro(s) pendientes de envío.`
     : state.syncError || "Los movimientos se guardan en este dispositivo y en el registro central.";
@@ -380,21 +420,27 @@ async function saveSyncSettings(event) {
   const operator = String(data.get("operator") || "").trim();
   const password = String(data.get("password") || "");
   const hash = await sha256(password);
-  if (operator.toLowerCase() !== ADMIN_USER.toLowerCase() || hash !== ADMIN_PASSWORD_HASH) {
+  const account = userAccount(operator);
+  if (!account || hash !== account.passwordHash) {
     $("#syncSettingsMessage").textContent = "Usuario o contraseña incorrectos.";
     $("#syncSettingsMessage").classList.add("error");
     $("#operatorPassword").select();
     return;
   }
   state.syncConfig = {
-    operator: ADMIN_USER,
-    endpoint: String(data.get("endpoint") || "").trim(),
+    operator: account.username,
+    role: account.role,
+    endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
+    expiresAt: Date.now() + SESSION_DURATION_MS,
     authenticated: true,
   };
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   $("#syncSettingsMessage").classList.remove("error");
+  applyRoleAccess();
+  switchView("dashboard");
   renderSyncStatus();
   $("#syncSettingsDialog").close();
+  scheduleSessionExpiry();
   flushSyncOutbox();
 }
 
@@ -409,11 +455,76 @@ async function sha256(value) {
 
 function renderSyncStatus() {
   $("#operatorLabel").textContent = state.syncConfig.operator || "Identificar operario";
+  $("#roleLabel").textContent = state.syncConfig.authenticated ? ROLE_LABELS[state.syncConfig.role] || "" : "Sin sesión";
   const indicator = $("#syncIndicator");
   indicator.className = `sync-indicator ${state.syncOutbox.length ? "pending" : state.syncConfig.endpoint ? "online" : "local"}`;
   $("#openSyncSettings").title = state.syncOutbox.length
     ? `${state.syncOutbox.length} registro(s) pendientes`
     : state.syncError || (state.syncConfig.endpoint ? "Registro central conectado" : "Guardado local; falta configurar el registro central");
+}
+
+function userAccount(username) {
+  return USER_ACCOUNTS.find((account) => account.username.toLowerCase() === String(username || "").trim().toLowerCase());
+}
+
+function hasPermission(permission) {
+  return Boolean(state.syncConfig.authenticated && ROLE_PERMISSIONS[state.syncConfig.role]?.includes(permission));
+}
+
+function requirePermission(permission, message = "Tu perfil no tiene permiso para realizar esta acción.") {
+  if (hasPermission(permission)) return true;
+  alert(message);
+  return false;
+}
+
+function canAccessView(view) {
+  return Boolean(state.syncConfig.authenticated && ROLE_SECTIONS[state.syncConfig.role]?.includes(view));
+}
+
+function applyRoleAccess() {
+  $$(".nav-item").forEach((button) => {
+    button.hidden = !canAccessView(button.dataset.view);
+  });
+  $$(".nav-section-label").forEach((label) => {
+    let sibling = label.nextElementSibling;
+    let hasVisibleItem = false;
+    while (sibling && !sibling.classList.contains("nav-section-label")) {
+      if (sibling.classList.contains("nav-item") && !sibling.hidden) hasVisibleItem = true;
+      sibling = sibling.nextElementSibling;
+    }
+    label.hidden = !hasVisibleItem;
+  });
+  $("#resetData").hidden = !hasPermission("reset_data");
+  $("#logoutSession").hidden = !state.syncConfig.authenticated;
+  $("#skuForm").hidden = !hasPermission("sku_write");
+  $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
+  $("#slottingForm").hidden = !hasPermission("slotting_write");
+  $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
+  renderMovements();
+  renderRegistration();
+}
+
+function scheduleSessionExpiry() {
+  window.clearTimeout(state.sessionTimer);
+  const remaining = Number(state.syncConfig.expiresAt || 0) - Date.now();
+  if (remaining <= 0) return logoutSession(true);
+  state.sessionTimer = window.setTimeout(() => logoutSession(true), remaining);
+}
+
+function logoutSession(expired = false) {
+  window.clearTimeout(state.sessionTimer);
+  state.syncConfig = {
+    operator: "",
+    role: "",
+    endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
+    authenticated: false,
+    expiresAt: 0,
+  };
+  localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
+  applyRoleAccess();
+  renderSyncStatus();
+  openSyncSettings();
+  if (expired) $("#syncSettingsMessage").textContent = "La sesión venció después de 8 horas. Volvé a ingresar.";
 }
 
 function queueMovementSync(action, movement) {
@@ -588,7 +699,12 @@ function applyCentralMovements(records) {
       || location.contents.length < 2
       || location.contents.some((content) => content.sku === "MULTIPRODUCTO"))
   );
-  if (!blocksChanged && !needsLoadRepair && JSON.stringify(centralMovements) === JSON.stringify(state.movements)) return;
+  const needsFootprintRepair = state.locations.some((location) =>
+    location.occupied
+    && !isFootprintSecondary(location)
+    && positionsRequiredForContents(location.contents) !== footprintLocations(location).length
+  );
+  if (!blocksChanged && !needsLoadRepair && !needsFootprintRepair && JSON.stringify(centralMovements) === JSON.stringify(state.movements)) return;
   state.centralBlocks = blocks;
   rebuildInventoryFromMovements(centralMovements);
 }
@@ -687,6 +803,7 @@ function end3dDrag(shell, pointerId) {
 }
 
 function switchView(view) {
+  if (!canAccessView(view)) return;
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
   $$(".view").forEach((section) => section.classList.toggle("active", section.id === view));
   if (window.matchMedia("(max-width: 640px)").matches) {
@@ -789,7 +906,7 @@ function syncLocationLoad(location) {
 
 function stockMetricsBySku() {
   const totals = {};
-  state.locations.filter((location) => location.occupied).forEach((location) => {
+  state.locations.filter((location) => location.occupied && !isFootprintSecondary(location)).forEach((location) => {
     (location.contents || []).forEach((content) => {
       const item = totals[content.sku] || { packages: 0, pallets: 0, unknownConversion: false };
       const master = state.skuMaster.find((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase());
@@ -809,6 +926,7 @@ function stockBySku() {
 
 async function saveSku(event) {
   event.preventDefault();
+  if (!requirePermission("sku_write")) return;
   const raw = Object.fromEntries(new FormData(event.currentTarget));
   raw.active = event.currentTarget.elements.active.checked;
   const item = normalizeSku(raw);
@@ -901,6 +1019,7 @@ function editSkuFromTable(event) {
 }
 
 async function importSkuFile(event) {
+  if (!requirePermission("sku_write")) return;
   const file = event.target.files?.[0];
   if (!file) return;
   try {
@@ -941,6 +1060,7 @@ function downloadMovementTemplate() {
 }
 
 async function importMovementFile(event) {
+  if (!requirePermission("movement_write")) return;
   const file = event.target.files?.[0];
   if (!file) return;
   const message = $("#registerMessage");
@@ -994,6 +1114,7 @@ function downloadCsv(name, rows) {
 }
 
 async function importSapStock(event) {
+  if (!requirePermission("sap_import")) return;
   const file = event.target.files?.[0];
   if (!file) return;
   try {
@@ -1095,6 +1216,7 @@ function locationMatchesRule(location, rule) {
 
 async function saveSlottingRule(event) {
   event.preventDefault();
+  if (!requirePermission("slotting_write")) return;
   const rule = normalizeSlottingRule(Object.fromEntries(new FormData(event.currentTarget)));
   if (!VELOCITY_CLASSES.includes(rule.velocityClass)) return;
   state.slottingRules.push(rule);
@@ -1111,6 +1233,7 @@ async function saveSlottingRule(event) {
 }
 
 async function deleteSlottingRule(event) {
+  if (!requirePermission("slotting_write")) return;
   const button = event.target.closest("button[data-rule-id]");
   if (!button || !confirm("¿Eliminar esta delimitación de posiciones?")) return;
   const id = button.dataset.ruleId;
@@ -1341,7 +1464,7 @@ function storageCard(label, rack, positions) {
 function loadPickingExample() {
   const stock = {};
   state.locations
-    .filter((location) => location.occupied && !location.blocked)
+    .filter((location) => location.occupied && !location.blocked && !isFootprintSecondary(location))
     .forEach((location) => (location.contents || []).forEach((content) => {
       const available = availablePackages(location, content.sku);
       if (available > 0) stock[content.sku] = (stock[content.sku] || 0) + available;
@@ -1509,7 +1632,7 @@ function renderPickingDraft() {
   }
   requests.forEach((request) => {
     const stock = state.locations
-      .filter((item) => item.occupied && !item.blocked && item.contents?.some((content) => content.sku.toLowerCase() === request.sku.toLowerCase()))
+      .filter((item) => item.occupied && !item.blocked && !isFootprintSecondary(item) && item.contents?.some((content) => content.sku.toLowerCase() === request.sku.toLowerCase()))
       .reduce((sum, item) => sum + availablePackages(item, request.sku), 0);
     const master = state.skuMaster.find((item) => item.sku.toLowerCase() === request.sku.toLowerCase());
     const row = document.createElement("div");
@@ -1532,6 +1655,7 @@ function clearPickingRoute() {
 
 function calculatePickingRoute(event) {
   event.preventDefault();
+  if (!requirePermission("picking_write")) return;
   const requests = parsePickingLines($("#pickingLines").value);
   if (!requests.length) {
     $("#pickingMessage").textContent = "Ingresá al menos un SKU con una cantidad válida.";
@@ -1543,7 +1667,7 @@ function calculatePickingRoute(event) {
   requests.forEach(({ sku, quantity }) => {
     let pending = quantity;
     const positions = state.locations
-      .filter((item) => item.occupied && !item.blocked && item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase()))
+      .filter((item) => item.occupied && !item.blocked && !isFootprintSecondary(item) && item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase()))
       .sort((a, b) => pickingAge(a) - pickingAge(b) || a.id.localeCompare(b.id));
     positions.forEach((location) => {
       if (pending <= 0) return;
@@ -2130,8 +2254,9 @@ function renderLocationsTable() {
 function locationRow(item) {
   const status = item.blocked ? "Bloqueada" : item.occupied ? "Ocupada" : "Libre";
   const statusClass = item.blocked ? "blocked" : item.occupied ? "occupied" : "available";
-  const activity = state.movements.find((move) => move.from === item.id || move.to === item.id);
-  const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === item.id ? "Reubicación recibida" : "Reubicación salida", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
+  const activityPosition = isFootprintSecondary(item) ? item.footprintPrimaryId : item.id;
+  const activity = state.movements.find((move) => move.from === activityPosition || move.to === activityPosition);
+  const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === activityPosition ? "Reubicación recibida" : "Reubicación salida", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
   const materialCell = item.contents?.length > 1
     ? `<details class="position-composition"><summary>${item.contents.length} SKU</summary>${item.contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`
     : escapeHtml(item.material || "");
@@ -2154,12 +2279,14 @@ function locationRow(item) {
 
 function locationLoadLabel(location) {
   if (!location.occupied) return "";
+  if (isFootprintSecondary(location)) return `Parte de carga · principal ${location.footprintPrimaryId}`;
   if (location.contents?.length > 1) return `${fmt.format(location.palletCount || 1)} pallet · ${fmt.format(location.quantity || 0)} bultos`;
   const pallets = Number(location.palletCount || location.contents?.[0]?.legacyPallets || 0);
   return pallets ? `${fmt.format(pallets)} pallet${pallets === 1 ? "" : "s"}` : `${fmt.format(location.quantity || 0)} bultos`;
 }
 
 function renderMovements() {
+  const actions = hasPermission("movement_correct");
   $("#movementsTable").innerHTML =
     state.movements
       .map(
@@ -2168,14 +2295,21 @@ function renderMovements() {
             <td>${formatMovementDate(move)}</td>
             <td>${move.type}</td>
             <td>${movementMaterialCell(move)}</td>
-            <td>${move.from || ""}</td>
-            <td>${move.to || ""}</td>
+            <td>${movementPositionLabel(move.from)}</td>
+            <td>${movementPositionLabel(move.to)}</td>
             <td>${movementQuantityLabel(move)}</td>
-            <td class="movement-actions"><button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button></td>
+            <td class="movement-actions">${actions ? `<button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button>` : "—"}</td>
           </tr>
         `
       )
       .join("") || `<tr><td colspan="7">Sin movimientos cargados.</td></tr>`;
+}
+
+function movementPositionLabel(position) {
+  if (!position) return "";
+  const location = findLocation(position);
+  if (!location) return escapeHtml(position);
+  return footprintLocations(location).map((item) => escapeHtml(item.id)).join(" + ");
 }
 
 function movementMaterialCell(move) {
@@ -2198,6 +2332,7 @@ function movementQuantityLabel(move) {
 function handleDeleteMovementClick(event) {
   const button = event.target.closest("[data-delete-movement]");
   if (!button) return;
+  if (!requirePermission("movement_correct")) return;
   const movement = state.movements.find((item) => item.id === button.dataset.deleteMovement);
   if (!movement) return;
   const confirmed = confirm(
@@ -2215,6 +2350,7 @@ function handleDeleteMovementClick(event) {
 function handleEditMovementClick(event) {
   const button = event.target.closest("[data-edit-movement]");
   if (!button) return;
+  if (!requirePermission("movement_correct")) return;
   const movement = state.movements.find((item) => item.id === button.dataset.editMovement);
   if (!movement) return;
   if (movement.contents?.length > 1) {
@@ -2238,6 +2374,7 @@ function closeEditMovement() {
 
 function saveEditedMovement(event) {
   event.preventDefault();
+  if (!requirePermission("movement_correct")) return;
   const form = event.currentTarget;
   const data = Object.fromEntries(new FormData(form));
   const movement = state.movements.find((item) => item.id === form.dataset.movementId);
@@ -2412,13 +2549,14 @@ function renderRegistration() {
   $("#todayOut").textContent = fmt.format(sumMovementQuantity(todayMoves.filter((move) => move.type === "OUT")));
   $("#registerClock").textContent = formatDateTime();
   $("#lastMovementTime").textContent = state.movements[0] ? formatMovementDate(state.movements[0]) : "Sin actividad";
+  const actions = hasPermission("movement_correct");
   $("#recentMovementList").innerHTML = state.movements.length
     ? state.movements.slice(0, 8).map((move) => `
       <div class="recent-movement">
         <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT" }[move.type]}</span>
-        <div><strong>${move.material || "Sin material"}</strong><small>${move.from || "Entrada"} → ${move.to || "Salida"}</small></div>
+        <div><strong>${move.material || "Sin material"}</strong><small>${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
         <div class="recent-quantity"><strong>${movementQuantityLabel(move)}</strong><small>${formatMovementDate(move)}</small></div>
-        <div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>
+        ${actions ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
       </div>
     `).join("")
     : `<p class="empty-state">Todavía no hay movimientos registrados.</p>`;
@@ -2953,6 +3091,7 @@ function drawOccupancyWaterfall(days, currentOccupied) {
 
 function handleMovement(event) {
   event.preventDefault();
+  if (!requirePermission("movement_write")) return;
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const type = event.currentTarget.id === "registerMovement" ? event.currentTarget.dataset.operation : data.type;
   const loadType = String(data.loadType || "PALLET_MONO");
@@ -3015,15 +3154,110 @@ function handleMovement(event) {
     state.history.push({ ...createSnapshot(timestamp), movementId });
     saveState();
     queueMovementSync("CREADO", movement);
+    const occupiedPositions = type === "IN" || type === "MOVE"
+      ? footprintLocations(findLocation(to)).map((location) => location.id)
+      : [];
     renderAll();
     event.currentTarget.reset();
     event.currentTarget.quantity.value = 1;
     event.currentTarget.palletCount.value = 1;
     if (event.currentTarget.id === "registerMovement") setMovementType(type);
-    setFormMessage(event.currentTarget, "Movimiento registrado.");
+    setFormMessage(event.currentTarget, occupiedPositions.length > 1
+      ? `Movimiento registrado. Posiciones ocupadas: ${occupiedPositions.join(" y ")}.`
+      : "Movimiento registrado.");
   } catch (error) {
     setFormMessage(event.currentTarget, error.message, true);
   }
+}
+
+function positionsRequiredForContents(contents = []) {
+  if (contents.length !== 1) return 1;
+  const master = state.skuMaster.find((item) => item.sku.toLowerCase() === String(contents[0].sku || "").toLowerCase());
+  return Math.max(1, Number(master?.positionsRequired || 1));
+}
+
+function isFootprintSecondary(location) {
+  return Boolean(location?.footprintPrimaryId && location.footprintPrimaryId !== location.id);
+}
+
+function footprintPrimaryLocation(location) {
+  return isFootprintSecondary(location) ? findLocation(location.footprintPrimaryId) || location : location;
+}
+
+function footprintLocations(location) {
+  if (!location) return [];
+  const primaryId = location.footprintPrimaryId || location.id;
+  const linked = state.locations
+    .filter((item) => item.footprintPrimaryId === primaryId)
+    .sort((a, b) => Number(a.footprintIndex || 0) - Number(b.footprintIndex || 0));
+  return linked.length ? linked : [location];
+}
+
+function locationFootprintLane(primary) {
+  return state.locations
+    .filter((item) => item.storageType === primary.storageType
+      && item.aisle === primary.aisle
+      && String(item.side) === String(primary.side)
+      && Number(item.rack) === Number(primary.rack)
+      && Number(item.level) === Number(primary.level))
+    .sort((a, b) => primary.storageType === "wallrack"
+      ? Number(a.position || 0) - Number(b.position || 0)
+      : Number(a.module || 0) - Number(b.module || 0));
+}
+
+function requiredLocationFootprint(primary, count) {
+  if (count <= 1) return [primary];
+  if (primary.storageType === "drivein") throw new Error(`El SKU requiere ${count} posiciones contiguas y no puede ubicarse en Drive-In.`);
+  const lane = locationFootprintLane(primary);
+  const start = lane.findIndex((item) => item.id === primary.id);
+  const positions = start >= 0 ? lane.slice(start, start + count) : [];
+  if (positions.length !== count) throw new Error(`Desde ${primary.id} no hay ${count} posiciones contiguas alejándose de la calle principal.`);
+  const unavailable = positions.find((item) => item.blocked || item.occupied);
+  if (unavailable) throw new Error(`El SKU requiere ${count} posiciones: ${unavailable.id} está ${unavailable.blocked ? "bloqueada" : "ocupada"}.`);
+  return positions;
+}
+
+function canFitSkuFootprint(location, sku) {
+  const master = state.skuMaster.find((item) => item.sku.toLowerCase() === String(sku || "").toLowerCase());
+  try {
+    requiredLocationFootprint(location, Math.max(1, Number(master?.positionsRequired || 1)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function occupyLocationFootprint(primary, contents, palletCount, timestamp) {
+  const required = positionsRequiredForContents(contents);
+  const positions = requiredLocationFootprint(primary, required);
+  positions.forEach((location, index) => {
+    location.contents = structuredClone(contents);
+    location.palletCount = palletCount;
+    location.occupiedSince = timestamp;
+    location.footprintPrimaryId = required > 1 ? primary.id : "";
+    location.footprintIndex = index;
+    syncLocationLoad(location);
+  });
+}
+
+function syncLocationFootprint(primary) {
+  footprintLocations(primary).filter((location) => location.id !== primary.id).forEach((location) => {
+    location.contents = structuredClone(primary.contents || []);
+    location.palletCount = Number(primary.palletCount || 0);
+    location.occupiedSince = primary.occupiedSince;
+    syncLocationLoad(location);
+  });
+}
+
+function releaseLocationFootprint(location) {
+  footprintLocations(location).forEach((linked) => {
+    linked.contents = [];
+    linked.palletCount = 0;
+    linked.occupiedSince = null;
+    delete linked.footprintPrimaryId;
+    delete linked.footprintIndex;
+    syncLocationLoad(linked);
+  });
 }
 
 function registerIn(material, to, quantity, timestamp, contents = [], palletCount = 1) {
@@ -3035,15 +3269,12 @@ function registerIn(material, to, quantity, timestamp, contents = [], palletCoun
   if (destination.storageType === "drivein" && normalizedContents.length > 1) throw new Error("Los pallets multiproducto deben ubicarse en racks selectivos, no en Drive-In.");
   const laneMaterial = normalizedContents.length === 1 ? normalizedContents[0].sku : "MULTIPRODUCTO";
   validateDriveInPutaway(destination, laneMaterial);
-  destination.contents = normalizedContents;
-  destination.palletCount = Number(palletCount || 0);
-  destination.occupiedSince = timestamp;
-  syncLocationLoad(destination);
+  occupyLocationFootprint(destination, normalizedContents, Number(palletCount || 0), timestamp);
 }
 
 function registerOut(material, from, quantity, options = {}) {
   if (!from) throw new Error("Indicá una posición origen.");
-  const origin = requiredLocation(from);
+  const origin = footprintPrimaryLocation(requiredLocation(from));
   if (!origin.occupied) throw new Error("La posición origen está libre.");
   validateDriveInRetrieval(origin);
   const contents = origin.contents || [];
@@ -3055,36 +3286,34 @@ function registerOut(material, from, quantity, options = {}) {
   if (target.legacyPallets) {
     if (options.replay) {
       target.legacyPallets = 0;
-      syncLocationLoad(origin);
-      return;
+    } else {
+      const master = state.skuMaster.find((item) => item.sku.toLowerCase() === target.sku.toLowerCase());
+      const packagesPerPallet = Number(master?.casesPerPallet || 0);
+      if (!packagesPerPallet) throw new Error("Definí los bultos por pallet en el maestro para registrar este egreso.");
+      if (quantity !== packagesPerPallet * target.legacyPallets) throw new Error(`Este pallet es monoproducto: registrá el pallet completo (${packagesPerPallet * target.legacyPallets} bultos).`);
+      target.legacyPallets = 0;
     }
-    const master = state.skuMaster.find((item) => item.sku.toLowerCase() === target.sku.toLowerCase());
-    const packagesPerPallet = Number(master?.casesPerPallet || 0);
-    if (!packagesPerPallet) throw new Error("Definí los bultos por pallet en el maestro para registrar este egreso.");
-    if (quantity !== packagesPerPallet * target.legacyPallets) throw new Error(`Este pallet es monoproducto: registrá el pallet completo (${packagesPerPallet * target.legacyPallets} bultos).`);
-    target.legacyPallets = 0;
   } else {
     target.packages -= quantity;
   }
   syncLocationLoad(origin);
+  if (!origin.occupied) releaseLocationFootprint(origin);
+  else syncLocationFootprint(origin);
 }
 
 function registerMove(from, to, quantity, timestamp, material = "") {
   if (!from || !to) throw new Error("Indicá origen y destino.");
-  const origin = requiredLocation(from);
+  const origin = footprintPrimaryLocation(requiredLocation(from));
   const destination = requiredLocation(to);
   if (destination.blocked) throw new Error(`La posición destino está bloqueada: ${destination.blockReason || "sin motivo informado"}.`);
   if (!origin.occupied) throw new Error("La posición origen está libre.");
   if (destination.occupied) throw new Error("La posición destino ya está ocupada.");
   validateDriveInRetrieval(origin);
   validateDriveInPutaway(destination, origin.material);
-  destination.contents = structuredClone(origin.contents || []);
-  destination.palletCount = Number(origin.palletCount || 0);
-  destination.occupiedSince = timestamp;
-  syncLocationLoad(destination);
-  origin.contents = [];
-  origin.palletCount = 0;
-  syncLocationLoad(origin);
+  const contents = structuredClone(origin.contents || []);
+  const palletCount = Number(origin.palletCount || 0);
+  occupyLocationFootprint(destination, contents, palletCount, timestamp);
+  releaseLocationFootprint(origin);
 }
 
 function driveInLane(location) {
@@ -3200,10 +3429,12 @@ function openDetail(item) {
     ["Carga", locationLoadLabel(item) || "—"],
     ["Contenido", contentText],
     ["Estado", item.blocked ? "Bloqueada" : item.occupied ? "Ocupada" : "Libre"],
+    ["Posiciones ocupadas", footprintLocations(item).map((location) => location.id).join(" · ")],
+    ["Posición principal", isFootprintSecondary(item) ? item.footprintPrimaryId : item.id],
     ["Motivo de bloqueo", item.blockReason || "—"],
   ]);
   const action = $("#toggleLocationBlock");
-  action.hidden = false;
+  action.hidden = !hasPermission("block_locations");
   action.textContent = item.blocked ? "Desbloquear posición" : "Bloquear posición";
   action.classList.toggle("unblock", item.blocked);
   $("#detailPanel").classList.remove("hidden");
@@ -3212,7 +3443,7 @@ function openDetail(item) {
 function recommendPutawayLocation(sku) {
   const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
   if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
-  const available = state.locations.filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku));
+  const available = state.locations.filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku) && canFitSkuFootprint(location, item.sku));
   const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
   const zoned = rules.length ? available.filter((location) => rules.some((rule) => locationMatchesRule(location, rule))) : available;
   const fastMover = item.velocityClass === "SUPER_A" || item.velocityClass === "A";
@@ -3300,6 +3531,7 @@ function renderDetailFields(rows) {
 }
 
 async function toggleLocationBlock() {
+  if (!requirePermission("block_locations", "Solo un administrador puede bloquear o desbloquear posiciones.")) return;
   const item = findLocation($("#detailPanel").dataset.locationId);
   if (!item) return;
   if (item.blocked) {
@@ -3324,6 +3556,7 @@ async function toggleLocationBlock() {
 
 async function saveLocationBlock(event) {
   event.preventDefault();
+  if (!requirePermission("block_locations", "Solo un administrador puede bloquear posiciones.")) return;
   const item = findLocation(event.currentTarget.dataset.locationId);
   if (!item) return;
   const adminPassword = await authenticateAdmin();
@@ -3341,12 +3574,8 @@ async function saveLocationBlock(event) {
 }
 
 async function authenticateAdmin() {
-  if (state.syncConfig.authenticated && state.syncConfig.operator === ADMIN_USER) return ADMIN_PASSWORD_HASH;
-  const password = prompt("Contraseña de administrador");
-  if (password === null) return false;
-  const hash = await sha256(password);
-  if (hash === ADMIN_PASSWORD_HASH) return hash;
-  alert("Contraseña de administrador incorrecta.");
+  if (hasPermission("admin") && state.syncConfig.operator === ADMIN_USER) return ADMIN_PASSWORD_HASH;
+  alert("La sesión actual no tiene permisos de administrador. Ingresá con el usuario administrador.");
   return false;
 }
 
@@ -3372,6 +3601,7 @@ function closeBlockLocationDialog() {
 }
 
 function resetData() {
+  if (!requirePermission("reset_data", "Solo un administrador puede restaurar los datos locales.")) return;
   if (!confirm("Se perderán los movimientos cargados en este navegador. ¿Restaurar datos del Excel?")) return;
   state.locations = structuredClone(state.original);
   state.locations.forEach((location) => {

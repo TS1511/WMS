@@ -47,7 +47,9 @@
         </div>
         <div class="top-actions">
           <span class="topbar-context">Operación de almacén</span>
+          <span id="roleLabel" class="role-badge">Sin sesión</span>
           <button id="openSyncSettings" class="ghost"><span id="syncIndicator" class="sync-indicator"></span><span id="operatorLabel">Identificar operario</span></button>
+          <button id="logoutSession" class="ghost" hidden>Cerrar sesión</button>
           <button id="resetData" class="ghost">Restaurar datos</button>
         </div>
       </header>
@@ -590,9 +592,7 @@
         <label>Contraseña
           <input id="operatorPassword" name="password" type="password" autocomplete="current-password" required placeholder="Contraseña" />
         </label>
-        <label>URL del registro central
-          <input id="syncEndpoint" name="endpoint" type="url" inputmode="url" placeholder="Se configura una sola vez por dispositivo" />
-        </label>
+        <p class="login-note">El acceso habilita únicamente las secciones y acciones asignadas al rol.</p>
         <p id="syncSettingsMessage" class="message"></p>
         <div class="dialog-actions">
           <button type="button" id="retrySync" class="ghost">Reintentar pendientes</button>
@@ -619,6 +619,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260925-2"></script>
-    <script src="app.js?v=20260925-11"></script>
+    <script src="app.js?v=20260926-2"></script>
   </body>
 </html>

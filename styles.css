@@ -2053,6 +2053,25 @@ dd {
   }
 }
 
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.login-note {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 @media print {
   @page { size: A4 portrait; margin: 12mm; }
   body { display: block; color: #111; background: #fff; }
