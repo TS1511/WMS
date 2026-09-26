@@ -457,6 +457,10 @@ label select {
 .movement-import-tools > strong { color: var(--text); font-size: 13px; }
 .movement-import-tools .movement-import-bar { margin: 0; flex-wrap: wrap; }
 .movement-import-tools .import-format { margin: 0; }
+.position-composition { min-width: 150px; }
+.position-composition summary { color: var(--primary); font-weight: 800; cursor: pointer; }
+.position-composition span { display: flex; justify-content: space-between; gap: 14px; margin-top: 5px; color: var(--muted); white-space: nowrap; }
+.position-composition span strong { color: var(--text); }
 .picking-import-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-bottom: 12px; padding: 10px; border-left: 4px solid var(--primary); background: #edf5f8; }
 .picking-import-panel.hidden { display: none; }
 .picking-import-panel label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }

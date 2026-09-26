@@ -2104,6 +2104,7 @@ function renderLocationsTable() {
   $$("#locationsTable tr").forEach((row) => {
     row.addEventListener("click", () => openDetail(findLocation(row.dataset.id)));
   });
+  $$("#locationsTable details").forEach((details) => details.addEventListener("click", (event) => event.stopPropagation()));
 }
 
 function locationRow(item) {
@@ -2111,6 +2112,9 @@ function locationRow(item) {
   const statusClass = item.blocked ? "blocked" : item.occupied ? "occupied" : "available";
   const activity = state.movements.find((move) => move.from === item.id || move.to === item.id);
   const activityLabel = { IN: "Ingreso", OUT: "Egreso", MOVE: activity?.to === item.id ? "Reubicación recibida" : "Reubicación salida", BLOCK: "Bloqueo", UNBLOCK: "Desbloqueo" };
+  const materialCell = item.contents?.length > 1
+    ? `<details class="position-composition"><summary>${item.contents.length} SKU</summary>${item.contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`
+    : escapeHtml(item.material || "");
   return `
     <tr data-id="${item.id}">
       <td>${item.id}</td>
@@ -2119,7 +2123,7 @@ function locationRow(item) {
       <td>${item.rack}</td>
       <td>${item.module}</td>
       <td>${item.level}</td>
-      <td>${item.material === "MULTIPRODUCTO" ? `${item.contents.length} SKU` : item.material || ""}</td>
+      <td>${materialCell}</td>
       <td>${locationLoadLabel(item)}</td>
       <td><span class="pill ${statusClass}" title="${item.blockReason || ""}">${status}</span></td>
       <td>${activity ? formatMovementDate(activity) : "—"}</td>
@@ -2130,7 +2134,7 @@ function locationRow(item) {
 
 function locationLoadLabel(location) {
   if (!location.occupied) return "";
-  if (location.contents?.length > 1) return `${fmt.format(location.quantity || 0)} bultos`;
+  if (location.contents?.length > 1) return `${fmt.format(location.palletCount || 1)} pallet · ${fmt.format(location.quantity || 0)} bultos`;
   const pallets = Number(location.palletCount || location.contents?.[0]?.legacyPallets || 0);
   return pallets ? `${fmt.format(pallets)} pallet${pallets === 1 ? "" : "s"}` : `${fmt.format(location.quantity || 0)} bultos`;
 }
@@ -2256,7 +2260,7 @@ function rebuildInventoryFromMovements(nextMovements) {
     for (const movement of ordered) {
       const timestamp = movement.timestamp || new Date(movementTimestamp(movement)).toISOString();
       if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount);
-      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity));
+      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true });
       if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material);
       state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
     }
@@ -3010,7 +3014,7 @@ function registerIn(material, to, quantity, timestamp, contents = [], palletCoun
   syncLocationLoad(destination);
 }
 
-function registerOut(material, from, quantity) {
+function registerOut(material, from, quantity, options = {}) {
   if (!from) throw new Error("Indicá una posición origen.");
   const origin = requiredLocation(from);
   if (!origin.occupied) throw new Error("La posición origen está libre.");
@@ -3022,6 +3026,11 @@ function registerOut(material, from, quantity) {
   if (!target) throw new Error(contents.length > 1 ? "Indicá qué SKU sale del pallet multiproducto." : "El material no coincide con la posición origen.");
   if (quantity > target.packages && !target.legacyPallets) throw new Error("La cantidad de bultos supera el stock disponible.");
   if (target.legacyPallets) {
+    if (options.replay) {
+      target.legacyPallets = 0;
+      syncLocationLoad(origin);
+      return;
+    }
     const master = state.skuMaster.find((item) => item.sku.toLowerCase() === target.sku.toLowerCase());
     const packagesPerPallet = Number(master?.casesPerPallet || 0);
     if (!packagesPerPallet) throw new Error("Definí los bultos por pallet en el maestro para registrar este egreso.");
@@ -3152,13 +3161,14 @@ function openDetail(item) {
     const packages = Number(content.packages || 0) || Number(content.legacyPallets || item.palletCount || 0) * Number(master?.casesPerPallet || 0);
     return `${content.sku}: ${packages ? `${fmt.format(packages)} bultos` : `${fmt.format(content.legacyPallets || item.palletCount || 0)} pallet`}`;
   }).join(" | ") || "Sin stock";
+  const multiproduct = item.material === "MULTIPRODUCTO" || item.contents?.length > 1;
   renderDetailFields([
     ["Sector", item.storageType === "drivein" ? item.aisle : item.storageType === "wallrack" ? "Este" : item.aisle],
     [item.storageType === "drivein" ? "Acceso" : "Lado", item.storageType === "drivein" ? "Único" : item.side],
     [item.storageType === "drivein" ? "Columna" : "Módulo", item.rack],
     [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
     ["Nivel", item.level],
-    ["Tipo de carga", item.contents?.length > 1 ? "Pallet multiproducto" : item.palletCount ? "Pallet monoproducto" : "Bultos"],
+    ["Tipo de carga", multiproduct ? "Pallet multiproducto" : item.palletCount ? "Pallet monoproducto" : "Bultos"],
     ["Pallets", item.palletCount || 0],
     ["Carga", locationLoadLabel(item) || "—"],
     ["Contenido", contentText],
