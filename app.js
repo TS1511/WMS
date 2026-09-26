@@ -581,7 +581,14 @@ function applyCentralMovements(records) {
 
   const centralMovements = [...current.values()].sort((a, b) => movementTimestamp(b) - movementTimestamp(a));
   const blocksChanged = JSON.stringify([...blocks]) !== JSON.stringify([...state.centralBlocks]);
-  if (!blocksChanged && JSON.stringify(centralMovements) === JSON.stringify(state.movements)) return;
+  const needsLoadRepair = state.locations.some((location) =>
+    location.occupied
+    && location.material === "MULTIPRODUCTO"
+    && (!Array.isArray(location.contents)
+      || location.contents.length < 2
+      || location.contents.some((content) => content.sku === "MULTIPRODUCTO"))
+  );
+  if (!blocksChanged && !needsLoadRepair && JSON.stringify(centralMovements) === JSON.stringify(state.movements)) return;
   state.centralBlocks = blocks;
   rebuildInventoryFromMovements(centralMovements);
 }
