@@ -57,6 +57,7 @@ const state = {
     dragMode: "orbit",
     didDrag: false,
     lastPointer: null,
+    hoveredLocationId: "",
   },
   render3dStacks: [],
   render3dRacks: [],
@@ -623,7 +624,15 @@ function bind3dMouseControls() {
   });
 
   shell.addEventListener("pointermove", (event) => {
-    if (!state.view3d.dragging || !state.view3d.lastPointer) return;
+    if (!state.view3d.dragging || !state.view3d.lastPointer) {
+      const hovered = pick3dLocation(event.clientX, event.clientY) || "";
+      if (hovered !== state.view3d.hoveredLocationId) {
+        state.view3d.hoveredLocationId = hovered;
+        shell.style.cursor = hovered ? "pointer" : "grab";
+        scheduleTransform();
+      }
+      return;
+    }
     const dx = event.clientX - state.view3d.lastPointer.x;
     const dy = event.clientY - state.view3d.lastPointer.y;
     if (Math.abs(dx) + Math.abs(dy) > 2) state.view3d.didDrag = true;
@@ -640,6 +649,13 @@ function bind3dMouseControls() {
 
   shell.addEventListener("pointerup", (event) => end3dDrag(shell, event.pointerId));
   shell.addEventListener("pointercancel", (event) => end3dDrag(shell, event.pointerId));
+  shell.addEventListener("pointerleave", () => {
+    if (!state.view3d.dragging && state.view3d.hoveredLocationId) {
+      state.view3d.hoveredLocationId = "";
+      shell.style.cursor = "grab";
+      scheduleTransform();
+    }
+  });
   shell.addEventListener("contextmenu", (event) => event.preventDefault());
 
   shell.addEventListener("click", (event) => {
@@ -1062,7 +1078,8 @@ function normalizeSlottingRule(source) {
 }
 
 function locationMatchesRule(location, rule) {
-  return (rule.aisle === "ALL" || location.aisle === rule.aisle)
+  const aisles = String(rule.aisle || "ALL").split(/[,;\s]+/).map((value) => value.trim().toUpperCase()).filter(Boolean);
+  return (aisles.includes("ALL") || aisles.includes(String(location.aisle).toUpperCase()))
     && (rule.side === "all" || String(location.side) === rule.side)
     && Number(location.rack) >= rule.rackFrom && Number(location.rack) <= rule.rackTo
     && Number(location.module) >= rule.moduleFrom && Number(location.module) <= rule.moduleTo
@@ -1241,19 +1258,17 @@ function renderDashboardInsights() {
     .sort((a, b) => b.positions - a.positions || b.packages - a.packages)[0];
   const last = state.movements[0];
   const blocked = state.locations.filter((item) => item.blocked).length;
-  const driveIn = state.locations.filter((item) => item.storageType === "drivein");
-  const driveInOccupied = driveIn.filter((item) => item.occupied).length;
   const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso" };
   container.innerHTML = `
     <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
     <article><span>Último movimiento</span><strong>${last ? typeLabel[last.type] || last.type : "Sin movimientos"}</strong><small>${last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad"}</small></article>
-    <article><span>Ocupación Drive-In</span><strong>${driveIn.length ? formatRate(driveInOccupied / driveIn.length * 100) : "0%"}</strong><small>${fmt.format(driveInOccupied)} de ${fmt.format(driveIn.length)} posiciones</small></article>
     <article><span>Posiciones bloqueadas</span><strong>${fmt.format(blocked)}</strong><small>No disponibles para ingreso ni picking</small></article>`;
 }
 
 function renderSideBars() {
-  const sides = groupBy(state.locations, (item) => item.side);
-  $("#sideBars").innerHTML = Object.entries(sides)
+  const driveIn = state.locations.filter((item) => item.storageType === "drivein");
+  const sides = groupBy(state.locations.filter((item) => item.storageType !== "drivein"), (item) => item.side);
+  const sideRows = Object.entries(sides)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([side, items]) => {
       const occupied = items.filter((item) => item.occupied).length;
@@ -1265,8 +1280,11 @@ function renderSideBars() {
           <span>${formatRate(rate)}</span>
         </div>
       `;
-    })
-    .join("");
+    });
+  const driveOccupied = driveIn.filter((item) => item.occupied).length;
+  const driveRate = driveIn.length ? driveOccupied / driveIn.length * 100 : 0;
+  sideRows.push(`<div class="bar-row"><strong>Drive-In</strong><div class="bar-track"><div class="bar-fill drivein" style="width:${driveRate}%"></div></div><span>${formatRate(driveRate)}</span></div>`);
+  $("#sideBars").innerHTML = sideRows.join("");
 }
 
 function renderMap() {
@@ -1670,18 +1688,15 @@ function render3dMap() {
         const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => String(rule.velocityClass).toUpperCase() === state.view3d.zone);
         const stockClassMatch = location?.contents?.some((content) => state.skuMaster.some((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase() && sku.velocityClass === state.view3d.zone));
         const zoneMatch = state.view3d.zone === "all" || zoneRules.some((rule) => location && locationMatchesRule(location, rule)) || (!zoneRules.length && stockClassMatch);
-        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, visible: skuMatch && zoneMatch };
+        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, matchesFilter: skuMatch && zoneMatch };
       });
-      const firstRelevant = levels.findIndex((level) => level.visible && (level.blocked || level.occupied));
+      const firstRelevant = levels.findIndex((level) => level.matchesFilter && (level.blocked || level.occupied));
       const detailId = stack.type === "drivein"
         ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
         : stack.type === "wallrack"
           ? `E.${String(stack.module).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.position).padStart(2, "0")}`
           : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
-      return { ...stack, levels, detailId };
-    })
-    .filter((stack) => {
-      return stack.levels.some((item) => item.visible);
+      return { ...stack, levels, detailId, matchesFilter: levels.some((item) => item.matchesFilter) };
     });
   state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
     minCol: Math.min(...items.map((item) => item.col)),
@@ -1696,7 +1711,7 @@ function render3dMap() {
 function update3dFilterSummary() {
   const summary = $("#map3dFilterSummary");
   if (!summary) return;
-  const positions = state.render3dStacks.flatMap((stack) => stack.levels.filter((item) => item.visible).map((item) => item.location).filter(Boolean));
+  const positions = state.render3dStacks.flatMap((stack) => stack.levels.filter((item) => item.matchesFilter).map((item) => item.location).filter(Boolean));
   const occupied = positions.filter((item) => item.occupied);
   summary.textContent = state.view3d.sku
     ? `${occupied.length} posiciones: ${occupied.map((item) => item.id).join(", ") || "sin coincidencias"}`
@@ -1708,7 +1723,7 @@ function update3dFilterSummary() {
 function focus3dFilter() {
   render3dMap();
   if (!state.view3d.sku && state.view3d.zone === "all") return;
-  const stacks = state.render3dStacks;
+  const stacks = state.render3dStacks.filter((stack) => stack.matchesFilter);
   if (!stacks.length) return;
   const shell = $(".map3d-shell");
   const rect = shell.getBoundingClientRect();
@@ -1812,10 +1827,15 @@ function draw3dMap() {
       const columnBand = Math.floor((stack.row - bounds.minRow) / 2) % 2;
       const freeColor = shadeColor(levelColors[level], columnBand ? -7 : 0);
       const status = stack.levels[level];
-      if (!status?.visible) continue;
+      if (!status?.location) continue;
       const zoneColors = { SUPER_A: "#7b4cc2", A: "#237fb4", B: "#23835b", C: "#b58a16", ESTACIONAL: "#b65a8a" };
-      const color = status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : state.view3d.zone !== "all" ? zoneColors[state.view3d.zone] : freeColor;
-      draw3dRackLevel(ctx, stack, level, color, width, height, state.view3d.dragging);
+      const filterActive = Boolean(state.view3d.sku) || state.view3d.zone !== "all";
+      const hovered = status.location.id === state.view3d.hoveredLocationId;
+      const color = hovered ? "#f2c94c" : status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : state.view3d.zone !== "all" && status.matchesFilter ? zoneColors[state.view3d.zone] : freeColor;
+      ctx.save();
+      ctx.globalAlpha = hovered || !filterActive || status.matchesFilter ? 1 : 0.12;
+      draw3dRackLevel(ctx, stack, level, color, width, height, state.view3d.dragging, hovered);
+      ctx.restore();
     }
   }
   draw3dGuides(ctx, width, height);
@@ -1837,7 +1857,7 @@ function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height
   ctx.stroke();
 }
 
-function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = false) {
+function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = false, highlighted = false) {
   const bottom = POSITION_3D.base + level * POSITION_3D.levelPitch;
   const top = bottom + POSITION_3D.height;
   const halfWidth = stack.type === "wallrack" ? 0.66 : POSITION_3D.halfWidth;
@@ -1859,6 +1879,7 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
   if (center.x < -30 || center.x > width + 30 || center.y < -30 || center.y > height + 30) return;
   if (simplified) {
     drawCanvasFace(ctx, cap, color);
+    if (highlighted) { ctx.strokeStyle = "#111"; ctx.lineWidth = 2.5; ctx.stroke(); }
     return;
   }
   const sides = [
@@ -1872,6 +1893,15 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
   drawCanvasFace(ctx, rowFace.points, rowFace.color);
   drawCanvasFace(ctx, colFace.points, colFace.color);
   drawCanvasFace(ctx, cap, color, true);
+  if (highlighted) {
+    ctx.beginPath();
+    ctx.moveTo(cap[0].x, cap[0].y);
+    cap.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+    ctx.closePath();
+    ctx.strokeStyle = "#111";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
 }
 
 function stackDepth3d(stack) {
@@ -2054,7 +2084,7 @@ function pick3dLocation(clientX, clientY) {
   for (const stack of state.render3dStacks) {
     for (const level of levels) {
       const status = stack.levels[level];
-      if (!status?.visible || !status.location) continue;
+      if (!status?.location) continue;
       const z = POSITION_3D.base + level * POSITION_3D.levelPitch + POSITION_3D.height / 2;
       const point = project3d(stack.col, stack.row, z, rect.width, rect.height, stack.type === "drivein" || stack.type === "wallrack");
       const distance = Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y);
@@ -2090,12 +2120,19 @@ function locationRow(item) {
       <td>${item.module}</td>
       <td>${item.level}</td>
       <td>${item.material === "MULTIPRODUCTO" ? `${item.contents.length} SKU` : item.material || ""}</td>
-      <td>${item.quantity || ""}</td>
+      <td>${locationLoadLabel(item)}</td>
       <td><span class="pill ${statusClass}" title="${item.blockReason || ""}">${status}</span></td>
       <td>${activity ? formatMovementDate(activity) : "—"}</td>
       <td>${activity ? activityLabel[activity.type] || activity.type : "—"}</td>
     </tr>
   `;
+}
+
+function locationLoadLabel(location) {
+  if (!location.occupied) return "";
+  if (location.contents?.length > 1) return `${fmt.format(location.quantity || 0)} bultos`;
+  const pallets = Number(location.palletCount || location.contents?.[0]?.legacyPallets || 0);
+  return pallets ? `${fmt.format(pallets)} pallet${pallets === 1 ? "" : "s"}` : `${fmt.format(location.quantity || 0)} bultos`;
 }
 
 function renderMovements() {
@@ -2109,12 +2146,22 @@ function renderMovements() {
             <td>${move.material}</td>
             <td>${move.from || ""}</td>
             <td>${move.to || ""}</td>
-            <td>${move.quantity}</td>
+            <td>${movementQuantityLabel(move)}</td>
             <td class="movement-actions"><button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button></td>
           </tr>
         `
       )
       .join("") || `<tr><td colspan="7">Sin movimientos cargados.</td></tr>`;
+}
+
+function movementQuantityLabel(move) {
+  const pallets = Number(move.palletCount || 0);
+  const packages = Number(move.packages || 0);
+  const isTransfer = move.type === "MOVE" || move.type === "TR";
+  const isPallet = isTransfer || String(move.logisticsUnit || "").toUpperCase() === "PALLET" || (move.type === "IN" && !packages);
+  if (move.type === "IN" && move.contents?.length > 1) return `${fmt.format(pallets || 1)} pallet · ${fmt.format(packages || move.quantity || 0)} bultos`;
+  if (isPallet) return `${fmt.format(pallets || move.quantity || 1)} pallet${(pallets || move.quantity || 1) === 1 ? "" : "s"}`;
+  return `${fmt.format(packages || move.quantity || 0)} bulto${(packages || move.quantity || 0) === 1 ? "" : "s"}`;
 }
 
 function handleDeleteMovementClick(event) {
@@ -2123,7 +2170,7 @@ function handleDeleteMovementClick(event) {
   const movement = state.movements.find((item) => item.id === button.dataset.deleteMovement);
   if (!movement) return;
   const confirmed = confirm(
-    `¿Estás seguro de eliminar este movimiento?\n\n${formatMovementDate(movement)} · ${movement.material || "Sin material"} · ${movement.quantity} bultos\n\nEl inventario se recalculará automáticamente.`
+    `¿Estás seguro de eliminar este movimiento?\n\n${formatMovementDate(movement)} · ${movement.material || "Sin material"} · ${movementQuantityLabel(movement)}\n\nEl inventario se recalculará automáticamente.`
   );
   if (!confirmed) return;
   try {
@@ -2339,7 +2386,7 @@ function renderRegistration() {
       <div class="recent-movement">
         <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT" }[move.type]}</span>
         <div><strong>${move.material || "Sin material"}</strong><small>${move.from || "Entrada"} → ${move.to || "Salida"}</small></div>
-        <div class="recent-quantity"><strong>${fmt.format(move.quantity)}</strong><small>${formatMovementDate(move)}</small></div>
+        <div class="recent-quantity"><strong>${movementQuantityLabel(move)}</strong><small>${formatMovementDate(move)}</small></div>
         <div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>
       </div>
     `).join("")
@@ -3112,7 +3159,7 @@ function openDetail(item) {
     ["Nivel", item.level],
     ["Tipo de carga", item.contents?.length > 1 ? "Pallet multiproducto" : item.palletCount ? "Pallet monoproducto" : "Bultos"],
     ["Pallets", item.palletCount || 0],
-    ["Bultos", item.quantity || 0],
+    ["Carga", locationLoadLabel(item) || "—"],
     ["Contenido", contentText],
     ["Estado", item.blocked ? "Bloqueada" : item.occupied ? "Ocupada" : "Libre"],
     ["Motivo de bloqueo", item.blockReason || "—"],

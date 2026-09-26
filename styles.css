@@ -453,6 +453,10 @@ label select {
 .picking-file-bar .file-action,
 .picking-file-bar button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 11px; font-size: 12px; font-weight: 700; }
 .picking-file-bar .file-action { color: #fff; background: var(--primary); }
+.movement-import-tools { display: grid; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.movement-import-tools > strong { color: var(--text); font-size: 13px; }
+.movement-import-tools .movement-import-bar { margin: 0; flex-wrap: wrap; }
+.movement-import-tools .import-format { margin: 0; }
 .picking-import-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-bottom: 12px; padding: 10px; border-left: 4px solid var(--primary); background: #edf5f8; }
 .picking-import-panel.hidden { display: none; }
 .picking-import-panel label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }

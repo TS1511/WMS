@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260925-3" />
+    <link rel="stylesheet" href="styles.css?v=20260925-4" />
   </head>
   <body>
     <aside class="sidebar">
@@ -75,7 +75,7 @@
         <div class="split">
           <section class="panel">
             <div class="panel-head">
-              <h2>Ocupación por lado</h2>
+              <h2>Ocupación por sector</h2>
               <span id="lastUpdate"></span>
             </div>
             <div id="sideBars" class="bars"></div>
@@ -145,11 +145,14 @@
               <div id="movementSummary" class="movement-summary"></div>
               <button id="registerSubmit" type="submit" class="primary-action">Registrar ingreso</button>
             </form>
-            <div class="picking-file-bar movement-import-bar">
-              <label class="ghost file-action">Importar movimientos<input id="movementImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
-              <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
-            </div>
-            <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
+            <section class="movement-import-tools">
+              <strong>Carga masiva</strong>
+              <div class="picking-file-bar movement-import-bar">
+                <label class="ghost file-action">Importar movimientos<input id="movementImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
+                <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
+              </div>
+              <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
+            </section>
             <p id="registerMessage" class="message register-message" aria-live="polite"></p>
           </section>
 
@@ -323,7 +326,7 @@
                   <th>Módulo</th>
                   <th>Nivel</th>
                   <th>Material</th>
-                  <th>Bultos</th>
+                  <th>Cantidad logística</th>
                   <th>Estado</th>
                   <th>Última actividad</th>
                   <th>Movimiento</th>
@@ -350,7 +353,7 @@
                   <th>Material</th>
                   <th>Desde</th>
                   <th>Hasta</th>
-                  <th>Bultos</th>
+                  <th>Carga</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -616,6 +619,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20260925-2"></script>
-    <script src="app.js?v=20260925-3"></script>
+    <script src="app.js?v=20260925-4"></script>
   </body>
 </html>
