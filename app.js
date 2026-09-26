@@ -1202,7 +1202,11 @@ function filteredLocations() {
     if (state.filters.locationSide !== "all" && String(item.side) !== state.filters.locationSide) return false;
     if (state.filters.rack && String(item.rack) !== state.filters.rack) return false;
     if (state.filters.locationLevel !== "all" && String(item.level) !== state.filters.locationLevel) return false;
-    if (state.filters.material && !String(item.material || "").toLowerCase().includes(state.filters.material)) return false;
+    if (state.filters.material) {
+      const matchesMaterial = String(item.material || "").toLowerCase().includes(state.filters.material)
+        || (item.contents || []).some((content) => String(content.sku || "").toLowerCase().includes(state.filters.material));
+      if (!matchesMaterial) return false;
+    }
     if (state.filters.locationStatus === "available" && (item.occupied || item.blocked)) return false;
     if (state.filters.locationStatus === "occupied" && !item.occupied) return false;
     if (state.filters.locationStatus === "blocked" && !item.blocked) return false;
