@@ -2158,7 +2158,7 @@ function renderMovements() {
           <tr>
             <td>${formatMovementDate(move)}</td>
             <td>${move.type}</td>
-            <td>${move.material}</td>
+            <td>${movementMaterialCell(move)}</td>
             <td>${move.from || ""}</td>
             <td>${move.to || ""}</td>
             <td>${movementQuantityLabel(move)}</td>
@@ -2167,6 +2167,12 @@ function renderMovements() {
         `
       )
       .join("") || `<tr><td colspan="7">Sin movimientos cargados.</td></tr>`;
+}
+
+function movementMaterialCell(move) {
+  const contents = (move.contents || []).filter((content) => content.sku);
+  if (move.material !== "MULTIPRODUCTO" && contents.length < 2) return escapeHtml(move.material || "");
+  return `<details class="position-composition"><summary>Multiproducto · ${contents.length} SKU</summary>${contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`;
 }
 
 function movementQuantityLabel(move) {
