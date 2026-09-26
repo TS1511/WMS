@@ -2159,8 +2159,9 @@ function movementQuantityLabel(move) {
   const packages = Number(move.packages || 0);
   const isTransfer = move.type === "MOVE" || move.type === "TR";
   const isPallet = isTransfer || String(move.logisticsUnit || "").toUpperCase() === "PALLET" || (move.type === "IN" && !packages);
-  if (move.type === "IN" && move.contents?.length > 1) return `${fmt.format(pallets || 1)} pallet · ${fmt.format(packages || move.quantity || 0)} bultos`;
-  if (isPallet) return `${fmt.format(pallets || move.quantity || 1)} pallet${(pallets || move.quantity || 1) === 1 ? "" : "s"}`;
+  const multiproduct = move.material === "MULTIPRODUCTO" || move.contents?.length > 1;
+  if (move.type === "IN" && multiproduct) return `${fmt.format(pallets || 1)} pallet · ${fmt.format(packages || move.quantity || 0)} bultos`;
+  if (isPallet) return `${fmt.format(pallets || 1)} pallet${(pallets || 1) === 1 ? "" : "s"}`;
   return `${fmt.format(packages || move.quantity || 0)} bulto${(packages || move.quantity || 0) === 1 ? "" : "s"}`;
 }
 
