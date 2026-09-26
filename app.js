@@ -1339,11 +1339,20 @@ function storageCard(label, rack, positions) {
 }
 
 function loadPickingExample() {
-  const bySku = groupBy(state.locations.filter((item) => item.occupied && !item.blocked && item.material), (item) => item.material);
-  $("#pickingLines").value = Object.entries(bySku).slice(0, 6).map(([sku, items]) => {
-    const available = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-    return `${sku}, ${Math.min(available, 2)}`;
-  }).join("\n");
+  const stock = {};
+  state.locations
+    .filter((location) => location.occupied && !location.blocked)
+    .forEach((location) => (location.contents || []).forEach((content) => {
+      const available = availablePackages(location, content.sku);
+      if (available > 0) stock[content.sku] = (stock[content.sku] || 0) + available;
+    }));
+  $("#pickingLines").value = Object.entries(stock).slice(0, 6)
+    .map(([sku, available]) => `${sku}, ${Math.min(available, 2)}`)
+    .join("\n");
+  $("#pickingMessage").textContent = Object.keys(stock).length
+    ? "Pedido de prueba cargado con SKU que tienen stock disponible."
+    : "No hay stock disponible para preparar pedidos.";
+  clearPickingResults();
   renderPickingDraft();
 }
 
