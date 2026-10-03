@@ -1,4 +1,4 @@
-const SERVER_VERSION = 23;
+const SERVER_VERSION = 24;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
 const SLOTTING_SHEET_NAME = "Zonas SKU";
@@ -29,10 +29,9 @@ const COLUMNS = [
 ];
 const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass","positionsRequired","minDays","maxDays"];
 const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level"];
-const COUNT_COLUMNS = ["id_conteo","fecha_hora_utc","fecha_local","posicion","esperado_json","encontrado_json","resultado","estado","observacion","usuario","ajuste_id","ajustado_por","ajustado_en"];
+const COUNT_COLUMNS = ["id_conteo","fecha_hora_utc","fecha_local","posicion","esperado_json","encontrado_json","resultado","estado","observacion","usuario","ajuste_id","ajustado_por","ajustado_en","inventario_id","alcance"];
 
 const BASELINE_STOCK = {
-  "A2.02.0": { sku: "5555555", cantidad: 1 },
   "C1.12.3": { sku: "333333", cantidad: 1 },
   "D2.02.0": { sku: "123123", cantidad: 1 },
   "H1.20.2": { sku: "22222", cantidad: 1 },

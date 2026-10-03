@@ -1,71 +1,32 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = path.resolve(__dirname, "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const locationsPath = path.join(root, "data", "locations.json");
 const layoutPath = path.join(root, "data", "layout3d.json");
 const locationsPayload = JSON.parse(fs.readFileSync(locationsPath, "utf8"));
 const layoutPayload = JSON.parse(fs.readFileSync(layoutPath, "utf8"));
+const existingWallLocations = new Map(
+  locationsPayload.locations
+    .filter((item) => item.storageType === "wallrack" && item.aisle === "ZE")
+    .map((item) => {
+      const wallPosition = Number(item.wallPosition || ((Number(item.module) - 1) * 2 + Number(item.position)));
+      return [`ZE.${wallPosition}.${item.level}`, item];
+    })
+);
 
-locationsPayload.locations = locationsPayload.locations.filter((item) => {
-  const isDriveIn = ["drivein", "penetrable"].includes(item.storageType);
-  const isEastWall = item.storageType === "wallrack" && item.aisle === "ZE";
-  return !isDriveIn && !isEastWall;
-});
-layoutPayload.stacks = layoutPayload.stacks.filter((item) => {
-  const isDriveIn = ["drivein", "penetrable"].includes(item.type);
-  const isEastWall = item.type === "wallrack" && item.aisle === "ZE";
-  return !isDriveIn && !isEastWall;
-});
-
-for (let column = 1; column <= 38; column += 1) {
-  for (let depth = 0; depth <= 4; depth += 1) {
-    const columnCode = String(column).padStart(2, "0");
-    const levels = [];
-    for (let level = 0; level <= 4; level += 1) {
-      const id = `PE.${columnCode}.${level}.${depth}`;
-      const location = {
-        id,
-        aisle: "PE",
-        side: 2,
-        rack: column,
-        module: depth,
-        level,
-        depth,
-        storageType: "drivein",
-        material: "",
-        quantity: 0,
-        occupied: false,
-      };
-      locationsPayload.locations.push(location);
-      levels.push({ id, level, rack: column, occupied: false, material: "", quantity: 0 });
-    }
-    layoutPayload.stacks.push({
-      key: `PE.${columnCode}.${depth}`,
-      baseId: `PE.${columnCode}.0.${depth}`,
-      aisle: "PE",
-      side: 2,
-      rack: column,
-      column,
-      module: depth,
-      depth,
-      type: "drivein",
-      row: 52 + depth * 0.95,
-      col: -54.3 + (column - 1) * 1.1,
-      occupiedLevels: 0,
-      levels,
-    });
-  }
-}
-
-const eastWallSegments = [
+const segments = [
   { firstModule: 1, lastModule: 14, startCol: -2.3 },
   { firstModule: 15, lastModule: 43, startCol: 25 },
   { firstModule: 44, lastModule: 66, startCol: 80 },
 ];
-const eastWallPositionPitch = 0.9;
+const positionPitch = 0.9;
 
-for (const segment of eastWallSegments) {
+locationsPayload.locations = locationsPayload.locations.filter((item) => !(item.storageType === "wallrack" && item.aisle === "ZE"));
+layoutPayload.stacks = layoutPayload.stacks.filter((item) => !(item.type === "wallrack" && item.aisle === "ZE"));
+
+for (const segment of segments) {
   for (let module = segment.firstModule; module <= segment.lastModule; module += 1) {
     for (let position = 1; position <= 2; position += 1) {
       const wallPosition = (module - 1) * 2 + position;
@@ -73,7 +34,17 @@ for (const segment of eastWallSegments) {
       const levels = [];
       for (let level = 0; level <= 4; level += 1) {
         const id = `ZE.${wallPosition}.${level}`;
-        locationsPayload.locations.push({
+        const existing = existingWallLocations.get(id);
+        const location = existing ? {
+          ...existing,
+          id,
+          aisle: "ZE",
+          rack: module,
+          module,
+          position: wallPosition,
+          wallPosition,
+          level,
+        } : {
           id,
           aisle: "ZE",
           side: 2,
@@ -86,8 +57,16 @@ for (const segment of eastWallSegments) {
           material: "",
           quantity: 0,
           occupied: false,
+        };
+        locationsPayload.locations.push(location);
+        levels.push({
+          id,
+          level,
+          rack: module,
+          occupied: Boolean(location.occupied),
+          material: location.material || "",
+          quantity: Number(location.quantity || 0),
         });
-        levels.push({ id, level, rack: module, occupied: false, material: "", quantity: 0 });
       }
       layoutPayload.stacks.push({
         key: `ZE.${wallPosition}`,
@@ -101,8 +80,8 @@ for (const segment of eastWallSegments) {
         wallPosition,
         type: "wallrack",
         row: 55.8,
-        col: segment.startCol + offset * eastWallPositionPitch,
-        occupiedLevels: 0,
+        col: segment.startCol + offset * positionPitch,
+        occupiedLevels: levels.filter((item) => item.occupied).length,
         levels,
       });
     }
@@ -134,7 +113,6 @@ layoutPayload.bounds = {
   maxCol: Math.max(...layoutPayload.stacks.map((item) => item.col)),
 };
 
-fs.writeFileSync(locationsPath, JSON.stringify(locationsPayload, null, 2) + "\n");
-fs.writeFileSync(layoutPath, JSON.stringify(layoutPayload, null, 2) + "\n");
-console.log("Penetrable PE agregado: 38 columnas x 5 niveles x 5 profundidades = 950 posiciones.");
-console.log("Racks Este agregados: 66 módulos x 2 posiciones x 5 niveles = 660 posiciones.");
+fs.writeFileSync(locationsPath, `${JSON.stringify(locationsPayload, null, 2)}\n`);
+fs.writeFileSync(layoutPath, `${JSON.stringify(layoutPayload, null, 2)}\n`);
+console.log("Pared Este actualizada: ZE.1 a ZE.132, 5 niveles y 660 ubicaciones.");

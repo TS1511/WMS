@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WMS de almacén</title>
-    <link rel="stylesheet" href="styles.css?v=20260925-6" />
+    <title>GPS | Goods Position System</title>
+    <link rel="stylesheet" href="styles.css?v=20261001-7" />
   </head>
   <body>
     <aside class="sidebar">
       <div class="brand">
         <div>
-          <strong>WMS</strong>
+          <strong>GPS</strong>
           <span>Control de ubicaciones</span>
         </div>
       </div>
@@ -36,14 +36,14 @@
       <div class="source">
         <span>Almacén</span>
         <strong>Gestión operativa</strong>
-        <small>12.110 posiciones configuradas</small>
+        <small id="configuredPositionCount">Posiciones configuradas</small>
       </div>
     </aside>
 
     <main>
       <header class="topbar">
         <div>
-          <h1>Mini WMS</h1>
+          <h1>Goods Position System</h1>
           <p>Gestión operativa de posiciones, stock y movimientos.</p>
         </div>
         <div class="top-actions">
@@ -268,11 +268,16 @@
       <section id="map3d" class="view">
         <div class="toolbar map3d-toolbar">
           <input id="sku3dFilter" type="search" placeholder="Filtrar SKU" />
+          <input id="position3dFilter" type="search" placeholder="Buscar posición" />
           <select id="zone3dFilter"><option value="all">Todas las zonas</option><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select>
           <select id="side3dFilter">
-            <option value="all">Ambos lados</option>
+            <option value="all">Todos los sectores</option>
             <option value="1">Lado 1</option>
             <option value="2">Lado 2</option>
+            <option value="PE">Penetrable</option>
+            <option value="ZE">Zona Este</option>
+            <option value="ZO">Zona Oeste</option>
+            <option value="ZN">Zona Norte</option>
           </select>
           <select id="level3dFilter">
             <option value="all">Todos los niveles</option>
@@ -311,7 +316,7 @@
           <div class="location-filters">
             <label>Posición<input id="locationPositionFilter" type="search" placeholder="Ej. A2.01.3" /></label>
             <label>Pasillo<input id="locationAisleFilter" type="search" placeholder="Ej. A" /></label>
-            <label>Lado<select id="locationSideFilter"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option></select></label>
+            <label>Sector<select id="locationSideFilter"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option></select></label>
             <label>Rack<input id="locationRackFilter" type="number" min="1" max="26" placeholder="Ej. 4" /></label>
             <label>Nivel<select id="locationLevelFilter"><option value="all">Todos</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
             <label>SKU<input id="locationMaterialFilter" type="search" placeholder="Código o material" /></label>
@@ -344,8 +349,19 @@
       <section id="counts" class="view">
         <header class="section-heading">
           <div><h1>Conteos de inventario</h1><p>Verificación física por posición y ajustes autorizados con trazabilidad.</p></div>
-          <span id="countsBackendStatus" class="muted">Conectando con el registro central…</span>
+          <div class="section-heading-actions"><span id="countsBackendStatus" class="muted">Conectando con el registro central…</span><button id="exportInventoryCsv" type="button" class="ghost">Exportar inventario CSV</button></div>
         </header>
+        <section class="panel inventory-session-panel">
+          <div class="panel-head"><h2>Inventario en curso</h2><span id="countSessionStatus" class="muted">Sin inventario iniciado</span></div>
+          <div class="inventory-session-controls">
+            <label>Identificador<input id="countInventoryId" placeholder="Ej. INV-2026-10" /></label>
+            <label>Alcance<select id="countScope"><option value="ALL">Todo el depósito</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option></select></label>
+            <button id="startInventoryCount" type="button" class="primary-action">Iniciar / unirse</button>
+            <button id="finishInventoryCount" type="button" class="ghost" disabled>Finalizar y validar</button>
+          </div>
+          <div id="countSessionProgress" class="inventory-session-progress">Iniciá un inventario para controlar la cobertura.</div>
+          <div id="countSessionReport" class="inventory-session-report" hidden></div>
+        </section>
         <div class="count-kpis">
           <article><span>Conteos</span><strong id="countKpiTotal">0</strong></article>
           <article><span>Pendientes</span><strong id="countKpiPending">0</strong></article>
@@ -364,10 +380,12 @@
                 <option value="EMPTY">Posición vacía</option>
                 <option value="PALLET_MONO">Pallet monoproducto</option>
                 <option value="PALLET_MULTI">Pallet multiproducto</option>
+                <option value="PACKAGES">Bultos</option>
               </select>
             </label>
             <label id="countPalletField" hidden>Pallets encontrados<input id="countPalletCount" type="number" min="1" value="1" /></label>
-            <div id="countMonoFields" hidden><label>SKU encontrado<input id="countSku" autocomplete="off" placeholder="Escanear o ingresar SKU" /></label></div>
+            <div id="countMonoFields" hidden><label>SKU encontrado<span class="scan-field"><input id="countSku" autocomplete="off" placeholder="Escanear o ingresar SKU" /><button type="button" class="scan-button" data-scan-target="countSku" aria-label="Escanear SKU para conteo">Escanear</button></span></label></div>
+            <label id="countPackageField" hidden>Bultos encontrados<input id="countPackageCount" type="number" min="1" value="1" /></label>
             <div id="countMultiFields" hidden><label>Contenido multiproducto<textarea id="countMultiContents" rows="5" placeholder="SKU; bultos&#10;100360; 12&#10;555555; 8"></textarea></label><small class="muted">Una línea por SKU: SKU; bultos.</small></div>
             <label>Observación<textarea id="countObservation" rows="3" placeholder="Daño, faltante, sobrante u otra aclaración"></textarea></label>
             <button type="submit" class="primary-action">Guardar conteo</button>
@@ -385,6 +403,15 @@
           <div class="panel-head">
             <h2>Historial de movimientos</h2>
             <button id="exportCsv" class="ghost">Exportar CSV</button>
+          </div>
+          <div class="movement-filters">
+            <label>Desde<input id="movementDateFrom" type="date" /></label>
+            <label>Hasta<input id="movementDateTo" type="date" /></label>
+            <label>Tipo<select id="movementTypeFilter"><option value="all">Todos</option><option value="IN">Ingreso</option><option value="MOVE">Reubicación</option><option value="OUT">Egreso</option><option value="ADJUST">Ajuste</option></select></label>
+            <label>SKU<input id="movementSkuFilter" type="search" placeholder="Código SKU" /></label>
+            <label>Posición<input id="movementPositionFilter" type="search" placeholder="Origen o destino" /></label>
+            <button id="clearMovementFilters" type="button" class="ghost">Limpiar</button>
+            <span id="movementFilterCount" class="muted"></span>
           </div>
           <div class="table-wrap">
             <table>
@@ -612,6 +639,9 @@
         <label>Bultos / pallets (registros anteriores)
           <input name="quantity" type="number" min="1" />
         </label>
+        <label>Contenido multiproducto
+          <textarea name="contents" rows="5" placeholder="SKU; bultos&#10;100360; 12"></textarea>
+        </label>
         <p id="editMovementMessage" class="message"></p>
         <div class="dialog-actions">
           <button type="button" id="cancelEditMovement" class="ghost">Cancelar</button>
@@ -623,7 +653,7 @@
     <dialog id="syncSettingsDialog" class="movement-dialog">
       <form id="syncSettingsForm">
         <div class="panel-head">
-          <h2>Acceso al WMS</h2>
+          <h2>Acceso a GPS</h2>
           <button type="button" id="closeSyncSettings" class="close">×</button>
         </div>
         <label>Usuario
@@ -658,7 +688,7 @@
     <input id="barcodeCapture" type="file" accept="image/*" capture="environment" hidden />
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
-    <script src="data/embedded-data.js?v=20260925-2"></script>
-    <script src="app.js?v=20260926-4"></script>
+    <script src="data/embedded-data.js?v=20261001-3"></script>
+    <script src="app.js?v=20261001-6"></script>
   </body>
 </html>

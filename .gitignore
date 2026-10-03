@@ -8,3 +8,9 @@
 /export_wms_data.py
 /inspect_layout_coords.py
 /serve.js
+/sharepoint/api/local.settings.json
+/sharepoint/api/node_modules/
+/sharepoint/dist/
+/gps/api/.env
+/gps/api/node_modules/
+/gps/dist/

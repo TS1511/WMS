@@ -1,10 +1,13 @@
-const STORAGE_KEY = "mini-wms-state-v2";
+const STORAGE_KEY = "mini-wms-state-v3";
 const SYNC_CONFIG_KEY = "mini-wms-sync-config-v2";
-const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v1";
+const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v2";
 const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
 const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
+const COUNT_CACHE_KEY = "gps-inventory-counts-v1";
+const COUNT_SESSION_KEY = "gps-inventory-session-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+const POSITION_RECODE_CUTOFF = Date.parse("2026-09-30T17:30:00.000Z");
 const ADMIN_USER = "Escobar";
 const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
 const USER_ACCOUNTS = [
@@ -81,6 +84,7 @@ const state = {
     panX: 0,
     panY: 0,
     sku: "",
+    position: "",
     zone: "all",
     dragging: false,
     dragMode: "orbit",
@@ -104,6 +108,8 @@ const state = {
   pickingOrders: [],
   sapStock: [],
   inventoryCounts: [],
+  countSession: null,
+  movementFilters: { from: "", to: "", type: "all", sku: "", position: "" },
   scanReadyAt: 0,
 };
 
@@ -159,12 +165,17 @@ async function init() {
   state.original = payload.locations;
 
   const saved = loadSavedState();
-  const savedLocations = new Map((saved?.locations || []).map((location) => [location.id, location]));
+  const savedLocations = new Map((saved?.locations || []).map((location) => {
+    const id = normalizePosition(location.id);
+    return [id, { ...location, id }];
+  }));
   state.locations = state.original.map((location) => ({ ...structuredClone(location), ...(savedLocations.get(location.id) || {}) }));
   state.locations.forEach(normalizeLocationLoad);
   state.movements = saved?.movements || [];
   state.movements.forEach((move, index) => {
     if (!move.id) move.id = `legacy-${movementTimestamp(move) || 0}-${index}`;
+    move.from = normalizePosition(move.from);
+    move.to = normalizePosition(move.to);
   });
   state.locations.forEach((location) => {
     if (!("occupiedSince" in location)) location.occupiedSince = null;
@@ -188,6 +199,8 @@ async function init() {
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
   state.slottingRules = loadJson(SLOTTING_RULES_KEY, []);
+  state.inventoryCounts = loadJson(COUNT_CACHE_KEY, []).map(normalizeInventoryCount);
+  state.countSession = loadJson(COUNT_SESSION_KEY, null);
   saveState();
 
   fillLevelFilter();
@@ -195,6 +208,7 @@ async function init() {
   bindEvents();
   applyRoleAccess();
   renderAll();
+  renderCountSession();
   renderSyncStatus();
   if (!state.syncConfig.authenticated) openSyncSettings();
   else scheduleSessionExpiry();
@@ -225,10 +239,31 @@ function loadSavedState() {
   }
 }
 
+function persistentLocationState(location) {
+  return {
+    material: location.material || "",
+    quantity: Number(location.quantity || 0),
+    occupied: Boolean(location.occupied),
+    occupiedSince: location.occupiedSince || null,
+    blocked: Boolean(location.blocked),
+    blockReason: location.blockReason || "",
+    contents: structuredClone(location.contents || []),
+    palletCount: Number(location.palletCount || 0),
+    footprintPrimaryId: location.footprintPrimaryId || "",
+    footprintIndex: Number(location.footprintIndex || 0),
+  };
+}
+
 function saveState() {
+  const originalById = new Map(state.original.map((location) => [location.id, location]));
+  const locations = state.locations.filter((location) => {
+    const original = structuredClone(originalById.get(location.id) || { id: location.id });
+    normalizeLocationLoad(original);
+    return JSON.stringify(persistentLocationState(location)) !== JSON.stringify(persistentLocationState(original));
+  });
   localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({ locations: state.locations, movements: state.movements, history: state.history })
+    JSON.stringify({ locations, movements: state.movements, history: state.history })
   );
 }
 
@@ -280,6 +315,10 @@ function bindEvents() {
 
   $("#sku3dFilter").addEventListener("input", (event) => {
     state.view3d.sku = event.target.value.trim();
+    focus3dFilter();
+  });
+  $("#position3dFilter").addEventListener("input", (event) => {
+    state.view3d.position = normalizePosition(event.target.value);
     focus3dFilter();
   });
 
@@ -343,6 +382,9 @@ function bindEvents() {
   $("#countPosition").addEventListener("input", renderCountExpected);
   $("#countLoadType").addEventListener("change", updateCountLoadFields);
   $("#inventoryCountsTable").addEventListener("click", handleCountAdjustment);
+  $("#startInventoryCount").addEventListener("click", startInventorySession);
+  $("#finishInventoryCount").addEventListener("click", finishInventorySession);
+  $("#exportInventoryCsv").addEventListener("click", exportInventoryCsv);
   $("#pickingOrderSelect").addEventListener("change", loadImportedPickingOrder);
   $("#downloadPickingTemplate").addEventListener("click", downloadPickingTemplate);
   $("#printPickingRoute").addEventListener("click", printPickingRoute);
@@ -363,6 +405,8 @@ function bindEvents() {
   $("#cancelBlockLocation").addEventListener("click", closeBlockLocationDialog);
   $("#resetData").addEventListener("click", resetData);
   $("#exportCsv").addEventListener("click", exportMovementsCsv);
+  ["movementDateFrom", "movementDateTo", "movementTypeFilter", "movementSkuFilter", "movementPositionFilter"].forEach((id) => $("#" + id).addEventListener("input", updateMovementFilters));
+  $("#clearMovementFilters").addEventListener("click", clearMovementFilters);
   $("#movementsTable").addEventListener("click", handleDeleteMovementClick);
   $("#recentMovementList").addEventListener("click", handleDeleteMovementClick);
   $("#movementsTable").addEventListener("click", handleEditMovementClick);
@@ -681,12 +725,12 @@ function applyCentralMovements(records) {
     }
     const type = String(record.tipo || "").toUpperCase();
     if (type === "BLOCK") {
-      const position = normalizePosition(record.posicion_destino);
+      const position = canonicalPositionForLayout(record.posicion_destino, record.fecha_hora_utc || record.actualizado_en);
       if (position) blocks.set(position, String(record.sku || "Sin motivo informado"));
       return;
     }
     if (type === "UNBLOCK") {
-      const position = normalizePosition(record.posicion_origen);
+      const position = canonicalPositionForLayout(record.posicion_origen, record.fecha_hora_utc || record.actualizado_en);
       if (position) blocks.delete(position);
       return;
     }
@@ -698,8 +742,8 @@ function applyCentralMovements(records) {
       date: String(record.fecha_local || ""),
       type,
       material: String(record.sku || ""),
-      from: normalizePosition(record.posicion_origen),
-      to: normalizePosition(record.posicion_destino),
+      from: canonicalPositionForLayout(record.posicion_origen, record.fecha_hora_utc || record.actualizado_en),
+      to: canonicalPositionForLayout(record.posicion_destino, record.fecha_hora_utc || record.actualizado_en),
       quantity: Number(record.cantidad || 0),
       logisticsUnit: String(record.unidad_logistica || "PALLET"),
       palletCount: Number(record.pallets || (legacyPalletMovement ? record.cantidad : 0) || 0),
@@ -1133,7 +1177,7 @@ async function importMovementFile(event) {
 
 function downloadCsv(name, rows) {
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((row) => row.join(";")).join("\n")], { type: "text/csv;charset=utf-8" }));
+  link.href = URL.createObjectURL(new Blob(["\uFEFF" + rows.map((row) => row.map(csvCell).join(";")).join("\n")], { type: "text/csv;charset=utf-8" }));
   link.download = name;
   link.click();
   URL.revokeObjectURL(link.href);
@@ -1192,9 +1236,10 @@ function locationLoadSnapshot(location) {
 
 function updateCountLoadFields() {
   const type = $("#countLoadType").value;
-  $("#countMonoFields").hidden = type !== "PALLET_MONO";
+  $("#countMonoFields").hidden = !["PALLET_MONO", "PACKAGES"].includes(type);
   $("#countMultiFields").hidden = type !== "PALLET_MULTI";
-  $("#countPalletField").hidden = type === "EMPTY";
+  $("#countPalletField").hidden = ["EMPTY", "PACKAGES"].includes(type);
+  $("#countPackageField").hidden = type !== "PACKAGES";
 }
 
 function renderCountExpected() {
@@ -1218,6 +1263,12 @@ function renderCountExpected() {
 function readCountFound() {
   const type = $("#countLoadType").value;
   if (type === "EMPTY") return { occupied: false, palletCount: 0, contents: [] };
+  if (type === "PACKAGES") {
+    const sku = String($("#countSku").value || "").trim();
+    const packages = Number($("#countPackageCount").value || 0);
+    if (!sku || !(packages > 0)) throw new Error("Indicá el SKU y la cantidad de bultos encontrados.");
+    return { occupied: true, palletCount: 0, contents: [normalizeContentLine({ sku, packages })] };
+  }
   const palletCount = Number($("#countPalletCount").value || 0);
   if (!(palletCount > 0)) throw new Error("Indicá la cantidad de pallets encontrados.");
   if (type === "PALLET_MULTI") {
@@ -1235,7 +1286,7 @@ function comparableCountLoad(load = {}) {
   return {
     occupied: Boolean(contents.length),
     palletCount: contents.length ? Number(load.palletCount || 0) : 0,
-    contents: contents.map((item) => contents.length > 1
+    contents: contents.map((item) => contents.length > 1 || !load.palletCount
       ? { sku: item.sku.toUpperCase(), packages: Number(item.packages || 0) }
       : { sku: item.sku.toUpperCase() }),
   };
@@ -1248,6 +1299,7 @@ function countLoadsMatch(expected, found) {
 function countLoadSummary(load = {}) {
   const contents = (load.contents || []).map(normalizeContentLine).filter((item) => item.sku);
   if (!contents.length) return "Posición vacía";
+  if (contents.length === 1 && !load.palletCount) return `${fmt.format(contents[0].packages || 0)} bultos · ${escapeHtml(contents[0].sku)}`;
   if (contents.length === 1) return `${fmt.format(Number(load.palletCount || 1))} pallet · ${escapeHtml(contents[0].sku)}`;
   return `${fmt.format(Number(load.palletCount || 1))} pallet multiproducto · ${contents.map((item) => `${escapeHtml(item.sku)} (${fmt.format(item.packages)} bultos)`).join(" · ")}`;
 }
@@ -1261,6 +1313,7 @@ async function saveInventoryCount(event) {
     const location = findLocation(entered);
     if (!location) throw new Error("La posición indicada no existe.");
     const primary = footprintPrimaryLocation(location);
+    if (state.countSession && !locationInCountScope(primary, state.countSession.scope)) throw new Error(`La posición no pertenece al alcance ${countScopeLabel(state.countSession.scope)}.`);
     const expected = locationLoadSnapshot(primary);
     const found = readCountFound();
     const timestamp = new Date();
@@ -1276,20 +1329,67 @@ async function saveInventoryCount(event) {
       estado: matches ? "CERRADO" : "PENDIENTE",
       observacion: String($("#countObservation").value || "").trim(),
       usuario: state.syncConfig.operator,
+      inventario_id: state.countSession?.id || "",
+      alcance: state.countSession?.scope || "ALL",
     };
-    const result = await centralRequest("count_save", { count });
-    if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
+    const localCount = normalizeInventoryCount(count);
+    state.inventoryCounts = [localCount, ...state.inventoryCounts.filter((item) => item.id !== localCount.id)];
+    localStorage.setItem(COUNT_CACHE_KEY, JSON.stringify(state.inventoryCounts));
+    renderInventoryCounts();
+    renderCountSession();
     message.classList.remove("error");
-    message.textContent = matches ? "Conteo guardado: coincide con el sistema." : "Conteo guardado con diferencia pendiente de ajuste.";
+    message.textContent = matches ? "Conteo registrado. Sincronizando…" : "Diferencia registrada. Sincronizando…";
     event.currentTarget.reset();
     $("#countPalletCount").value = 1;
+    $("#countPackageCount").value = 1;
     updateCountLoadFields();
     renderCountExpected();
-    await pullInventoryCounts();
+    const result = await centralRequest("count_save", { count });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
+    message.textContent = matches ? "Conteo guardado y sincronizado." : "Diferencia guardada y pendiente de ajuste.";
   } catch (error) {
     message.classList.add("error");
     message.textContent = error.message;
   }
+}
+
+function locationSector(location) { if (location.storageType === "drivein" || location.aisle === "PE") return "PE"; if (location.storageType === "wallrack") return String(location.aisle || "ZE").toUpperCase(); return String(location.side); }
+function locationInCountScope(location, scope) { return scope === "ALL" || locationSector(location) === scope; }
+function countScopeLabel(scope) { return ({ ALL: "Todo el depósito", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" })[scope] || scope; }
+function startInventorySession() { const id = $("#countInventoryId").value.trim().toUpperCase(); const scope = $("#countScope").value; if (!id) return alert("Ingresá un identificador para el inventario."); state.countSession = { id, scope, startedAt: new Date().toISOString() }; localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession)); renderCountSession(); $("#countPosition").focus(); }
+function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = state.locations.filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
+function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
+function finishInventorySession() { if (!state.countSession) return; const data = inventorySessionData(); const report = $("#countSessionReport"); if (data.missing.length) { report.hidden = false; report.innerHTML = `<strong>No se puede finalizar: faltan ${fmt.format(data.missing.length)} posiciones.</strong><span>Primeras pendientes: ${data.missing.slice(0, 20).map((item) => escapeHtml(item.id)).join(", ")}</span>`; return; } const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length; const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length; const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000)); report.hidden = false; report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado</strong><span>${fmt.format(data.targets.length)} posiciones · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`; state.countSession = null; localStorage.removeItem(COUNT_SESSION_KEY); renderCountSession(); }
+
+function exportInventoryCsv() {
+  const latestCounts = new Map();
+  state.inventoryCounts.forEach((count) => { if (!latestCounts.has(count.position)) latestCounts.set(count.position, count); });
+  const locationsById = new Map(state.locations.map((location) => [location.id.toUpperCase(), location]));
+  const latestActivity = new Map();
+  state.movements.forEach((move) => [move.from, move.to].filter(Boolean).forEach((id) => { if (!latestActivity.has(id)) latestActivity.set(id, move); }));
+  const movementLabels = { IN: "Ingreso", OUT: "Egreso", MOVE: "Reubicación", ADJUST: "Ajuste" };
+  const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Usuario", "Observación"]];
+  state.locations.forEach((location) => {
+    const primary = locationsById.get(String(location.footprintPrimaryId || location.id).toUpperCase()) || location;
+    const load = { palletCount: Number(primary.palletCount || 0), contents: primary.contents || [] };
+    const contents = (load.contents || []).map(normalizeContentLine).filter((item) => item.sku);
+    const packages = contents.reduce((sum, item) => sum + Number(item.packages || 0), 0);
+    const loadType = !contents.length ? "VACÍA" : contents.length > 1 ? "PALLET MULTIPRODUCTO" : Number(load.palletCount || 0) > 0 ? "PALLET MONOPRODUCTO" : "BULTOS";
+    const contentLabel = contents.map((item) => item.packages ? `${item.sku} (${item.packages} bultos)` : item.sku).join(" | ");
+    const activity = latestActivity.get(primary.id);
+    const count = latestCounts.get(primary.id);
+    rows.push([
+      location.id, primary.id, countScopeLabel(locationSector(location)), location.aisle, location.rack, location.module, location.level,
+      location.blocked ? "BLOQUEADA" : location.occupied ? "OCUPADA" : "LIBRE", location.blockReason || "", loadType,
+      Number(load.palletCount || 0), packages, contentLabel, location.occupiedSince ? formatDateTime(location.occupiedSince) : "",
+      activity ? formatMovementDate(activity) : "", activity ? movementLabels[activity.type] || activity.type : "",
+      count?.inventoryId || "", count ? formatDateTime(count.timestamp) || count.date : "", count ? stripHtml(countLoadSummary(count.expected)) : "",
+      count ? stripHtml(countLoadSummary(count.found)) : "", count?.result || "", count?.status || "", count?.user || "", count?.observation || "",
+    ]);
+  });
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  downloadCsv(`inventario_gps_${stamp}.csv`, rows);
 }
 
 function renderInventoryCounts() {
@@ -1422,9 +1522,13 @@ async function pullInventoryCounts() {
   try {
     const result = await centralRequest("count_list");
     if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
-    state.inventoryCounts = result.items.map(normalizeInventoryCount).sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    const merged = new Map(state.inventoryCounts.map((item) => [item.id, item]));
+    result.items.map(normalizeInventoryCount).forEach((item) => merged.set(item.id, item));
+    state.inventoryCounts = [...merged.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    localStorage.setItem(COUNT_CACHE_KEY, JSON.stringify(state.inventoryCounts));
     $("#countsBackendStatus").textContent = "Registro central conectado";
     renderInventoryCounts();
+    renderCountSession();
   } catch (error) {
     $("#countsBackendStatus").textContent = "El registro central requiere la actualización de conteos";
     console.warn("Conteos centrales no disponibles:", error);
@@ -1436,7 +1540,7 @@ function normalizeInventoryCount(source) {
     id: String(source.id_conteo || source.id || ""),
     timestamp: String(source.fecha_hora_utc || source.timestamp || ""),
     date: String(source.fecha_local || source.date || ""),
-    position: normalizePosition(source.posicion || source.position),
+    position: canonicalPositionForLayout(source.posicion || source.position, source.fecha_hora_utc || source.timestamp),
     expected: parseJsonValue(source.esperado_json ?? source.expected, {}),
     found: parseJsonValue(source.encontrado_json ?? source.found, {}),
     result: String(source.resultado || source.result || "").toUpperCase(),
@@ -1446,6 +1550,8 @@ function normalizeInventoryCount(source) {
     adjustmentId: String(source.ajuste_id || source.adjustmentId || ""),
     adjustedBy: String(source.ajustado_por || source.adjustedBy || ""),
     adjustedAt: String(source.ajustado_en || source.adjustedAt || ""),
+    inventoryId: String(source.inventario_id || source.inventoryId || ""),
+    scope: String(source.alcance || source.scope || "ALL").toUpperCase(),
   };
 }
 
@@ -1589,7 +1695,7 @@ function filteredLocations() {
   return state.locations.filter((item) => {
     if (state.filters.position && !item.id.toLowerCase().includes(state.filters.position)) return false;
     if (state.filters.aisle && item.aisle.toLowerCase() !== state.filters.aisle) return false;
-    if (state.filters.locationSide !== "all" && String(item.side) !== state.filters.locationSide) return false;
+    if (state.filters.locationSide !== "all" && locationSector(item) !== state.filters.locationSide) return false;
     if (state.filters.rack && String(item.rack) !== state.filters.rack) return false;
     if (state.filters.locationLevel !== "all" && String(item.level) !== state.filters.locationLevel) return false;
     if (state.filters.material) {
@@ -1623,7 +1729,7 @@ function clearLocationFilters() {
 
 function mapLocations() {
   return filteredLocations().filter((item) => {
-    if (state.filters.side !== "all" && String(item.side) !== state.filters.side) return false;
+    if (state.filters.side !== "all" && locationSector(item) !== state.filters.side) return false;
     if (state.filters.level !== "all" && String(item.level) !== state.filters.level) return false;
     if (state.filters.status === "available" && item.occupied) return false;
     if (state.filters.status === "occupied" && !item.occupied) return false;
@@ -1638,6 +1744,7 @@ function renderKpis() {
   const occupied = state.locations.filter((item) => item.occupied).length;
   const available = state.locations.filter((item) => !item.occupied && !item.blocked).length;
   const rate = (occupied / total) * 100;
+  $("#configuredPositionCount").textContent = `${fmt.format(total)} posiciones configuradas`;
   $("#kpiTotal").textContent = fmt.format(total);
   $("#kpiOccupied").textContent = fmt.format(occupied);
   $("#kpiAvailable").textContent = fmt.format(available);
@@ -1668,7 +1775,8 @@ function renderDashboardInsights() {
 
 function renderSideBars() {
   const driveIn = state.locations.filter((item) => item.storageType === "drivein");
-  const sides = groupBy(state.locations.filter((item) => item.storageType !== "drivein"), (item) => item.side);
+  const wall = state.locations.filter((item) => item.storageType === "wallrack");
+  const sides = groupBy(state.locations.filter((item) => !["drivein", "wallrack"].includes(item.storageType)), (item) => item.side);
   const sideRows = Object.entries(sides)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([side, items]) => {
@@ -1685,20 +1793,27 @@ function renderSideBars() {
   const driveOccupied = driveIn.filter((item) => item.occupied).length;
   const driveRate = driveIn.length ? driveOccupied / driveIn.length * 100 : 0;
   sideRows.push(`<div class="bar-row"><strong>Drive-In</strong><div class="bar-track"><div class="bar-fill drivein" style="width:${driveRate}%"></div></div><span>${formatRate(driveRate)}</span></div>`);
+  const wallNames = { ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" };
+  Object.entries(groupBy(wall, (item) => item.aisle)).sort(([a], [b]) => a.localeCompare(b)).forEach(([aisle, items]) => {
+    const rate = items.length ? items.filter((item) => item.occupied).length / items.length * 100 : 0;
+    sideRows.push(`<div class="bar-row"><strong>${wallNames[aisle] || aisle}</strong><div class="bar-track"><div class="bar-fill" style="width:${rate}%"></div></div><span>${formatRate(rate)}</span></div>`);
+  });
   $("#sideBars").innerHTML = sideRows.join("");
 }
 
 function renderMap() {
   const items = mapLocations();
-  const selective = items.filter((item) => !["drivein", "wallrack"].includes(item.storageType));
-  const driveIn = items.filter((item) => item.storageType === "drivein");
-  const wall = items.filter((item) => item.storageType === "wallrack");
+  const isDriveIn = (item) => item.storageType === "drivein" || /^PE\./i.test(item.id);
+  const isWallRack = (item) => item.storageType === "wallrack" || /^Z[ENO]\.\d{1,3}\.[0-4]$/i.test(item.id);
+  const selective = items.filter((item) => !isDriveIn(item) && !isWallRack(item));
+  const driveIn = items.filter(isDriveIn);
+  const wall = items.filter(isWallRack);
   const bySideRack = groupBy(selective, (item) => `${item.side}-${item.rack}`);
   const sides = [...new Set(selective.map((item) => item.side))].sort((a, b) => a - b);
 
   const selectiveHtml = sides
     .map((side) => {
-      const racks = [...new Set(items.filter((item) => item.side === side).map((item) => item.rack))].sort(
+      const racks = [...new Set(selective.filter((item) => item.side === side).map((item) => item.rack))].sort(
         (a, b) => a - b
       );
       return `
@@ -1712,7 +1827,9 @@ function renderMap() {
     })
     .join("");
   const specialSection = (title, rows, label) => rows.length ? `<section class="side-section special-storage"><h2>${title}</h2><div class="rack-grid">${Object.entries(groupBy(rows, (item) => item.rack)).map(([rack, positions]) => storageCard(label, rack, positions)).join("")}</div></section>` : "";
-  $("#warehouseMap").innerHTML = selectiveHtml + specialSection("Drive-In penetrable", driveIn, "Calle") + specialSection("Rack simple de pared · Lado 2", wall, "Módulo");
+  const wallNames = { ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" };
+  const wallSections = Object.entries(groupBy(wall, (item) => item.aisle)).sort(([a], [b]) => a.localeCompare(b)).map(([aisle, rows]) => specialSection(`Rack simple de pared · ${wallNames[aisle] || aisle}`, rows, "Módulo")).join("");
+  $("#warehouseMap").innerHTML = selectiveHtml + specialSection("Drive-In penetrable", driveIn, "Calle") + wallSections;
 
   $$(".rack-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -2054,7 +2171,7 @@ function renderPickingRoute(route, shortages, requests) {
 }
 
 function rackCard(side, rack, items) {
-  const rackItems = state.locations.filter((item) => item.storageType !== "drivein" && item.side === side && item.rack === rack);
+  const rackItems = state.locations.filter((item) => !["drivein", "wallrack"].includes(item.storageType) && item.side === side && item.rack === rack);
   const total = rackItems.length;
   const occupied = rackItems.filter((item) => item.occupied).length;
   const blocked = rackItems.filter((item) => item.blocked).length;
@@ -2084,32 +2201,33 @@ function render3dMap() {
   const query = state.filters.query;
   const locationsById = new Map(state.locations.map((item) => [item.id, item]));
   state.render3dStacks = state.layout3d.stacks
-    .filter((stack) => state.view3d.side === "all" || String(stack.side) === state.view3d.side)
+    .filter((stack) => state.view3d.side === "all" || stackSector(stack) === state.view3d.side)
     .filter((stack) => !query || [stack.baseId, stack.aisle, stack.side, stack.rack, stack.module].join(" ").toLowerCase().includes(query))
     .map((stack) => {
       const levels = [0, 1, 2, 3, 4].map((level) => {
         const locationId = stack.type === "drivein"
           ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${level}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
           : stack.type === "wallrack"
-            ? `E.${String(stack.module).padStart(2, "0")}.${level}.${String(stack.position).padStart(2, "0")}`
+            ? `${stack.aisle || "ZE"}.${stack.wallPosition || stack.position}.${level}`
             : `${stack.key}.${level}`;
         const location = locationsById.get(locationId);
         const skuQuery = state.view3d.sku.toLowerCase();
         const skuMatch = !skuQuery || Boolean(location?.occupied && location.contents?.some((content) => content.sku.toLowerCase().includes(skuQuery)));
+        const positionMatch = !state.view3d.position || String(locationId).toUpperCase().includes(state.view3d.position.toUpperCase());
         const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => String(rule.velocityClass).toUpperCase() === state.view3d.zone);
         const stockClassMatch = location?.contents?.some((content) => state.skuMaster.some((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase() && sku.velocityClass === state.view3d.zone));
         const zoneMatch = state.view3d.zone === "all" || zoneRules.some((rule) => location && locationMatchesRule(location, rule)) || (!zoneRules.length && stockClassMatch);
-        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, matchesFilter: skuMatch && zoneMatch };
+        return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, matchesFilter: skuMatch && positionMatch && zoneMatch };
       });
-      const firstRelevant = levels.findIndex((level) => level.matchesFilter && (level.blocked || level.occupied));
+      const firstRelevant = levels.findIndex((level) => level.matchesFilter && (state.view3d.position || level.blocked || level.occupied));
       const detailId = stack.type === "drivein"
         ? `${stack.aisle || "DI"}.${String(stack.column).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${stack.aisle === "PE" ? String(stack.depth) : String(stack.depth).padStart(2, "0")}`
         : stack.type === "wallrack"
-          ? `E.${String(stack.module).padStart(2, "0")}.${Math.max(firstRelevant, 0)}.${String(stack.position).padStart(2, "0")}`
+          ? `${stack.aisle || "ZE"}.${stack.wallPosition || stack.position}.${Math.max(firstRelevant, 0)}`
           : firstRelevant >= 0 ? `${stack.key}.${firstRelevant}` : stack.baseId;
       return { ...stack, levels, detailId, matchesFilter: levels.some((item) => item.matchesFilter) };
     });
-  state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => stack.type !== "drivein"), (stack) => `${stack.side}-${stack.rack}`)).map((items) => ({
+  state.render3dRacks = Object.values(groupBy(state.render3dStacks.filter((stack) => !["drivein", "wallrack"].includes(stack.type)), (stack) => `${stack.type || "selective"}-${stack.aisle}-${stack.side}-${stack.rack}`)).map((items) => ({
     minCol: Math.min(...items.map((item) => item.col)),
     maxCol: Math.max(...items.map((item) => item.col)),
     minRow: Math.min(...items.map((item) => item.row)),
@@ -2119,12 +2237,20 @@ function render3dMap() {
   update3dFilterSummary();
 }
 
+function stackSector(stack) {
+  if (stack.type === "drivein" || String(stack.aisle).toUpperCase() === "PE") return "PE";
+  if (stack.type === "wallrack") return String(stack.aisle || "ZE").toUpperCase();
+  return String(stack.side);
+}
+
 function update3dFilterSummary() {
   const summary = $("#map3dFilterSummary");
   if (!summary) return;
   const positions = state.render3dStacks.flatMap((stack) => stack.levels.filter((item) => item.matchesFilter).map((item) => item.location).filter(Boolean));
   const occupied = positions.filter((item) => item.occupied);
-  summary.textContent = state.view3d.sku
+  summary.textContent = state.view3d.position
+    ? `${positions.length} coincidencia${positions.length === 1 ? "" : "s"}: ${positions.map((item) => item.id).join(", ") || "sin coincidencias"}`
+    : state.view3d.sku
     ? `${occupied.length} posiciones: ${occupied.map((item) => item.id).join(", ") || "sin coincidencias"}`
     : state.view3d.zone !== "all"
       ? `${formatVelocityClass(state.view3d.zone)} · ${positions.length} posiciones`
@@ -2133,7 +2259,7 @@ function update3dFilterSummary() {
 
 function focus3dFilter() {
   render3dMap();
-  if (!state.view3d.sku && state.view3d.zone === "all") return;
+  if (!state.view3d.sku && !state.view3d.position && state.view3d.zone === "all") return;
   const stacks = state.render3dStacks.filter((stack) => stack.matchesFilter);
   if (!stacks.length) return;
   const shell = $(".map3d-shell");
@@ -2173,14 +2299,25 @@ function prepare3dProjection() {
   const bounds = state.layout3d.bounds;
   const angle = (state.view3d.rotation * Math.PI) / 180;
   const tilt = (state.view3d.tilt * Math.PI) / 180;
+  if (!state.layout3d.projectedColumnBounds) {
+    const projectedColumns = state.layout3d.stacks.map((stack) =>
+      stack.type === "drivein" || stack.type === "wallrack"
+        ? stack.col
+        : expandAisleSpacing(stack.col, bounds.minCol)
+    );
+    state.layout3d.projectedColumnBounds = {
+      min: Math.min(...projectedColumns),
+      max: Math.max(...projectedColumns),
+    };
+  }
+  const projectedBounds = state.layout3d.projectedColumnBounds;
   state.projection3d = {
     cosAngle: Math.cos(angle),
     sinAngle: Math.sin(angle),
     cosTilt: Math.cos(tilt),
     sinTilt: Math.sin(tilt),
     scale: state.view3d.scale,
-    expandedCenter:
-      (expandAisleSpacing(bounds.minCol, bounds.minCol) + expandAisleSpacing(bounds.maxCol, bounds.minCol)) / 2,
+    expandedCenter: (projectedBounds.min + projectedBounds.max) / 2,
   };
 }
 
@@ -2188,7 +2325,7 @@ function expandAisleSpacing(col, minCol) {
   const selectiveStart = Math.max(4, minCol);
   if (col < selectiveStart) return col;
   const aisleIndex = Math.floor((col - selectiveStart + 0.5) / 3);
-  return col + aisleIndex * 3;
+  return col + aisleIndex * 1.2;
 }
 
 function draw3dMap() {
@@ -2213,7 +2350,7 @@ function draw3dMap() {
 
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
-  draw3dQuad(ctx, bounds.minCol - 2, 28.5, bounds.maxCol + 2, 33.5, 0.5, "#cfd8df", width, height);
+  draw3dQuad(ctx, bounds.minCol - 2, 28.2, bounds.maxCol + 2, 30.8, 0.5, "#cfd8df", width, height);
   const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
   if (driveInStacks.length) {
     draw3dQuad(
@@ -2240,7 +2377,7 @@ function draw3dMap() {
       const status = stack.levels[level];
       if (!status?.location) continue;
       const zoneColors = { SUPER_A: "#7b4cc2", A: "#237fb4", B: "#23835b", C: "#b58a16", ESTACIONAL: "#b65a8a" };
-      const filterActive = Boolean(state.view3d.sku) || state.view3d.zone !== "all";
+      const filterActive = Boolean(state.view3d.sku || state.view3d.position) || state.view3d.zone !== "all";
       const hovered = status.location.id === state.view3d.hoveredLocationId;
       const color = hovered ? "#f2c94c" : status.blocked ? "#d43f3f" : status.occupied ? "#d47a22" : state.view3d.zone !== "all" && status.matchesFilter ? zoneColors[state.view3d.zone] : freeColor;
       ctx.save();
@@ -2271,21 +2408,16 @@ function draw3dQuad(ctx, minCol, minRow, maxCol, maxRow, z, color, width, height
 function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = false, highlighted = false) {
   const bottom = POSITION_3D.base + level * POSITION_3D.levelPitch;
   const top = bottom + POSITION_3D.height;
-  const halfWidth = stack.type === "wallrack" ? 0.66 : POSITION_3D.halfWidth;
+  const halfWidth = POSITION_3D.halfWidth;
   const halfLength = POSITION_3D.halfLength;
   const preserveSpacing = stack.type === "drivein" || stack.type === "wallrack";
-  const base = [
-    project3d(stack.col - halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
-    project3d(stack.col + halfWidth, stack.row - halfLength, bottom, width, height, preserveSpacing),
-    project3d(stack.col + halfWidth, stack.row + halfLength, bottom, width, height, preserveSpacing),
-    project3d(stack.col - halfWidth, stack.row + halfLength, bottom, width, height, preserveSpacing),
-  ];
-  const cap = [
-    project3d(stack.col - halfWidth, stack.row - halfLength, top, width, height, preserveSpacing),
-    project3d(stack.col + halfWidth, stack.row - halfLength, top, width, height, preserveSpacing),
-    project3d(stack.col + halfWidth, stack.row + halfLength, top, width, height, preserveSpacing),
-    project3d(stack.col - halfWidth, stack.row + halfLength, top, width, height, preserveSpacing),
-  ];
+  const angle = Number(stack.rotation || 0) * Math.PI / 180;
+  const corners = [[-halfWidth, -halfLength], [halfWidth, -halfLength], [halfWidth, halfLength], [-halfWidth, halfLength]].map(([x, y]) => ({
+    col: stack.col + x * Math.cos(angle) - y * Math.sin(angle),
+    row: stack.row + x * Math.sin(angle) + y * Math.cos(angle),
+  }));
+  const base = corners.map((point) => project3d(point.col, point.row, bottom, width, height, preserveSpacing));
+  const cap = corners.map((point) => project3d(point.col, point.row, top, width, height, preserveSpacing));
   const center = project3d(stack.col, stack.row, top, width, height, preserveSpacing);
   if (center.x < -30 || center.x > width + 30 || center.y < -30 || center.y > height + 30) return;
   if (simplified) {
@@ -2416,7 +2548,7 @@ function draw3dGuides(ctx, width, height) {
 
   [
     { start: 8, count: 10, side: 1 },
-    { start: 34, count: 12, side: 2 },
+    { start: 31, count: 12, side: 2 },
   ].forEach((section) => {
     for (let column = 0; column <= section.count; column += 1) {
       const row = section.start + column * 2;
@@ -2527,11 +2659,13 @@ function locationRow(item) {
   const materialCell = item.contents?.length > 1
     ? `<details class="position-composition"><summary>${item.contents.length} SKU</summary>${item.contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`
     : escapeHtml(item.material || "");
+  const sector = locationSector(item);
+  const sectorLabel = sector === "PE" ? "Penetrable" : sector === "ZE" ? "Zona Este" : sector === "ZO" ? "Zona Oeste" : sector === "ZN" ? "Zona Norte" : `Lado ${sector}`;
   return `
     <tr data-id="${item.id}">
       <td>${item.id}</td>
       <td>${item.aisle}</td>
-      <td>${item.side}</td>
+      <td>${sectorLabel}</td>
       <td>${item.rack}</td>
       <td>${item.module}</td>
       <td>${item.level}</td>
@@ -2554,8 +2688,10 @@ function locationLoadLabel(location) {
 
 function renderMovements() {
   const actions = hasPermission("movement_correct");
+  const filtered = state.movements.filter(movementMatchesFilters);
+  $("#movementFilterCount").textContent = `${fmt.format(filtered.length)} de ${fmt.format(state.movements.length)} movimientos`;
   $("#movementsTable").innerHTML =
-    state.movements
+    filtered
       .map(
         (move) => `
           <tr>
@@ -2570,6 +2706,36 @@ function renderMovements() {
         `
       )
       .join("") || `<tr><td colspan="7">Sin movimientos cargados.</td></tr>`;
+}
+
+function updateMovementFilters() {
+  state.movementFilters = {
+    from: $("#movementDateFrom").value,
+    to: $("#movementDateTo").value,
+    type: $("#movementTypeFilter").value,
+    sku: $("#movementSkuFilter").value.trim().toLowerCase(),
+    position: normalizePosition($("#movementPositionFilter").value).toLowerCase(),
+  };
+  renderMovements();
+}
+
+function clearMovementFilters() {
+  ["movementDateFrom", "movementDateTo", "movementSkuFilter", "movementPositionFilter"].forEach((id) => $("#" + id).value = "");
+  $("#movementTypeFilter").value = "all";
+  updateMovementFilters();
+}
+
+function movementMatchesFilters(move) {
+  const filters = state.movementFilters;
+  const timestamp = movementTimestamp(move);
+  const from = filters.from ? new Date(`${filters.from}T00:00:00`).getTime() : -Infinity;
+  const to = filters.to ? new Date(`${filters.to}T23:59:59.999`).getTime() : Infinity;
+  const skus = [move.material, ...(move.contents || []).map((item) => item.sku)].join(" ").toLowerCase();
+  const positions = `${move.from || ""} ${move.to || ""}`.toLowerCase();
+  return timestamp >= from && timestamp <= to
+    && (filters.type === "all" || move.type === filters.type)
+    && (!filters.sku || skus.includes(filters.sku))
+    && (!filters.position || positions.includes(filters.position));
 }
 
 function movementPositionLabel(position) {
@@ -2624,10 +2790,6 @@ function handleEditMovementClick(event) {
   const movement = state.movements.find((item) => item.id === button.dataset.editMovement);
   if (!movement) return;
   if (movement.type === "ADJUST") return alert("Los ajustes de inventario no se modifican; deben conservarse para auditoría.");
-  if (movement.contents?.length > 1) {
-    alert("Para corregir un pallet multiproducto, eliminá el movimiento y volvé a registrarlo con su composición completa.");
-    return;
-  }
   const form = $("#editMovementForm");
   form.dataset.movementId = movement.id;
   form.querySelector('[name="type"]').value = movement.type;
@@ -2635,6 +2797,7 @@ function handleEditMovementClick(event) {
   form.querySelector('[name="from"]').value = movement.from || "";
   form.querySelector('[name="to"]').value = movement.to || "";
   form.querySelector('[name="quantity"]').value = movement.quantity;
+  form.querySelector('[name="contents"]').value = (movement.contents || []).length > 1 ? movement.contents.map((item) => `${item.sku}; ${item.packages || 0}`).join("\n") : "";
   $("#editMovementMessage").textContent = "";
   $("#editMovementDialog").showModal();
 }
@@ -2650,21 +2813,25 @@ function saveEditedMovement(event) {
   const data = Object.fromEntries(new FormData(form));
   const movement = state.movements.find((item) => item.id === form.dataset.movementId);
   if (!movement) return;
-  const quantity = Number(data.quantity || 0);
+  let quantity = Number(data.quantity || 0);
   const type = data.type;
   const material = String(data.material || "").trim();
   const from = normalizePosition(data.from);
   const to = normalizePosition(data.to);
+  let contents = movement.contents || [];
+  try { if (String(data.contents || "").trim()) contents = parseMultiContents(data.contents); }
+  catch (error) { $("#editMovementMessage").textContent = error.message; return; }
+  if (type === "IN" && contents.length > 1) quantity = contents.reduce((sum, item) => sum + Number(item.packages || 0), 0);
   if (quantity <= 0) {
     $("#editMovementMessage").textContent = "La cantidad debe ser mayor a cero.";
     return;
   }
-  if (type === "IN" && !material) {
+  if (type === "IN" && !material && !contents.length) {
     $("#editMovementMessage").textContent = "El ingreso requiere un SKU o material.";
     return;
   }
   if (!confirm("¿Guardar los cambios y recalcular el inventario?")) return;
-  const updated = { ...movement, type, material, from, to, quantity };
+  const updated = { ...movement, type, material: contents.length > 1 ? "MULTIPRODUCTO" : material, from, to, quantity, packages: contents.length > 1 ? quantity : movement.packages, contents };
   const nextMovements = state.movements.map((item) => item.id === movement.id ? updated : item);
   try {
     rebuildInventoryFromMovements(nextMovements);
@@ -3704,8 +3871,28 @@ function normalizePosition(value) {
   if (driveInMatch) return `DI.${driveInMatch[1].padStart(2, "0")}.${driveInMatch[2]}.${driveInMatch[3].padStart(2, "0")}`;
   const penetrableMatch = normalized.match(/^PE\.(\d{1,2})\.([0-4])\.([0-4])$/);
   if (penetrableMatch) return `PE.${penetrableMatch[1].padStart(2, "0")}.${penetrableMatch[2]}.${penetrableMatch[3]}`;
+  const wallMatch = normalized.match(/^(ZE|ZO|ZN)\.(\d{1,3})\.([0-4])$/);
+  if (wallMatch) return `${wallMatch[1]}.${Number(wallMatch[2])}.${wallMatch[3]}`;
+  const legacyWallMatch = normalized.match(/^E\.(\d{1,2})\.([0-4])\.(0?[12])$/);
+  if (legacyWallMatch) return `ZE.${(Number(legacyWallMatch[1]) - 1) * 2 + Number(legacyWallMatch[3])}.${legacyWallMatch[2]}`;
   const match = normalized.match(/^([A-Z]+)([12])\.(\d{1,2})\.([0-4])$/);
   return match ? `${match[1]}${match[2]}.${match[3].padStart(2, "0")}.${match[4]}` : normalized;
+}
+
+function canonicalPositionForLayout(value, timestamp = "") {
+  const position = normalizePosition(value);
+  const eventTime = Date.parse(timestamp);
+  if (!position || !Number.isFinite(eventTime) || eventTime >= POSITION_RECODE_CUTOFF) return position;
+  const match = position.match(/^([AB])2\.(\d{2})\.(\d)$/);
+  if (!match) return position;
+  const module = Number(match[2]);
+  if (match[1] === "A") {
+    if (module <= 8) return "";
+    return `A2.${String(module - 8).padStart(2, "0")}.${match[3]}`;
+  }
+  if (module % 2 === 0) return position;
+  if (module <= 7) return "";
+  return `B2.${String(module - 8).padStart(2, "0")}.${match[3]}`;
 }
 
 function suggestLocations(id) {
@@ -3752,8 +3939,8 @@ function openDetail(item) {
   }).join(" | ") || "Sin stock";
   const multiproduct = item.material === "MULTIPRODUCTO" || item.contents?.length > 1;
   renderDetailFields([
-    ["Sector", item.storageType === "drivein" ? item.aisle : item.storageType === "wallrack" ? "Este" : item.aisle],
-    [item.storageType === "drivein" ? "Acceso" : "Lado", item.storageType === "drivein" ? "Único" : item.side],
+    ["Sector", item.storageType === "wallrack" ? ({ ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" }[item.aisle] || item.aisle) : item.aisle],
+    [item.storageType === "drivein" ? "Acceso" : item.storageType === "wallrack" ? "Frente" : "Lado", item.storageType === "drivein" ? "Único" : item.storageType === "wallrack" ? "Pared" : item.side],
     [item.storageType === "drivein" ? "Columna" : "Módulo", item.rack],
     [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
     ["Nivel", item.level],
