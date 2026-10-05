@@ -3085,7 +3085,9 @@ async function scanVideoFrame(session = state.scanSession) {
     $("#scannerMessage").textContent = "Buscando dentro del recuadro…";
     if (video.readyState >= 2) {
       const frame = captureScannerGuide(video);
-      const codes = await state.scanDetector.detect(frame.canvas);
+      const snapshot = await createImageBitmap(frame.canvas);
+      const codes = await state.scanDetector.detect(snapshot);
+      snapshot.close?.();
       if (session !== state.scanSession || state.scanPaused) return;
       const detected = selectCenteredBarcode(codes, frame.width, frame.height);
       if (detected) {
@@ -3113,6 +3115,7 @@ function captureScannerGuide(video) {
   const sourceWidth = video.videoWidth;
   const sourceHeight = video.videoHeight;
   const viewport = video.getBoundingClientRect();
+  const guide = $(".scanner-guide").getBoundingClientRect();
   const viewportRatio = viewport.width / viewport.height;
   const videoRatio = sourceWidth / sourceHeight;
   let visibleX = 0;
@@ -3128,10 +3131,22 @@ function captureScannerGuide(video) {
     visibleY = (sourceHeight - visibleHeight) / 2;
   }
 
-  const cropX = Math.round(visibleX + visibleWidth * 0.14);
-  const cropY = Math.round(visibleY + visibleHeight * 0.40);
-  const cropWidth = Math.max(1, Math.round(visibleWidth * 0.72));
-  const cropHeight = Math.max(1, Math.round(visibleHeight * 0.20));
+  const guideLeft = Math.max(0, guide.left - viewport.left);
+  const guideTop = Math.max(0, guide.top - viewport.top);
+  const guideRight = Math.min(viewport.width, guide.right - viewport.left);
+  const guideBottom = Math.min(viewport.height, guide.bottom - viewport.top);
+  const insetX = Math.max(3, (guideRight - guideLeft) * 0.025);
+  const insetY = Math.max(3, (guideBottom - guideTop) * 0.08);
+  const displayX = guideLeft + insetX;
+  const displayY = guideTop + insetY;
+  const displayWidth = Math.max(1, guideRight - guideLeft - insetX * 2);
+  const displayHeight = Math.max(1, guideBottom - guideTop - insetY * 2);
+  const scaleX = visibleWidth / viewport.width;
+  const scaleY = visibleHeight / viewport.height;
+  const cropX = Math.round(visibleX + displayX * scaleX);
+  const cropY = Math.round(visibleY + displayY * scaleY);
+  const cropWidth = Math.max(1, Math.round(displayWidth * scaleX));
+  const cropHeight = Math.max(1, Math.round(displayHeight * scaleY));
   const canvas = state.scanCanvas || document.createElement("canvas");
   state.scanCanvas = canvas;
   if (canvas.width !== cropWidth) canvas.width = cropWidth;
@@ -3148,7 +3163,17 @@ function selectCenteredBarcode(codes, width, height) {
   if (!codes.length) return null;
   const centerX = width / 2;
   const centerY = height / 2;
-  return [...codes].sort((left, right) => {
+  const centeredCodes = codes.filter((code) => {
+    const box = code.boundingBox;
+    if (!box) return false;
+    const codeCenterX = box.x + box.width / 2;
+    const codeCenterY = box.y + box.height / 2;
+    return codeCenterX >= width * 0.10
+      && codeCenterX <= width * 0.90
+      && codeCenterY >= height * 0.25
+      && codeCenterY <= height * 0.75;
+  });
+  return [...centeredCodes].sort((left, right) => {
     const leftBox = left.boundingBox;
     const rightBox = right.boundingBox;
     const leftDistance = leftBox
