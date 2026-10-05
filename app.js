@@ -118,16 +118,6 @@ const state = {
 };
 
 const shadeCache = new Map();
-const CODE39 = {
-  "0":"nnnwwnwnn","1":"wnnwnnnnw","2":"nnwwnnnnw","3":"wnwwnnnnn","4":"nnnwwnnnw",
-  "5":"wnnwwnnnn","6":"nnwwwnnnn","7":"nnnwnnwnw","8":"wnnwnnwnn","9":"nnwwnnwnn",
-  A:"wnnnnwnnw",B:"nnwnnwnnw",C:"wnwnnwnnn",D:"nnnnwwnnw",E:"wnnnwwnnn",F:"nnwnwwnnn",
-  G:"nnnnnwwnw",H:"wnnnnwwnn",I:"nnwnnwwnn",J:"nnnnwwwnn",K:"wnnnnnnww",L:"nnwnnnnww",
-  M:"wnwnnnnwn",N:"nnnnwnnww",O:"wnnnwnnwn",P:"nnwnwnnwn",Q:"nnnnnnwww",R:"wnnnnnwwn",
-  S:"nnwnnnwwn",T:"nnnnwnwwn",U:"wwnnnnnnw",V:"nwwnnnnnw",W:"wwwnnnnnn",X:"nwnnwnnnw",
-  Y:"wwnnwnnnn",Z:"nwwnwnnnn","-":"nwnnnnwnw",".":"wwnnnnwnn"," ":"nwwnnnwnn","*":"nwnnwnwnn"
-};
-
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
@@ -3274,12 +3264,13 @@ function renderLabels() {
     <article class="location-label" data-position="${escapeHtml(location.id)}">
       <div class="label-heading"><strong>${escapeHtml(location.id)}</strong><span>${labelSectorName(location)} · Rack ${String(location.rack).padStart(2, "0")}</span></div>
       <div class="label-content">
-      <div class="barcode39" aria-label="Código de barras ${location.id}">${code39Bars(location.id)}</div>
+      <div class="barcode128"><svg data-barcode="${escapeHtml(location.id)}" role="img" aria-label="Código de barras Code 128 ${escapeHtml(location.id)}"></svg></div>
         ${labelLevelDiagram(location.level)}
       </div>
       <div class="label-meta"><span>Pasillo ${escapeHtml(location.aisle)}</span><span>Posición ${String(location.wallPosition || location.position || location.module).padStart(2, "0")}</span><strong>Nivel ${location.level}</strong></div>
     </article>
   `).join("");
+  renderCode128Labels(sheet);
 }
 
 function compareLabelLocations(a, b, order) {
@@ -3320,22 +3311,23 @@ function labelLevelDiagram(level) {
   return `<div class="label-level-diagram" aria-label="Nivel ${selected} de 4"><div class="label-level-stack">${cells}</div><strong>NIVEL ${selected}</strong></div>`;
 }
 
-function code39Bars(value) {
-  const encoded = `*${String(value).toUpperCase()}*`;
-  const bars = [];
-  let x = 10;
-  [...encoded].forEach((character) => {
-    const pattern = CODE39[character];
-    if (!pattern) return;
-    [...pattern].forEach((width, index) => {
-      const units = width === "w" ? 3 : 1;
-      if (index % 2 === 0) bars.push(`<rect x="${x}" y="0" width="${units}" height="100" />`);
-      x += units;
+function renderCode128Labels(sheet) {
+  const generator = window.JsBarcode;
+  if (typeof generator !== "function") {
+    sheet.innerHTML = `<p class="empty-state">No se pudo cargar el generador de códigos de barras.</p>`;
+    return;
+  }
+  sheet.querySelectorAll("svg[data-barcode]").forEach((barcode) => {
+    generator(barcode, barcode.dataset.barcode, {
+      format: "CODE128",
+      displayValue: false,
+      width: 2,
+      height: 90,
+      margin: 12,
+      background: "#ffffff",
+      lineColor: "#000000",
     });
-    x += 1;
   });
-  const width = x + 9;
-  return `<svg viewBox="0 0 ${width} 100" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(value)}" shape-rendering="crispEdges">${bars.join("")}</svg>`;
 }
 
 function renderAnalytics() {
