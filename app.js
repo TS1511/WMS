@@ -66,6 +66,9 @@ const state = {
   scanCandidate: "",
   scanCandidateHits: 0,
   scanLastCandidateAt: 0,
+  scanPendingValue: "",
+  scanPaused: false,
+  scanSession: 0,
   filters: {
     query: "",
     side: "all",
@@ -412,6 +415,8 @@ function bindEvents() {
   $("#barcodeCapture").addEventListener("change", decodeCapturedBarcode);
   $("#closeScanner").addEventListener("click", closeLiveScanner);
   $("#scannerPhotoFallback").addEventListener("click", openPhotoScanner);
+  $("#scannerConfirm").addEventListener("click", confirmLiveScan);
+  $("#scannerRetry").addEventListener("click", retryLiveScan);
   $("#scannerDialog").addEventListener("close", stopScannerCamera);
   ["#labelLevel", "#labelRack", "#labelOrder"].forEach((selector) => $(selector).addEventListener("change", renderLabels));
   ["#labelSide", "#labelAisle"].forEach((selector) => $(selector).addEventListener("change", () => {
@@ -3020,8 +3025,12 @@ function renderRegistration() {
 }
 
 async function startBarcodeCapture(targetId) {
+  stopScannerCamera();
   state.scanTarget = targetId;
   resetScanConfirmation();
+  state.scanPaused = false;
+  const session = ++state.scanSession;
+  updateScannerDecision();
   const status = $("#scanStatus");
   status.textContent = "Abriendo lector…";
   status.classList.remove("hidden", "error");
@@ -3052,7 +3061,7 @@ async function startBarcodeCapture(targetId) {
     await video.play();
     state.scanReadyAt = performance.now() + 2000;
     status.classList.add("hidden");
-    scanVideoFrame();
+    scanVideoFrame(session);
   } catch (error) {
     stopScannerCamera();
     status.textContent = error.name === "NotAllowedError"
@@ -3063,26 +3072,28 @@ async function startBarcodeCapture(targetId) {
   }
 }
 
-async function scanVideoFrame() {
+async function scanVideoFrame(session = state.scanSession) {
   const video = $("#scannerVideo");
-  if (!state.scanStream || !state.scanDetector) return;
+  if (session !== state.scanSession || state.scanPaused || !state.scanStream || !state.scanDetector) return;
   try {
     const waitMs = state.scanReadyAt - performance.now();
     if (waitMs > 0) {
       $("#scannerMessage").textContent = `Centrando cámara… ${Math.ceil(waitMs / 1000)}`;
-      state.scanFrame = requestAnimationFrame(scanVideoFrame);
+      state.scanFrame = requestAnimationFrame(() => scanVideoFrame(session));
       return;
     }
     $("#scannerMessage").textContent = "Buscando dentro del recuadro…";
     if (video.readyState >= 2) {
       const frame = captureScannerGuide(video);
       const codes = await state.scanDetector.detect(frame.canvas);
+      if (session !== state.scanSession || state.scanPaused) return;
       const detected = selectCenteredBarcode(codes, frame.width, frame.height);
       if (detected) {
         const value = String(detected.rawValue || "").trim();
         if (confirmScannedCandidate(value)) {
-          applyScannedValue(value);
-          closeLiveScanner();
+          state.scanPendingValue = value;
+          state.scanPaused = true;
+          updateScannerDecision();
           return;
         }
         $("#scannerMessage").textContent = `Detectado ${value} · mantené fijo (${state.scanCandidateHits}/3)`;
@@ -3091,9 +3102,11 @@ async function scanVideoFrame() {
       }
     }
   } catch {
+    if (session !== state.scanSession) return;
     $("#scannerMessage").textContent = "Ajustando enfoque…";
   }
-  state.scanFrame = requestAnimationFrame(scanVideoFrame);
+  if (session !== state.scanSession || state.scanPaused) return;
+  state.scanFrame = requestAnimationFrame(() => scanVideoFrame(session));
 }
 
 function captureScannerGuide(video) {
@@ -3116,9 +3129,9 @@ function captureScannerGuide(video) {
   }
 
   const cropX = Math.round(visibleX + visibleWidth * 0.14);
-  const cropY = Math.round(visibleY + visibleHeight * 0.30);
+  const cropY = Math.round(visibleY + visibleHeight * 0.40);
   const cropWidth = Math.max(1, Math.round(visibleWidth * 0.72));
-  const cropHeight = Math.max(1, Math.round(visibleHeight * 0.40));
+  const cropHeight = Math.max(1, Math.round(visibleHeight * 0.20));
   const canvas = state.scanCanvas || document.createElement("canvas");
   state.scanCanvas = canvas;
   if (canvas.width !== cropWidth) canvas.width = cropWidth;
@@ -3164,6 +3177,28 @@ function resetScanConfirmation() {
   state.scanCandidate = "";
   state.scanCandidateHits = 0;
   state.scanLastCandidateAt = 0;
+  state.scanPendingValue = "";
+}
+
+function updateScannerDecision() {
+  const pending = state.scanPendingValue;
+  $("#scannerConfirm").disabled = !pending;
+  $("#scannerRetry").hidden = !pending;
+  if (pending) $("#scannerMessage").textContent = `Detectado: ${pending}. Verificá y confirmá.`;
+}
+
+function confirmLiveScan() {
+  if (!state.scanPendingValue) return;
+  applyScannedValue(state.scanPendingValue);
+  closeLiveScanner();
+}
+
+function retryLiveScan() {
+  resetScanConfirmation();
+  state.scanPaused = false;
+  state.scanReadyAt = performance.now() + 700;
+  updateScannerDecision();
+  scanVideoFrame(state.scanSession);
 }
 
 function openPhotoScanner() {
@@ -3179,12 +3214,15 @@ function closeLiveScanner() {
 }
 
 function stopScannerCamera() {
+  state.scanSession += 1;
   if (state.scanFrame) cancelAnimationFrame(state.scanFrame);
   state.scanFrame = 0;
   state.scanStream?.getTracks().forEach((track) => track.stop());
   state.scanStream = null;
   state.scanDetector = null;
+  state.scanPaused = false;
   resetScanConfirmation();
+  updateScannerDecision();
   $("#scannerVideo").srcObject = null;
 }
 

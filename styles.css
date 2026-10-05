@@ -1226,6 +1226,24 @@ dd {
   padding: 14px 16px;
 }
 
+.scanner-actions {
+  flex-wrap: wrap;
+}
+
+.scanner-actions > span {
+  flex: 1 1 180px;
+  text-align: center;
+}
+
+.scanner-decision {
+  display: flex;
+  gap: 8px;
+}
+
+.scanner-decision button {
+  min-height: 38px;
+}
+
 .scanner-head div {
   display: grid;
   gap: 2px;
@@ -1261,7 +1279,7 @@ dd {
 
 .scanner-guide {
   position: absolute;
-  inset: 30% 14%;
+  inset: 40% 14%;
   border: 3px solid #fff;
   border-radius: 6px;
   box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
