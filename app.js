@@ -62,6 +62,10 @@ const state = {
   scanStream: null,
   scanFrame: 0,
   scanDetector: null,
+  scanCanvas: null,
+  scanCandidate: "",
+  scanCandidateHits: 0,
+  scanLastCandidateAt: 0,
   filters: {
     query: "",
     side: "all",
@@ -204,7 +208,7 @@ async function init() {
   saveState();
 
   fillLevelFilter();
-  fillLabelRackFilter();
+  fillLabelFilters();
   bindEvents();
   applyRoleAccess();
   renderAll();
@@ -419,8 +423,16 @@ function bindEvents() {
   $("#closeScanner").addEventListener("click", closeLiveScanner);
   $("#scannerPhotoFallback").addEventListener("click", openPhotoScanner);
   $("#scannerDialog").addEventListener("close", stopScannerCamera);
-  ["#labelSide", "#labelLevel", "#labelRack"].forEach((selector) => $(selector).addEventListener("change", renderLabels));
-  $("#printLabels").addEventListener("click", () => window.print());
+  ["#labelLevel", "#labelRack", "#labelOrder"].forEach((selector) => $(selector).addEventListener("change", renderLabels));
+  ["#labelSide", "#labelAisle"].forEach((selector) => $(selector).addEventListener("change", () => {
+    fillLabelRackFilter();
+    renderLabels();
+  }));
+  $("#printLabels").addEventListener("click", () => {
+    document.body.classList.add("printing-labels");
+    window.print();
+    setTimeout(() => document.body.classList.remove("printing-labels"), 0);
+  });
   $("#analyticsStartDate").addEventListener("change", updateAnalyticsDates);
   $("#analyticsEndDate").addEventListener("change", updateAnalyticsDates);
   $("#clearAnalyticsDates").addEventListener("click", () => {
@@ -1680,15 +1692,30 @@ async function pullSlottingRules() {
   }
 }
 
+function fillLabelFilters() {
+  const aisleFilter = $("#labelAisle");
+  const aisles = [...new Set(state.locations.map((item) => item.aisle))]
+    .sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+  aisleFilter.innerHTML = '<option value="all">Todos los pasillos</option>'
+    + aisles.map((aisle) => `<option value="${escapeHtml(aisle)}">Pasillo ${escapeHtml(aisle)}</option>`).join("");
+  aisleFilter.value = aisles[0] || "all";
+  fillLabelRackFilter();
+}
+
 function fillLabelRackFilter() {
   const filter = $("#labelRack");
-  for (let rack = 1; rack <= 26; rack += 1) {
-    const option = document.createElement("option");
-    option.value = String(rack);
-    option.textContent = `Rack ${String(rack).padStart(2, "0")}`;
-    if (rack === 1) option.selected = true;
-    filter.appendChild(option);
-  }
+  const previous = filter.value;
+  const aisle = $("#labelAisle").value;
+  const side = $("#labelSide").value;
+  const racks = [...new Set(state.locations
+    .filter((item) => aisle === "all" || item.aisle === aisle)
+    .filter((item) => side === "all" || String(item.side) === side)
+    .map((item) => Number(item.rack)))]
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b);
+  filter.innerHTML = '<option value="all">Todos los racks</option>'
+    + racks.map((rack) => `<option value="${rack}">Rack ${String(rack).padStart(2, "0")}</option>`).join("");
+  filter.value = racks.includes(Number(previous)) ? previous : "all";
 }
 
 function filteredLocations() {
@@ -3004,6 +3031,7 @@ function renderRegistration() {
 
 async function startBarcodeCapture(targetId) {
   state.scanTarget = targetId;
+  resetScanConfirmation();
   const status = $("#scanStatus");
   status.textContent = "Abriendo lector…";
   status.classList.remove("hidden", "error");
@@ -3055,19 +3083,97 @@ async function scanVideoFrame() {
       state.scanFrame = requestAnimationFrame(scanVideoFrame);
       return;
     }
-    $("#scannerMessage").textContent = "Buscando código…";
+    $("#scannerMessage").textContent = "Buscando dentro del recuadro…";
     if (video.readyState >= 2) {
-      const codes = await state.scanDetector.detect(video);
-      if (codes.length) {
-        applyScannedValue(codes[0].rawValue);
-        closeLiveScanner();
-        return;
+      const frame = captureScannerGuide(video);
+      const codes = await state.scanDetector.detect(frame.canvas);
+      const detected = selectCenteredBarcode(codes, frame.width, frame.height);
+      if (detected) {
+        const value = String(detected.rawValue || "").trim();
+        if (confirmScannedCandidate(value)) {
+          applyScannedValue(value);
+          closeLiveScanner();
+          return;
+        }
+        $("#scannerMessage").textContent = `Detectado ${value} · mantené fijo (${state.scanCandidateHits}/3)`;
+      } else if (performance.now() - state.scanLastCandidateAt > 700) {
+        resetScanConfirmation();
       }
     }
   } catch {
     $("#scannerMessage").textContent = "Ajustando enfoque…";
   }
   state.scanFrame = requestAnimationFrame(scanVideoFrame);
+}
+
+function captureScannerGuide(video) {
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  const viewport = video.getBoundingClientRect();
+  const viewportRatio = viewport.width / viewport.height;
+  const videoRatio = sourceWidth / sourceHeight;
+  let visibleX = 0;
+  let visibleY = 0;
+  let visibleWidth = sourceWidth;
+  let visibleHeight = sourceHeight;
+
+  if (videoRatio > viewportRatio) {
+    visibleWidth = sourceHeight * viewportRatio;
+    visibleX = (sourceWidth - visibleWidth) / 2;
+  } else if (videoRatio < viewportRatio) {
+    visibleHeight = sourceWidth / viewportRatio;
+    visibleY = (sourceHeight - visibleHeight) / 2;
+  }
+
+  const cropX = Math.round(visibleX + visibleWidth * 0.14);
+  const cropY = Math.round(visibleY + visibleHeight * 0.30);
+  const cropWidth = Math.max(1, Math.round(visibleWidth * 0.72));
+  const cropHeight = Math.max(1, Math.round(visibleHeight * 0.40));
+  const canvas = state.scanCanvas || document.createElement("canvas");
+  state.scanCanvas = canvas;
+  if (canvas.width !== cropWidth) canvas.width = cropWidth;
+  if (canvas.height !== cropHeight) canvas.height = cropHeight;
+  canvas.getContext("2d", { alpha: false }).drawImage(
+    video,
+    cropX, cropY, cropWidth, cropHeight,
+    0, 0, cropWidth, cropHeight,
+  );
+  return { canvas, width: cropWidth, height: cropHeight };
+}
+
+function selectCenteredBarcode(codes, width, height) {
+  if (!codes.length) return null;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  return [...codes].sort((left, right) => {
+    const leftBox = left.boundingBox;
+    const rightBox = right.boundingBox;
+    const leftDistance = leftBox
+      ? Math.hypot(leftBox.x + leftBox.width / 2 - centerX, leftBox.y + leftBox.height / 2 - centerY)
+      : Number.MAX_SAFE_INTEGER;
+    const rightDistance = rightBox
+      ? Math.hypot(rightBox.x + rightBox.width / 2 - centerX, rightBox.y + rightBox.height / 2 - centerY)
+      : Number.MAX_SAFE_INTEGER;
+    return leftDistance - rightDistance;
+  })[0];
+}
+
+function confirmScannedCandidate(value) {
+  const now = performance.now();
+  if (value === state.scanCandidate && now - state.scanLastCandidateAt < 900) {
+    state.scanCandidateHits += 1;
+  } else {
+    state.scanCandidate = value;
+    state.scanCandidateHits = 1;
+  }
+  state.scanLastCandidateAt = now;
+  return state.scanCandidateHits >= 3;
+}
+
+function resetScanConfirmation() {
+  state.scanCandidate = "";
+  state.scanCandidateHits = 0;
+  state.scanLastCandidateAt = 0;
 }
 
 function openPhotoScanner() {
@@ -3088,6 +3194,7 @@ function stopScannerCamera() {
   state.scanStream?.getTracks().forEach((track) => track.stop());
   state.scanStream = null;
   state.scanDetector = null;
+  resetScanConfirmation();
   $("#scannerVideo").srcObject = null;
 }
 
@@ -3133,9 +3240,10 @@ async function decodeCapturedBarcode(event) {
     const bitmap = await createImageBitmap(file);
     const detector = new BarcodeDetector({ formats });
     const codes = await detector.detect(bitmap);
+    const detected = selectCenteredBarcode(codes, bitmap.width, bitmap.height);
     bitmap.close?.();
-    if (!codes.length) throw new Error("No se detectó un código. Acercá la cámara, evitá reflejos y volvé a intentar.");
-    applyScannedValue(codes[0].rawValue);
+    if (!detected) throw new Error("No se detectó un código. Acercá la cámara, evitá reflejos y volvé a intentar.");
+    applyScannedValue(detected.rawValue);
   } catch (error) {
     status.textContent = error.message;
     status.classList.add("error");
@@ -3149,31 +3257,85 @@ function hideScanStatus() {
 function renderLabels() {
   const sheet = $("#labelSheet");
   if (!sheet) return;
+  const aisle = $("#labelAisle").value;
   const side = $("#labelSide").value;
   const level = $("#labelLevel").value;
   const rack = $("#labelRack").value;
+  const order = $("#labelOrder").value;
   const locations = state.locations
+    .filter((item) => aisle === "all" || item.aisle === aisle)
     .filter((item) => side === "all" || String(item.side) === side)
     .filter((item) => level === "all" || String(item.level) === level)
-    .filter((item) => rack === "all" || String(item.rack) === rack);
-  $("#labelCount").textContent = `${fmt.format(locations.length)} etiquetas`;
+    .filter((item) => rack === "all" || String(item.rack) === rack)
+    .sort((a, b) => compareLabelLocations(a, b, order));
+  const pages = Math.ceil(locations.length / 6);
+  $("#labelCount").textContent = `${fmt.format(locations.length)} etiquetas · ${fmt.format(pages)} hojas A4`;
   sheet.innerHTML = locations.map((location) => `
-    <article class="location-label">
-      <div class="label-heading"><strong>${location.id}</strong><span>Lado ${location.side} · Rack ${String(location.rack).padStart(2, "0")}</span></div>
+    <article class="location-label" data-position="${escapeHtml(location.id)}">
+      <div class="label-heading"><strong>${escapeHtml(location.id)}</strong><span>${labelSectorName(location)} · Rack ${String(location.rack).padStart(2, "0")}</span></div>
+      <div class="label-content">
       <div class="barcode39" aria-label="Código de barras ${location.id}">${code39Bars(location.id)}</div>
-      <div class="label-meta"><span>Pasillo ${location.aisle}</span><span>Posición ${String(location.module).padStart(2, "0")}</span><span>Nivel ${location.level}</span></div>
+        ${labelLevelDiagram(location.level)}
+      </div>
+      <div class="label-meta"><span>Pasillo ${escapeHtml(location.aisle)}</span><span>Posición ${String(location.wallPosition || location.position || location.module).padStart(2, "0")}</span><strong>Nivel ${location.level}</strong></div>
     </article>
   `).join("");
 }
 
+function compareLabelLocations(a, b, order) {
+  const text = String(a.aisle).localeCompare(String(b.aisle), "es", { numeric: true });
+  if (text) return text;
+  const side = Number(a.side) - Number(b.side);
+  if (side) return side;
+  if (order === "level-position") {
+    const level = Number(a.level) - Number(b.level);
+    if (level) return level;
+  }
+  const rack = Number(a.rack) - Number(b.rack);
+  if (rack) return rack;
+  const position = Number(a.wallPosition || a.position || a.module) - Number(b.wallPosition || b.position || b.module);
+  if (position) return position;
+  const depth = Number(a.depth || 0) - Number(b.depth || 0);
+  if (depth) return depth;
+  if (order !== "level-position") {
+    const level = Number(a.level) - Number(b.level);
+    if (level) return level;
+  }
+  return a.id.localeCompare(b.id, "es", { numeric: true });
+}
+
+function labelSectorName(location) {
+  if (location.aisle === "PE") return "Drive-In";
+  if (location.aisle === "ZE") return "Zona Este";
+  if (location.aisle === "ZO") return "Zona Oeste";
+  if (location.aisle === "ZN") return "Zona Norte";
+  return `Lado ${location.side}`;
+}
+
+function labelLevelDiagram(level) {
+  const selected = Number(level);
+  const cells = [4, 3, 2, 1, 0].map((item) =>
+    `<span class="label-level-cell${item === selected ? " active" : ""}"><b>${item}</b></span>`
+  ).join("");
+  return `<div class="label-level-diagram" aria-label="Nivel ${selected} de 4"><div class="label-level-stack">${cells}</div><strong>NIVEL ${selected}</strong></div>`;
+}
+
 function code39Bars(value) {
   const encoded = `*${String(value).toUpperCase()}*`;
-  return [...encoded].map((character) => {
+  const bars = [];
+  let x = 10;
+  [...encoded].forEach((character) => {
     const pattern = CODE39[character];
-    if (!pattern) return "";
-    const elements = [...pattern].map((width, index) => `<i class="${index % 2 === 0 ? "bar" : "gap"}" style="--unit:${width === "w" ? 3 : 1}"></i>`).join("");
-    return `${elements}<i class="gap" style="--unit:1"></i>`;
-  }).join("");
+    if (!pattern) return;
+    [...pattern].forEach((width, index) => {
+      const units = width === "w" ? 3 : 1;
+      if (index % 2 === 0) bars.push(`<rect x="${x}" y="0" width="${units}" height="100" />`);
+      x += units;
+    });
+    x += 1;
+  });
+  const width = x + 9;
+  return `<svg viewBox="0 0 ${width} 100" preserveAspectRatio="none" role="img" aria-label="${escapeHtml(value)}" shape-rendering="crispEdges">${bars.join("")}</svg>`;
 }
 
 function renderAnalytics() {

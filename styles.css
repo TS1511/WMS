@@ -1261,7 +1261,7 @@ dd {
 
 .scanner-guide {
   position: absolute;
-  inset: 24% 8%;
+  inset: 30% 14%;
   border: 3px solid #fff;
   border-radius: 6px;
   box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.28);
@@ -1274,26 +1274,38 @@ dd {
   background: #fff;
 }
 
+.label-toolbar label {
+  min-width: 132px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.label-toolbar label select {
+  min-height: 36px;
+}
+
 .label-toolbar .muted {
   margin-left: auto;
 }
 
 .label-sheet {
   display: grid;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 10px;
 }
 
 .location-label {
-  min-height: 150px;
-  padding: 12px;
+  aspect-ratio: 5 / 4;
+  min-width: 0;
+  padding: 14px;
   display: grid;
-  grid-template-rows: auto 68px auto;
-  gap: 8px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
   background: #fff;
   border: 1px solid #8f9ca6;
   border-radius: 4px;
   break-inside: avoid;
+  box-sizing: border-box;
 }
 
 .label-heading,
@@ -1305,36 +1317,81 @@ dd {
 }
 
 .label-heading strong {
-  font-size: 22px;
+  color: #111;
+  font-size: 28px;
+  line-height: 1;
 }
 
 .label-heading span,
 .label-meta {
   color: #4d5b66;
-  font-size: 11px;
+  font-size: 12px;
+}
+
+.label-content {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 58px;
+  align-items: stretch;
+  gap: 12px;
 }
 
 .barcode39 {
   min-width: 0;
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  overflow: hidden;
-  padding: 4px 8px;
+  min-height: 0;
+  padding: 5px 0;
   background: #fff;
 }
 
-.barcode39 i {
-  width: calc(var(--unit) * 1px);
-  flex: 0 0 calc(var(--unit) * 1px);
+.barcode39 svg {
+  width: 100%;
+  height: 100%;
+  min-height: 74px;
+  display: block;
+  fill: #000;
 }
 
-.barcode39 .bar {
-  background: #000;
+.label-level-diagram {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 4px;
+  text-align: center;
 }
 
-.barcode39 .gap {
+.label-level-diagram > strong {
+  color: #111;
+  font-size: 11px;
+}
+
+.label-level-stack {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(5, 1fr);
+  border: 2px solid #111;
+}
+
+.label-level-cell {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  color: #34414b;
   background: #fff;
+  border-bottom: 1px solid #111;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.label-level-cell:last-child {
+  border-bottom: 0;
+}
+
+.label-level-cell.active {
+  color: #fff;
+  background: #111;
+}
+
+.label-meta strong {
+  color: #111;
 }
 
 .field-info {
@@ -2233,6 +2290,8 @@ dd {
 }
 
 @media print {
+  @page { size: A4 portrait; margin: 5mm; }
+
   @page { size: A4 portrait; margin: 12mm; }
   body { display: block; color: #111; background: #fff; }
   .sidebar,
@@ -2288,12 +2347,58 @@ dd {
   }
 
   .label-sheet {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5mm;
+    width: 200mm;
+    display: grid;
+    grid-template-columns: repeat(2, 100mm);
+    grid-auto-rows: 80mm;
+    gap: 0;
   }
 
   .location-label {
-    min-height: 42mm;
+    width: 100mm;
+    height: 80mm;
+    aspect-ratio: auto;
+    padding: 4mm;
+    grid-template-rows: 8mm 51mm 6mm;
+    gap: 3mm;
+    border: 0.25mm solid #222;
+    border-radius: 0;
     box-shadow: none;
+    page-break-inside: avoid;
+  }
+
+  .label-heading strong {
+    font-size: 7mm;
+  }
+
+  .label-heading span,
+  .label-meta {
+    font-size: 3mm;
+  }
+
+  .label-content {
+    grid-template-columns: minmax(0, 1fr) 16mm;
+    gap: 3mm;
+  }
+
+  .barcode39 {
+    padding: 2mm 0;
+  }
+
+  .barcode39 svg {
+    min-height: 0;
+  }
+
+  .label-level-stack {
+    border-width: 0.5mm;
+  }
+
+  .label-level-cell {
+    border-bottom-width: 0.25mm;
+    font-size: 2.5mm;
+  }
+
+  .label-level-diagram > strong {
+    font-size: 2.6mm;
   }
 }

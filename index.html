@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261001-7" />
+    <link rel="stylesheet" href="styles.css?v=20261005-2" />
   </head>
   <body>
     <aside class="sidebar">
@@ -568,20 +568,11 @@
 
       <section id="labels" class="view">
         <div class="toolbar label-toolbar">
-          <select id="labelSide">
-            <option value="all">Ambos lados</option>
-            <option value="1">Lado 1</option>
-            <option value="2">Lado 2</option>
-          </select>
-          <select id="labelLevel">
-            <option value="all">Todos los niveles</option>
-            <option value="0" selected>Nivel 0</option>
-            <option value="1">Nivel 1</option>
-            <option value="2">Nivel 2</option>
-            <option value="3">Nivel 3</option>
-            <option value="4">Nivel 4</option>
-          </select>
-          <select id="labelRack"><option value="all">Todos los racks</option></select>
+          <label>Pasillo<select id="labelAisle"><option value="all">Todos los pasillos</option></select></label>
+          <label>Sector<select id="labelSide"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="0">Racks de pared</option></select></label>
+          <label>Rack<select id="labelRack"><option value="all">Todos los racks</option></select></label>
+          <label>Nivel<select id="labelLevel"><option value="all" selected>Todos los niveles</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
+          <label>Orden<select id="labelOrder"><option value="position-level">Posición → niveles 0 a 4</option><option value="level-position">Nivel → posiciones</option></select></label>
           <button id="printLabels" class="ghost">Imprimir</button>
           <span id="labelCount" class="muted"></span>
         </div>
@@ -673,7 +664,7 @@
 
     <dialog id="scannerDialog" class="scanner-dialog">
       <div class="scanner-head">
-        <div><strong id="scannerTitle">Escanear código</strong><small>Tenés 2 segundos para centrar la cámara antes de iniciar la lectura.</small></div>
+        <div><strong id="scannerTitle">Escanear código</strong><small>Centr&aacute; una sola etiqueta dentro del recuadro y mantenela fija.</small></div>
         <button type="button" id="closeScanner" class="scanner-close" aria-label="Cerrar lector">&times;</button>
       </div>
       <div class="scanner-viewport">
@@ -689,6 +680,6 @@
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
     <script src="data/embedded-data.js?v=20261001-3"></script>
-    <script src="app.js?v=20261001-6"></script>
+    <script src="app.js?v=20261005-3"></script>
   </body>
 </html>
