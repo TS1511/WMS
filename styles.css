@@ -2164,6 +2164,16 @@ dd {
   font: inherit;
 }
 
+.count-expected.blind-count {
+  border-color: #b8c7cf;
+  background: #f3f7f9;
+}
+
+.count-kpis[hidden],
+.count-history[hidden] {
+  display: none !important;
+}
+
 .role-badge {
   display: inline-flex;
   align-items: center;

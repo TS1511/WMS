@@ -28,14 +28,14 @@ const ROLE_LABELS = {
 const ROLE_SECTIONS = {
   operations: ["dashboard", "register", "locations", "map", "map3d"],
   picking: ["dashboard", "picking", "locations", "map", "map3d"],
-  inventory: ["dashboard", "locations", "counts", "map", "map3d", "movements", "analytics", "reconciliation", "labels"],
+  inventory: ["counts"],
   supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
   admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
 };
 const ROLE_PERMISSIONS = {
   operations: ["movement_write"],
   picking: ["picking_write"],
-  inventory: ["sap_import", "count_write"],
+  inventory: ["count_write"],
   supervisor: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust"],
   admin: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust", "block_locations", "reset_data", "admin"],
 };
@@ -207,6 +207,7 @@ async function init() {
   bindEvents();
   applyRoleAccess();
   renderScopeControls();
+  switchView(defaultViewForRole());
   renderAll();
   renderCountSession();
   renderSyncStatus();
@@ -516,7 +517,7 @@ async function saveSyncSettings(event) {
   fillLabelFilters();
   renderAll();
   renderCountSession();
-  switchView("dashboard");
+  switchView(defaultViewForRole());
   renderSyncStatus();
   $("#syncSettingsDialog").close();
   scheduleSessionExpiry();
@@ -560,6 +561,14 @@ function canAccessView(view) {
   return Boolean(state.syncConfig.authenticated && ROLE_SECTIONS[state.syncConfig.role]?.includes(view));
 }
 
+function defaultViewForRole() {
+  return ROLE_SECTIONS[state.syncConfig.role]?.[0] || "dashboard";
+}
+
+function isBlindCounter() {
+  return state.syncConfig.authenticated && state.syncConfig.role === "inventory";
+}
+
 function applyRoleAccess() {
   $$(".nav-item").forEach((button) => {
     button.hidden = !canAccessView(button.dataset.view);
@@ -580,6 +589,14 @@ function applyRoleAccess() {
   $("#slottingForm").hidden = !hasPermission("slotting_write");
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
   $("#inventoryCountForm").hidden = !hasPermission("count_write");
+  const blindCount = isBlindCounter();
+  $("#exportInventoryCsv").hidden = blindCount;
+  $("#finishInventoryCount").hidden = blindCount;
+  $(".count-kpis").hidden = blindCount;
+  $(".count-history").hidden = blindCount;
+  $("#countExpectedLoad").classList.toggle("blind-count", blindCount);
+  if (blindCount) $("#countSessionReport").hidden = true;
+  renderCountExpected();
   renderMovements();
   renderRegistration();
   renderInventoryCounts();
@@ -1333,16 +1350,24 @@ function renderCountExpected() {
   const location = findLocation(raw);
   const card = $("#countExpectedLoad");
   if (!raw) {
-    card.innerHTML = "<span>Ingresá o escaneá una posición para ver el stock esperado.</span>";
+    card.innerHTML = `<span>${isBlindCounter() ? "Ingresá o escaneá la posición que vas a contar." : "Ingresá o escaneá una posición para ver el stock esperado."}</span>`;
     return;
   }
   if (!location) {
     card.innerHTML = `<strong>${escapeHtml(raw)}</strong><span>La posición no existe.</span>`;
     return;
   }
+  if (!locationInOperationalScope(location)) {
+    card.innerHTML = `<strong>${escapeHtml(raw)}</strong><span>La posición no pertenece al ámbito ${scopeLabel()}.</span>`;
+    return;
+  }
   const primary = footprintPrimaryLocation(location);
-  const snapshot = locationLoadSnapshot(primary);
   $("#countPosition").dataset.primaryPosition = primary.id;
+  if (isBlindCounter()) {
+    card.innerHTML = `<strong>${escapeHtml(primary.id)}</strong><span>Posición válida. Realizá el conteo físico sin referencia del sistema.</span>`;
+    return;
+  }
+  const snapshot = locationLoadSnapshot(primary);
   card.innerHTML = `<strong>${escapeHtml(primary.id)}</strong><span>${countLoadSummary(snapshot)}</span>${snapshot.positions.length > 1 ? `<small>Ocupa ${snapshot.positions.map(escapeHtml).join(" + ")}</small>` : ""}`;
 }
 
@@ -1425,7 +1450,7 @@ async function saveInventoryCount(event) {
     renderInventoryCounts();
     renderCountSession();
     message.classList.remove("error");
-    message.textContent = matches ? "Conteo registrado. Sincronizando…" : "Diferencia registrada. Sincronizando…";
+    message.textContent = isBlindCounter() ? "Conteo registrado. Sincronizando…" : matches ? "Conteo registrado. Sincronizando…" : "Diferencia registrada. Sincronizando…";
     event.currentTarget.reset();
     $("#countPalletCount").value = 1;
     $("#countPackageCount").value = 1;
@@ -1433,7 +1458,7 @@ async function saveInventoryCount(event) {
     renderCountExpected();
     const result = await centralRequest("count_save", { count });
     if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
-    message.textContent = matches ? "Conteo guardado y sincronizado." : "Diferencia guardada y pendiente de ajuste.";
+    message.textContent = isBlindCounter() ? "Conteo guardado y sincronizado." : matches ? "Conteo guardado y sincronizado." : "Diferencia guardada y pendiente de ajuste.";
   } catch (error) {
     message.classList.add("error");
     message.textContent = error.message;
@@ -1445,10 +1470,11 @@ function locationInCountScope(location, scope) { return locationInOperationalSco
 function countScopeLabel(scope) { return ({ ALL: "Todas las zonas", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte", BACK: "Back salón Escobar" })[scope] || scope; }
 function startInventorySession() { const id = $("#countInventoryId").value.trim().toUpperCase(); const scope = $("#countScope").value; if (!id) return alert("Ingresá un identificador para el inventario."); state.countSession = { id, scope, startedAt: new Date().toISOString() }; localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession)); renderCountSession(); $("#countPosition").focus(); }
 function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = scopedLocations().filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id && movementPositionInOperationalScope(item.position)); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
-function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
-function finishInventorySession() { if (!state.countSession) return; const data = inventorySessionData(); const report = $("#countSessionReport"); if (data.missing.length) { report.hidden = false; report.innerHTML = `<strong>No se puede finalizar: faltan ${fmt.format(data.missing.length)} posiciones.</strong><span>Primeras pendientes: ${data.missing.slice(0, 20).map((item) => escapeHtml(item.id)).join(", ")}</span>`; return; } const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length; const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length; const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000)); report.hidden = false; report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado</strong><span>${fmt.format(data.targets.length)} posiciones · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`; state.countSession = null; localStorage.removeItem(COUNT_SESSION_KEY); renderCountSession(); }
+function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; finish.hidden = isBlindCounter(); if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
+function finishInventorySession() { if (isBlindCounter()) return alert("El cierre y la revisión del inventario corresponden a Supervisión o Administración."); if (!state.countSession) return; const data = inventorySessionData(); const report = $("#countSessionReport"); if (data.missing.length) { report.hidden = false; report.innerHTML = `<strong>No se puede finalizar: faltan ${fmt.format(data.missing.length)} posiciones.</strong><span>Primeras pendientes: ${data.missing.slice(0, 20).map((item) => escapeHtml(item.id)).join(", ")}</span>`; return; } const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length; const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length; const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000)); report.hidden = false; report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado</strong><span>${fmt.format(data.targets.length)} posiciones · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`; state.countSession = null; localStorage.removeItem(COUNT_SESSION_KEY); renderCountSession(); }
 
 function exportInventoryCsv() {
+  if (isBlindCounter()) return alert("El rol Inventario no puede exportar ni consultar el stock del sistema.");
   const latestCounts = new Map();
   state.inventoryCounts.forEach((count) => { if (!latestCounts.has(count.position)) latestCounts.set(count.position, count); });
   const locations = scopedLocations();
@@ -1483,6 +1509,10 @@ function exportInventoryCsv() {
 function renderInventoryCounts() {
   const body = $("#inventoryCountsTable");
   if (!body) return;
+  if (isBlindCounter()) {
+    body.innerHTML = `<tr><td colspan="8">El conteo ciego no muestra resultados ni referencias del sistema.</td></tr>`;
+    return;
+  }
   const counts = state.inventoryCounts.filter((count) => movementPositionInOperationalScope(count.position));
   $("#countKpiTotal").textContent = fmt.format(counts.length);
   $("#countKpiPending").textContent = fmt.format(counts.filter((item) => item.status === "PENDIENTE").length);
