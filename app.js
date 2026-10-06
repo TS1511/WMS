@@ -66,8 +66,6 @@ const state = {
   scanCandidate: "",
   scanCandidateHits: 0,
   scanLastCandidateAt: 0,
-  scanPendingValue: "",
-  scanPaused: false,
   scanSession: 0,
   filters: {
     query: "",
@@ -415,8 +413,6 @@ function bindEvents() {
   $("#barcodeCapture").addEventListener("change", decodeCapturedBarcode);
   $("#closeScanner").addEventListener("click", closeLiveScanner);
   $("#scannerPhotoFallback").addEventListener("click", openPhotoScanner);
-  $("#scannerConfirm").addEventListener("click", confirmLiveScan);
-  $("#scannerRetry").addEventListener("click", retryLiveScan);
   $("#scannerDialog").addEventListener("close", stopScannerCamera);
   ["#labelLevel", "#labelRack", "#labelOrder"].forEach((selector) => $(selector).addEventListener("change", renderLabels));
   ["#labelSide", "#labelAisle"].forEach((selector) => $(selector).addEventListener("change", () => {
@@ -3028,9 +3024,7 @@ async function startBarcodeCapture(targetId) {
   stopScannerCamera();
   state.scanTarget = targetId;
   resetScanConfirmation();
-  state.scanPaused = false;
   const session = ++state.scanSession;
-  updateScannerDecision();
   const status = $("#scanStatus");
   status.textContent = "Abriendo lector…";
   status.classList.remove("hidden", "error");
@@ -3074,7 +3068,7 @@ async function startBarcodeCapture(targetId) {
 
 async function scanVideoFrame(session = state.scanSession) {
   const video = $("#scannerVideo");
-  if (session !== state.scanSession || state.scanPaused || !state.scanStream || !state.scanDetector) return;
+  if (session !== state.scanSession || !state.scanStream || !state.scanDetector) return;
   try {
     const waitMs = state.scanReadyAt - performance.now();
     if (waitMs > 0) {
@@ -3088,14 +3082,13 @@ async function scanVideoFrame(session = state.scanSession) {
       const snapshot = await createImageBitmap(frame.canvas);
       const codes = await state.scanDetector.detect(snapshot);
       snapshot.close?.();
-      if (session !== state.scanSession || state.scanPaused) return;
+      if (session !== state.scanSession) return;
       const detected = selectCenteredBarcode(codes, frame.width, frame.height);
       if (detected) {
         const value = String(detected.rawValue || "").trim();
         if (confirmScannedCandidate(value)) {
-          state.scanPendingValue = value;
-          state.scanPaused = true;
-          updateScannerDecision();
+          applyScannedValue(value);
+          closeLiveScanner();
           return;
         }
         $("#scannerMessage").textContent = `Detectado ${value} · mantené fijo (${state.scanCandidateHits}/3)`;
@@ -3107,7 +3100,7 @@ async function scanVideoFrame(session = state.scanSession) {
     if (session !== state.scanSession) return;
     $("#scannerMessage").textContent = "Ajustando enfoque…";
   }
-  if (session !== state.scanSession || state.scanPaused) return;
+  if (session !== state.scanSession) return;
   state.scanFrame = requestAnimationFrame(() => scanVideoFrame(session));
 }
 
@@ -3202,28 +3195,6 @@ function resetScanConfirmation() {
   state.scanCandidate = "";
   state.scanCandidateHits = 0;
   state.scanLastCandidateAt = 0;
-  state.scanPendingValue = "";
-}
-
-function updateScannerDecision() {
-  const pending = state.scanPendingValue;
-  $("#scannerConfirm").disabled = !pending;
-  $("#scannerRetry").hidden = !pending;
-  if (pending) $("#scannerMessage").textContent = `Detectado: ${pending}. Verificá y confirmá.`;
-}
-
-function confirmLiveScan() {
-  if (!state.scanPendingValue) return;
-  applyScannedValue(state.scanPendingValue);
-  closeLiveScanner();
-}
-
-function retryLiveScan() {
-  resetScanConfirmation();
-  state.scanPaused = false;
-  state.scanReadyAt = performance.now() + 700;
-  updateScannerDecision();
-  scanVideoFrame(state.scanSession);
 }
 
 function openPhotoScanner() {
@@ -3245,9 +3216,7 @@ function stopScannerCamera() {
   state.scanStream?.getTracks().forEach((track) => track.stop());
   state.scanStream = null;
   state.scanDetector = null;
-  state.scanPaused = false;
   resetScanConfirmation();
-  updateScannerDecision();
   $("#scannerVideo").srcObject = null;
 }
 
