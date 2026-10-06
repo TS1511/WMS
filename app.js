@@ -2500,6 +2500,7 @@ function draw3dMap() {
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
   draw3dQuad(ctx, bounds.minCol - 2, 28.2, bounds.maxCol + 2, 30.8, 0.5, "#cfd8df", width, height);
+  draw3dCoordinateGrid(ctx, width, height);
   const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
   if (driveInStacks.length) {
     draw3dQuad(
