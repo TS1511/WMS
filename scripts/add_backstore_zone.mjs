@@ -11,6 +11,10 @@ const aisles = "ABCDEFGHIJKLMNOPQR".split("");
 const rackCount = 17;
 const positionsPerFace = 22;
 const levels = 5;
+// Keep the Back salon as a separate building footprint: right of the Drive-In
+// and far enough down the plan that the CD main aisle cannot cross it visually.
+const backstoreStartRow = 93;
+const backstoreEndRow = backstoreStartRow + (positionsPerFace - 1) * 1.1;
 
 locationsPayload.locations = locationsPayload.locations.filter((item) => item.storageType !== "backstore");
 layoutPayload.stacks = layoutPayload.stacks.filter((item) => item.type !== "backstore");
@@ -57,7 +61,7 @@ for (let rack = 1; rack <= rackCount; rack += 1) {
         module: position,
         position,
         type: "backstore",
-        row: 65 + slot * 1.1,
+        row: backstoreStartRow + slot * 1.1,
         col: -5.6 + (rack - 1) * 5 + face.colOffset,
         occupiedLevels: 0,
         levels: stackLevels,
@@ -89,9 +93,9 @@ locationsPayload.summary = {
   aisles: countBy("aisle"),
   backstoreLocations: locations.filter((item) => item.storageType === "backstore").length,
 };
-layoutPayload.bounds = { ...layoutPayload.bounds, maxRow: 89 };
+layoutPayload.bounds = { ...layoutPayload.bounds, maxRow: Math.ceil(backstoreEndRow + 1) };
 layoutPayload.source = { ...layoutPayload.source, backstoreZone: "Back salón Escobar" };
-layoutPayload.geometryVersion = "backstore-v2";
+layoutPayload.geometryVersion = "backstore-v3-separated";
 
 fs.writeFileSync(locationsPath, `${JSON.stringify(locationsPayload, null, 2)}\n`);
 fs.writeFileSync(layoutPath, `${JSON.stringify(layoutPayload, null, 2)}\n`);
