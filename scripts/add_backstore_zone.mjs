@@ -58,7 +58,7 @@ for (let rack = 1; rack <= rackCount; rack += 1) {
         position,
         type: "backstore",
         row: 65 + slot * 1.1,
-        col: -10 + (rack - 1) * 5 + face.colOffset,
+        col: -5.6 + (rack - 1) * 5 + face.colOffset,
         occupiedLevels: 0,
         levels: stackLevels,
       });
@@ -91,7 +91,7 @@ locationsPayload.summary = {
 };
 layoutPayload.bounds = { ...layoutPayload.bounds, maxRow: 89 };
 layoutPayload.source = { ...layoutPayload.source, backstoreZone: "Back salón Escobar" };
-layoutPayload.geometryVersion = "backstore-v1";
+layoutPayload.geometryVersion = "backstore-v2";
 
 fs.writeFileSync(locationsPath, `${JSON.stringify(locationsPayload, null, 2)}\n`);
 fs.writeFileSync(layoutPath, `${JSON.stringify(layoutPayload, null, 2)}\n`);

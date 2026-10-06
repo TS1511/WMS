@@ -5,6 +5,7 @@ const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
 const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const COUNT_CACHE_KEY = "gps-inventory-counts-v1";
 const COUNT_SESSION_KEY = "gps-inventory-session-v1";
+const LOCATION_SCOPE_KEY = "gps-location-scope-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 const POSITION_RECODE_CUTOFF = Date.parse("2026-09-30T17:30:00.000Z");
@@ -116,6 +117,7 @@ const state = {
   countSession: null,
   movementFilters: { from: "", to: "", type: "all", sku: "", position: "" },
   scanReadyAt: 0,
+  operationalScope: "CD",
 };
 
 const shadeCache = new Map();
@@ -182,6 +184,7 @@ async function init() {
   );
   state.history = saved?.history || [createSnapshot(new Date().toISOString())];
   state.syncConfig = loadJson(SYNC_CONFIG_KEY, state.syncConfig);
+  state.operationalScope = loadJson(LOCATION_SCOPE_KEY, state.syncConfig.scope || "CD");
   if (!state.syncConfig.endpoint) state.syncConfig.endpoint = DEFAULT_SYNC_ENDPOINT;
   const storedAccount = userAccount(state.syncConfig.operator);
   if (!storedAccount || storedAccount.role !== state.syncConfig.role || Number(state.syncConfig.expiresAt || 0) <= Date.now()) {
@@ -191,6 +194,7 @@ async function init() {
     state.syncConfig.expiresAt = 0;
     localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   }
+  if (state.operationalScope === "ALL" && state.syncConfig.role !== "admin") state.operationalScope = "CD";
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
   state.slottingRules = loadJson(SLOTTING_RULES_KEY, []);
@@ -202,6 +206,7 @@ async function init() {
   fillLabelFilters();
   bindEvents();
   applyRoleAccess();
+  renderScopeControls();
   renderAll();
   renderCountSession();
   renderSyncStatus();
@@ -449,6 +454,7 @@ function bindEvents() {
     changeWaterfallZoom(event.deltaY < 0 ? 1 : -1);
   }, { passive: false });
   $("#openSyncSettings").addEventListener("click", openSyncSettings);
+  $("#globalScopeFilter").addEventListener("change", (event) => setOperationalScope(event.target.value));
   $("#logoutSession").addEventListener("click", () => logoutSession(false));
   $("#closeSyncSettings").addEventListener("click", closeSyncSettings);
   $("#syncSettingsForm").addEventListener("submit", saveSyncSettings);
@@ -467,6 +473,7 @@ function bindEvents() {
 function openSyncSettings() {
   $("#operatorName").value = state.syncConfig.operator || "";
   $("#operatorPassword").value = "";
+  $("#loginScope").value = state.operationalScope || "CD";
   $("#syncSettingsMessage").textContent = state.syncOutbox.length
     ? `${state.syncOutbox.length} registro(s) pendientes de envío.`
     : state.syncError || "Los movimientos se guardan en este dispositivo y en el registro central.";
@@ -478,6 +485,7 @@ async function saveSyncSettings(event) {
   const data = new FormData(event.currentTarget);
   const operator = String(data.get("operator") || "").trim();
   const password = String(data.get("password") || "");
+  const requestedScope = String(data.get("scope") || "CD").toUpperCase();
   const hash = await sha256(password);
   const account = userAccount(operator);
   if (!account || hash !== account.passwordHash) {
@@ -486,16 +494,28 @@ async function saveSyncSettings(event) {
     $("#operatorPassword").select();
     return;
   }
+  if (requestedScope === "ALL" && account.role !== "admin") {
+    $("#syncSettingsMessage").textContent = "La vista Todo Escobar está disponible únicamente para administradores.";
+    $("#syncSettingsMessage").classList.add("error");
+    return;
+  }
+  state.operationalScope = ["CD", "BACK", "ALL"].includes(requestedScope) ? requestedScope : "CD";
+  localStorage.setItem(LOCATION_SCOPE_KEY, JSON.stringify(state.operationalScope));
   state.syncConfig = {
     operator: account.username,
     role: account.role,
     endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
     expiresAt: Date.now() + SESSION_DURATION_MS,
     authenticated: true,
+    scope: state.operationalScope,
   };
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   $("#syncSettingsMessage").classList.remove("error");
   applyRoleAccess();
+  renderScopeControls();
+  fillLabelFilters();
+  renderAll();
+  renderCountSession();
   switchView("dashboard");
   renderSyncStatus();
   $("#syncSettingsDialog").close();
@@ -565,6 +585,68 @@ function applyRoleAccess() {
   renderInventoryCounts();
 }
 
+function scopeLabel(scope = state.operationalScope) {
+  return ({ CD: "CD", BACK: "Back salón", ALL: "Todo Escobar" })[scope] || "CD";
+}
+
+function locationInOperationalScope(location, scope = state.operationalScope) {
+  if (!location || scope === "ALL") return Boolean(location);
+  const isBack = location.storageType === "backstore" || location.sector === "BACK";
+  return scope === "BACK" ? isBack : !isBack;
+}
+
+function scopedLocations() {
+  return state.locations.filter((location) => locationInOperationalScope(location));
+}
+
+function movementInOperationalScope(move) {
+  if (state.operationalScope === "ALL") return true;
+  const ids = [move.from, move.to].map(normalizePosition).filter(Boolean);
+  return ids.some(movementPositionInOperationalScope);
+}
+
+function movementPositionInOperationalScope(id) {
+  const normalized = normalizePosition(id);
+  const location = state.locations.find((item) => item.id.toUpperCase() === normalized.toUpperCase());
+  return locationInOperationalScope(location);
+}
+
+function scopedMovements() {
+  return state.movements.filter(movementInOperationalScope);
+}
+
+function renderScopeControls() {
+  const control = $("#globalScopeFilter");
+  if (!control) return;
+  const options = [
+    ["CD", "CD"],
+    ["BACK", "Back salón"],
+    ...(state.syncConfig.role === "admin" ? [["ALL", "Todo Escobar"]] : []),
+  ];
+  if (!options.some(([value]) => value === state.operationalScope)) state.operationalScope = "CD";
+  control.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
+  control.value = state.operationalScope;
+  control.disabled = !state.syncConfig.authenticated;
+  $("#configuredPositionCount").title = `Ámbito activo: ${scopeLabel()}`;
+}
+
+function setOperationalScope(scope) {
+  const normalized = String(scope || "CD").toUpperCase();
+  if (normalized === "ALL" && state.syncConfig.role !== "admin") return;
+  state.operationalScope = ["CD", "BACK", "ALL"].includes(normalized) ? normalized : "CD";
+  state.syncConfig.scope = state.operationalScope;
+  localStorage.setItem(LOCATION_SCOPE_KEY, JSON.stringify(state.operationalScope));
+  localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
+  state.filters.side = "all";
+  state.filters.locationSide = "all";
+  state.view3d.side = "all";
+  ["sideFilter", "locationSideFilter", "side3dFilter", "labelSide"].forEach((id) => { if ($(`#${id}`)) $(`#${id}`).value = "all"; });
+  fillLabelFilters();
+  renderScopeControls();
+  renderAll();
+  renderCountSession();
+}
+
 function scheduleSessionExpiry() {
   window.clearTimeout(state.sessionTimer);
   const remaining = Number(state.syncConfig.expiresAt || 0) - Date.now();
@@ -583,6 +665,7 @@ function logoutSession(expired = false) {
   };
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   applyRoleAccess();
+  renderScopeControls();
   renderSyncStatus();
   openSyncSettings();
   if (expired) $("#syncSettingsMessage").textContent = "La sesión venció después de 8 horas. Volvé a ingresar.";
@@ -979,7 +1062,7 @@ function syncLocationLoad(location) {
 
 function stockMetricsBySku() {
   const totals = {};
-  state.locations.filter((location) => location.occupied && !isFootprintSecondary(location)).forEach((location) => {
+  scopedLocations().filter((location) => location.occupied && !isFootprintSecondary(location)).forEach((location) => {
     (location.contents || []).forEach((content) => {
       const item = totals[content.sku] || { packages: 0, pallets: 0, unknownConversion: false };
       const master = state.skuMaster.find((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase());
@@ -1216,7 +1299,7 @@ function renderSapComparison() {
   const rows = state.sapStock.map((item) => {
     const app = Number(appStock[item.sku] || 0);
     const difference = app - item.stock;
-    const positions = state.locations.filter((location) => location.occupied && location.contents?.some((content) => content.sku === item.sku)).map((location) => location.id);
+    const positions = scopedLocations().filter((location) => location.occupied && location.contents?.some((content) => content.sku === item.sku)).map((location) => location.id);
     return { ...item, app, difference, positions, unknownConversion: Boolean(metrics[item.sku]?.unknownConversion) };
   });
   const differences = rows.filter((item) => item.difference !== 0 || item.unknownConversion);
@@ -1315,6 +1398,7 @@ async function saveInventoryCount(event) {
     const entered = normalizePosition($("#countPosition").value);
     const location = findLocation(entered);
     if (!location) throw new Error("La posición indicada no existe.");
+    if (!locationInOperationalScope(location)) throw new Error(`La posición no pertenece al ámbito ${scopeLabel()}.`);
     const primary = footprintPrimaryLocation(location);
     if (state.countSession && !locationInCountScope(primary, state.countSession.scope)) throw new Error(`La posición no pertenece al alcance ${countScopeLabel(state.countSession.scope)}.`);
     const expected = locationLoadSnapshot(primary);
@@ -1357,22 +1441,23 @@ async function saveInventoryCount(event) {
 }
 
 function locationSector(location) { if (location.storageType === "drivein" || location.aisle === "PE") return "PE"; if (location.storageType === "wallrack") return String(location.aisle || "ZE").toUpperCase(); if (location.storageType === "backstore") return "BACK"; return String(location.side); }
-function locationInCountScope(location, scope) { return scope === "ALL" || locationSector(location) === scope; }
+function locationInCountScope(location, scope) { return locationInOperationalScope(location) && (scope === "ALL" || locationSector(location) === scope); }
 function countScopeLabel(scope) { return ({ ALL: "Todas las zonas", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte", BACK: "Back salón Escobar" })[scope] || scope; }
 function startInventorySession() { const id = $("#countInventoryId").value.trim().toUpperCase(); const scope = $("#countScope").value; if (!id) return alert("Ingresá un identificador para el inventario."); state.countSession = { id, scope, startedAt: new Date().toISOString() }; localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession)); renderCountSession(); $("#countPosition").focus(); }
-function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = state.locations.filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
+function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = scopedLocations().filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id && movementPositionInOperationalScope(item.position)); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
 function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
 function finishInventorySession() { if (!state.countSession) return; const data = inventorySessionData(); const report = $("#countSessionReport"); if (data.missing.length) { report.hidden = false; report.innerHTML = `<strong>No se puede finalizar: faltan ${fmt.format(data.missing.length)} posiciones.</strong><span>Primeras pendientes: ${data.missing.slice(0, 20).map((item) => escapeHtml(item.id)).join(", ")}</span>`; return; } const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length; const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length; const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000)); report.hidden = false; report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado</strong><span>${fmt.format(data.targets.length)} posiciones · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`; state.countSession = null; localStorage.removeItem(COUNT_SESSION_KEY); renderCountSession(); }
 
 function exportInventoryCsv() {
   const latestCounts = new Map();
   state.inventoryCounts.forEach((count) => { if (!latestCounts.has(count.position)) latestCounts.set(count.position, count); });
-  const locationsById = new Map(state.locations.map((location) => [location.id.toUpperCase(), location]));
+  const locations = scopedLocations();
+  const locationsById = new Map(locations.map((location) => [location.id.toUpperCase(), location]));
   const latestActivity = new Map();
   state.movements.forEach((move) => [move.from, move.to].filter(Boolean).forEach((id) => { if (!latestActivity.has(id)) latestActivity.set(id, move); }));
   const movementLabels = { IN: "Ingreso", OUT: "Egreso", MOVE: "Reubicación", ADJUST: "Ajuste" };
   const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Usuario", "Observación"]];
-  state.locations.forEach((location) => {
+  locations.forEach((location) => {
     const primary = locationsById.get(String(location.footprintPrimaryId || location.id).toUpperCase()) || location;
     const load = { palletCount: Number(primary.palletCount || 0), contents: primary.contents || [] };
     const contents = (load.contents || []).map(normalizeContentLine).filter((item) => item.sku);
@@ -1392,13 +1477,13 @@ function exportInventoryCsv() {
   });
   const now = new Date();
   const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  downloadCsv(`inventario_gps_${stamp}.csv`, rows);
+  downloadCsv(`inventario_gps_${state.operationalScope.toLowerCase()}_${stamp}.csv`, rows);
 }
 
 function renderInventoryCounts() {
   const body = $("#inventoryCountsTable");
   if (!body) return;
-  const counts = state.inventoryCounts;
+  const counts = state.inventoryCounts.filter((count) => movementPositionInOperationalScope(count.position));
   $("#countKpiTotal").textContent = fmt.format(counts.length);
   $("#countKpiPending").textContent = fmt.format(counts.filter((item) => item.status === "PENDIENTE").length);
   $("#countKpiMatch").textContent = fmt.format(counts.filter((item) => item.result === "COINCIDE").length);
@@ -1655,7 +1740,7 @@ function renderSkuAlerts() {
     if (item.velocityClass && !state.slottingRules.some((rule) => rule.velocityClass === item.velocityClass)) missingZones.add(item.velocityClass);
   });
   missingZones.forEach((velocityClass) => alerts.push({ type: "config", level: "warning", title: `${formatVelocityClass(velocityClass)} sin zona definida`, detail: "Los SKU de esta clase todavía no pueden validarse por ubicación." }));
-  state.locations.filter((location) => location.occupied).forEach((location) => {
+  scopedLocations().filter((location) => location.occupied).forEach((location) => {
     (location.contents || []).forEach((content) => {
       const item = state.skuMaster.find((sku) => sku.sku === content.sku);
       if (!item?.velocityClass) return;
@@ -1685,7 +1770,7 @@ async function pullSlottingRules() {
 
 function fillLabelFilters() {
   const aisleFilter = $("#labelAisle");
-  const aisles = [...new Set(state.locations.map((item) => item.aisle))]
+  const aisles = [...new Set(scopedLocations().map((item) => item.aisle))]
     .sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
   aisleFilter.innerHTML = '<option value="all">Todos los pasillos</option>'
     + aisles.map((aisle) => `<option value="${escapeHtml(aisle)}">Pasillo ${escapeHtml(aisle)}</option>`).join("");
@@ -1698,7 +1783,7 @@ function fillLabelRackFilter() {
   const previous = filter.value;
   const aisle = $("#labelAisle").value;
   const side = $("#labelSide").value;
-  const racks = [...new Set(state.locations
+  const racks = [...new Set(scopedLocations()
     .filter((item) => aisle === "all" || item.aisle === aisle)
     .filter((item) => side === "all" || locationSector(item) === side)
     .map((item) => Number(item.rack)))]
@@ -1710,7 +1795,7 @@ function fillLabelRackFilter() {
 }
 
 function filteredLocations() {
-  return state.locations.filter((item) => {
+  return scopedLocations().filter((item) => {
     if (state.filters.position && !item.id.toLowerCase().includes(state.filters.position)) return false;
     if (state.filters.aisle && item.aisle.toLowerCase() !== state.filters.aisle) return false;
     if (state.filters.locationSide !== "all" && locationSector(item) !== state.filters.locationSide) return false;
@@ -1758,11 +1843,12 @@ function mapLocations() {
 }
 
 function renderKpis() {
-  const total = state.locations.length;
-  const occupied = state.locations.filter((item) => item.occupied).length;
-  const available = state.locations.filter((item) => !item.occupied && !item.blocked).length;
+  const locations = scopedLocations();
+  const total = locations.length;
+  const occupied = locations.filter((item) => item.occupied).length;
+  const available = locations.filter((item) => !item.occupied && !item.blocked).length;
   const rate = (occupied / total) * 100;
-  $("#configuredPositionCount").textContent = `${fmt.format(total)} posiciones configuradas`;
+  $("#configuredPositionCount").textContent = `${scopeLabel()} · ${fmt.format(total)} posiciones`;
   $("#kpiTotal").textContent = fmt.format(total);
   $("#kpiOccupied").textContent = fmt.format(occupied);
   $("#kpiAvailable").textContent = fmt.format(available);
@@ -1774,7 +1860,9 @@ function renderDashboardInsights() {
   const container = $("#dashboardInsights");
   if (!container) return;
   const skuLocations = new Map();
-  state.locations.filter((item) => item.occupied).forEach((location) => (location.contents || []).forEach((content) => {
+  const locations = scopedLocations();
+  const movements = scopedMovements();
+  locations.filter((item) => item.occupied).forEach((location) => (location.contents || []).forEach((content) => {
     if (!skuLocations.has(content.sku)) skuLocations.set(content.sku, new Set());
     skuLocations.get(content.sku).add(location.id);
   }));
@@ -1782,8 +1870,8 @@ function renderDashboardInsights() {
   const leader = [...skuLocations.entries()]
     .map(([sku, locations]) => ({ sku, positions: locations.size, packages: metrics[sku]?.packages || 0 }))
     .sort((a, b) => b.positions - a.positions || b.packages - a.packages)[0];
-  const last = state.movements[0];
-  const blocked = state.locations.filter((item) => item.blocked).length;
+  const last = movements[0];
+  const blocked = locations.filter((item) => item.blocked).length;
   const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste de inventario" };
   container.innerHTML = `
     <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
@@ -1792,10 +1880,11 @@ function renderDashboardInsights() {
 }
 
 function renderSideBars() {
-  const driveIn = state.locations.filter((item) => item.storageType === "drivein");
-  const wall = state.locations.filter((item) => item.storageType === "wallrack");
-  const backstore = state.locations.filter((item) => item.storageType === "backstore");
-  const sides = groupBy(state.locations.filter((item) => !["drivein", "wallrack", "backstore"].includes(item.storageType)), (item) => item.side);
+  const locations = scopedLocations();
+  const driveIn = locations.filter((item) => item.storageType === "drivein");
+  const wall = locations.filter((item) => item.storageType === "wallrack");
+  const backstore = locations.filter((item) => item.storageType === "backstore");
+  const sides = groupBy(locations.filter((item) => !["drivein", "wallrack", "backstore"].includes(item.storageType)), (item) => item.side);
   const sideRows = Object.entries(sides)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([side, items]) => {
@@ -1811,9 +1900,9 @@ function renderSideBars() {
     });
   const driveOccupied = driveIn.filter((item) => item.occupied).length;
   const driveRate = driveIn.length ? driveOccupied / driveIn.length * 100 : 0;
-  sideRows.push(`<div class="bar-row"><strong>Drive-In</strong><div class="bar-track"><div class="bar-fill drivein" style="width:${driveRate}%"></div></div><span>${formatRate(driveRate)}</span></div>`);
+  if (driveIn.length) sideRows.push(`<div class="bar-row"><strong>Drive-In</strong><div class="bar-track"><div class="bar-fill drivein" style="width:${driveRate}%"></div></div><span>${formatRate(driveRate)}</span></div>`);
   const backstoreRate = backstore.length ? backstore.filter((item) => item.occupied).length / backstore.length * 100 : 0;
-  sideRows.push(`<div class="bar-row"><strong>Back salón Escobar</strong><div class="bar-track"><div class="bar-fill" style="width:${backstoreRate}%"></div></div><span>${formatRate(backstoreRate)}</span></div>`);
+  if (backstore.length) sideRows.push(`<div class="bar-row"><strong>Back salón Escobar</strong><div class="bar-track"><div class="bar-fill" style="width:${backstoreRate}%"></div></div><span>${formatRate(backstoreRate)}</span></div>`);
   const wallNames = { ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" };
   Object.entries(groupBy(wall, (item) => item.aisle)).sort(([a], [b]) => a.localeCompare(b)).forEach(([aisle, items]) => {
     const rate = items.length ? items.filter((item) => item.occupied).length / items.length * 100 : 0;
@@ -1871,7 +1960,7 @@ function storageCard(label, rack, positions) {
 
 function loadPickingExample() {
   const stock = {};
-  state.locations
+  scopedLocations()
     .filter((location) => location.occupied && !location.blocked && !isFootprintSecondary(location))
     .forEach((location) => (location.contents || []).forEach((content) => {
       const available = availablePackages(location, content.sku);
@@ -2039,7 +2128,7 @@ function renderPickingDraft() {
     return;
   }
   requests.forEach((request) => {
-    const stock = state.locations
+    const stock = scopedLocations()
       .filter((item) => item.occupied && !item.blocked && !isFootprintSecondary(item) && item.contents?.some((content) => content.sku.toLowerCase() === request.sku.toLowerCase()))
       .reduce((sum, item) => sum + availablePackages(item, request.sku), 0);
     const master = state.skuMaster.find((item) => item.sku.toLowerCase() === request.sku.toLowerCase());
@@ -2074,7 +2163,7 @@ function calculatePickingRoute(event) {
   const shortages = [];
   requests.forEach(({ sku, quantity }) => {
     let pending = quantity;
-    const positions = state.locations
+    const positions = scopedLocations()
       .filter((item) => item.occupied && !item.blocked && !isFootprintSecondary(item) && item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase()))
       .sort((a, b) => pickingAge(a) - pickingAge(b) || a.id.localeCompare(b.id));
     positions.forEach((location) => {
@@ -2195,7 +2284,7 @@ function renderPickingRoute(route, shortages, requests) {
 }
 
 function rackCard(side, rack, items) {
-  const rackItems = state.locations.filter((item) => !["drivein", "wallrack"].includes(item.storageType) && item.side === side && item.rack === rack);
+  const rackItems = scopedLocations().filter((item) => !["drivein", "wallrack", "backstore"].includes(item.storageType) && item.side === side && item.rack === rack);
   const total = rackItems.length;
   const occupied = rackItems.filter((item) => item.occupied).length;
   const blocked = rackItems.filter((item) => item.blocked).length;
@@ -2223,8 +2312,9 @@ function render3dMap() {
   if (!canvas || !state.layout3d) return;
 
   const query = state.filters.query;
-  const locationsById = new Map(state.locations.map((item) => [item.id, item]));
+  const locationsById = new Map(scopedLocations().map((item) => [item.id, item]));
   state.render3dStacks = state.layout3d.stacks
+    .filter((stack) => locationInOperationalScope(state.locations.find((item) => item.id === stack.baseId)))
     .filter((stack) => state.view3d.side === "all" || stackSector(stack) === state.view3d.side)
     .filter((stack) => !query || [stack.baseId, stack.aisle, stack.side, stack.rack, stack.module].join(" ").toLowerCase().includes(query))
     .map((stack) => {
@@ -2717,8 +2807,9 @@ function locationLoadLabel(location) {
 
 function renderMovements() {
   const actions = hasPermission("movement_correct");
-  const filtered = state.movements.filter(movementMatchesFilters);
-  $("#movementFilterCount").textContent = `${fmt.format(filtered.length)} de ${fmt.format(state.movements.length)} movimientos`;
+  const scopeMovements = scopedMovements();
+  const filtered = scopeMovements.filter(movementMatchesFilters);
+  $("#movementFilterCount").textContent = `${fmt.format(filtered.length)} de ${fmt.format(scopeMovements.length)} movimientos · ${scopeLabel()}`;
   $("#movementsTable").innerHTML =
     filtered
       .map(
@@ -2974,8 +3065,8 @@ function renderMovementPreview() {
   const form = $("#registerMovement");
   const data = Object.fromEntries(new FormData(form));
   data.type = form.dataset.operation;
-  const from = findLocation(normalizePosition(data.from));
-  const to = findLocation(normalizePosition(data.to));
+  const from = findOperationalLocation(normalizePosition(data.from));
+  const to = findOperationalLocation(normalizePosition(data.to));
   $("#registerFromInfo").textContent = positionInfo(from, data.from, "origen");
   $("#registerToInfo").textContent = positionInfo(to, data.to, "destino");
   $("#registerFromInfo").classList.toggle("error", Boolean(data.from) && (!from || !from.occupied));
@@ -3006,20 +3097,21 @@ function positionInfo(location, rawValue, role) {
   }
   if (location.blocked && role === "destino") return `Bloqueada · ${location.blockReason}`;
   if (role === "origen") return location.occupied ? `${location.material} · ${fmt.format(location.quantity)} bultos${location.palletCount ? ` · ${location.palletCount} pallet` : ""}${location.blocked ? " · Bloqueada" : ""}` : "Posición libre";
-  return location.occupied ? `Ocupada por ${location.material}` : `Disponible · Lado ${location.side}, rack ${location.rack}, nivel ${location.level}`;
+  return location.occupied ? `Ocupada por ${location.material}` : `Disponible · ${countScopeLabel(locationSector(location))}, rack ${location.rack}, nivel ${location.level}`;
 }
 
 function renderRegistration() {
   const today = new Date().toDateString();
-  const todayMoves = state.movements.filter((move) => new Date(movementTimestamp(move)).toDateString() === today);
+  const movements = scopedMovements();
+  const todayMoves = movements.filter((move) => new Date(movementTimestamp(move)).toDateString() === today);
   $("#todayMoves").textContent = fmt.format(todayMoves.length);
   $("#todayIn").textContent = fmt.format(sumMovementQuantity(todayMoves.filter((move) => move.type === "IN")));
   $("#todayOut").textContent = fmt.format(sumMovementQuantity(todayMoves.filter((move) => move.type === "OUT")));
   $("#registerClock").textContent = formatDateTime();
-  $("#lastMovementTime").textContent = state.movements[0] ? formatMovementDate(state.movements[0]) : "Sin actividad";
+  $("#lastMovementTime").textContent = movements[0] ? formatMovementDate(movements[0]) : "Sin actividad";
   const actions = hasPermission("movement_correct");
-  $("#recentMovementList").innerHTML = state.movements.length
-    ? state.movements.slice(0, 8).map((move) => `
+  $("#recentMovementList").innerHTML = movements.length
+    ? movements.slice(0, 8).map((move) => `
       <div class="recent-movement">
         <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT", ADJUST: "AJ" }[move.type] || move.type}</span>
         <div><strong>${move.material || "Sin material"}</strong><small>${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
@@ -3295,7 +3387,7 @@ function renderLabels() {
   const level = $("#labelLevel").value;
   const rack = $("#labelRack").value;
   const order = $("#labelOrder").value;
-  const locations = state.locations
+  const locations = scopedLocations()
     .filter((item) => aisle === "all" || item.aisle === aisle)
     .filter((item) => side === "all" || locationSector(item) === side)
     .filter((item) => level === "all" || String(item.level) === level)
@@ -3380,15 +3472,17 @@ function renderAnalytics() {
   const now = Date.now();
   const start = state.analyticsStartDate ? new Date(`${state.analyticsStartDate}T00:00:00`).getTime() : 0;
   const end = state.analyticsEndDate ? new Date(`${state.analyticsEndDate}T23:59:59.999`).getTime() : now;
-  const movements = state.movements.filter((move) => {
+  const allScopeMovements = scopedMovements();
+  const locations = scopedLocations();
+  const movements = allScopeMovements.filter((move) => {
     const timestamp = movementTimestamp(move);
     return timestamp >= start && timestamp <= end;
   });
-  const total = state.locations.length;
-  const currentOccupied = state.locations.filter((item) => item.occupied).length;
-  const afterEndDelta = state.movements.filter((move) => movementTimestamp(move) > end).reduce((sum, move) => sum + Number(move.occupancyDelta || 0), 0);
+  const total = locations.length;
+  const currentOccupied = locations.filter((item) => item.occupied).length;
+  const afterEndDelta = allScopeMovements.filter((move) => movementTimestamp(move) > end).reduce((sum, move) => sum + Number(move.occupancyDelta || 0), 0);
   const occupied = currentOccupied - afterEndDelta;
-  const chartHistory = occupancyHistoryForRange(state.movements, currentOccupied, start, end);
+  const chartHistory = occupancyHistoryForRange(allScopeMovements, currentOccupied, start, end);
   const occupancyRate = total ? (occupied / total) * 100 : 0;
   const firstOccupied = chartHistory[0]?.occupied ?? occupied;
   const changePoints = ((occupied - firstOccupied) / total) * 100;
@@ -3409,9 +3503,9 @@ function renderAnalytics() {
   const currentPackages = Object.values(stockMetricsBySku()).reduce((sum, item) => sum + Number(item.packages || 0), 0);
   const outPackages = outMoves.reduce((sum, move) => sum + Number(move.packages || move.quantity || 0), 0);
   const turnover = currentPackages > 0 && outPackages > 0 ? outPackages / currentPackages : null;
-  const dwellSamples = dwellSamplesForRange(state.movements, start, end);
+  const dwellSamples = dwellSamplesForRange(allScopeMovements, start, end);
   const averageDwell = dwellSamples.length ? dwellSamples.reduce((sum, hours) => sum + hours, 0) / dwellSamples.length : null;
-  const stagnant = state.locations.filter((item) => item.occupiedSince && now - Date.parse(item.occupiedSince) >= 30 * 86400000).length;
+  const stagnant = locations.filter((item) => item.occupiedSince && now - Date.parse(item.occupiedSince) >= 30 * 86400000).length;
   const fullFlow = occupancyFlow(movements, occupied, state.waterfallGranularity);
   const flowWindow = state.waterfallWindow || fullFlow.length;
   const dailyFlow = fullFlow.slice(-flowWindow);
@@ -3498,15 +3592,15 @@ function occupancyHistoryForRange(allMovements, currentOccupied, start, end) {
     const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     byMonth.set(month, { month, timestamp: date.toISOString(), occupied: running, quantity: 0 });
   });
-  if (!byMonth.size) byMonth.set("actual", { month: "actual", timestamp: new Date(end).toISOString(), occupied: currentOccupied - afterEnd, quantity: state.locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0) });
+  if (!byMonth.size) byMonth.set("actual", { month: "actual", timestamp: new Date(end).toISOString(), occupied: currentOccupied - afterEnd, quantity: scopedLocations().reduce((sum, item) => sum + Number(item.quantity || 0), 0) });
   return [...byMonth.values()];
 }
 
 function changeWaterfallZoom(direction) {
-  const occupied = state.locations.filter((item) => item.occupied).length;
+  const occupied = scopedLocations().filter((item) => item.occupied).length;
   const start = state.analyticsStartDate ? new Date(`${state.analyticsStartDate}T00:00:00`).getTime() : 0;
   const end = state.analyticsEndDate ? new Date(`${state.analyticsEndDate}T23:59:59.999`).getTime() : Date.now();
-  const movements = state.movements.filter((move) => movementTimestamp(move) >= start && movementTimestamp(move) <= end);
+  const movements = scopedMovements().filter((move) => movementTimestamp(move) >= start && movementTimestamp(move) <= end);
   const length = occupancyFlow(movements, occupied, state.waterfallGranularity).length;
   if (!length) return;
   const current = state.waterfallWindow || length;
@@ -3526,7 +3620,7 @@ function monthlyOccupancyHistory(history, currentOccupied) {
   });
   const now = new Date();
   const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  byMonth.set(currentKey, { timestamp: now.toISOString(), occupied: currentOccupied, quantity: state.locations.reduce((sum, item) => sum + Number(item.quantity || 0), 0) });
+  byMonth.set(currentKey, { timestamp: now.toISOString(), occupied: currentOccupied, quantity: scopedLocations().reduce((sum, item) => sum + Number(item.quantity || 0), 0) });
   return [...byMonth.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, snapshot]) => ({ ...snapshot, month }));
@@ -3594,7 +3688,7 @@ function coverageText(history) {
 }
 
 function renderAnalyticsSides() {
-  const sectors = groupBy(state.locations, locationSector);
+  const sectors = groupBy(scopedLocations(), locationSector);
   $("#analyticsSides").innerHTML = Object.entries(sectors).map(([sector, items]) => {
     const used = items.filter((item) => item.occupied).length;
     const rate = (used / items.length) * 100;
@@ -3605,7 +3699,7 @@ function renderAnalyticsSides() {
 function renderTopMaterials() {
   const metrics = stockMetricsBySku();
   const ranking = Object.entries(metrics)
-    .map(([material, item]) => ({ material, quantity: item.packages, unit: "bultos", positions: state.locations.filter((location) => location.contents?.some((content) => content.sku === material)).length }))
+    .map(([material, item]) => ({ material, quantity: item.packages, unit: "bultos", positions: scopedLocations().filter((location) => location.contents?.some((content) => content.sku === material)).length }))
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 6);
   $("#topMaterials").innerHTML = ranking.length
@@ -3787,6 +3881,10 @@ function handleMovement(event) {
     : null;
 
   try {
+    [from, to].filter(Boolean).forEach((position) => {
+      const location = findLocation(position);
+      if (location && !locationInOperationalScope(location)) throw new Error(`La posición ${position} no pertenece al ámbito ${scopeLabel()}.`);
+    });
     const contents = type === "IN"
       ? loadType === "PALLET_MULTI"
         ? parseMultiContents(data.multiContents)
@@ -4053,6 +4151,11 @@ function findLocation(id) {
   return state.locations.find((item) => item.id.toUpperCase() === String(id || "").toUpperCase());
 }
 
+function findOperationalLocation(id) {
+  const location = findLocation(id);
+  return locationInOperationalScope(location) ? location : null;
+}
+
 function requiredLocation(id) {
   const location = findLocation(id);
   if (!location) {
@@ -4099,7 +4202,7 @@ function suggestLocations(id) {
   const driveInMatch = String(id || "").match(/^DI\.(\d{2})\.([0-4])\.(\d{2})$/);
   if (driveInMatch) {
     const [, column, level, depth] = driveInMatch;
-    return state.locations
+    return scopedLocations()
       .filter((item) => item.storageType === "drivein" && String(item.level) === level)
       .sort((a, b) => (Math.abs(a.rack - Number(column)) + Math.abs(a.depth - Number(depth))) - (Math.abs(b.rack - Number(column)) + Math.abs(b.depth - Number(depth))))
       .slice(0, 3)
@@ -4109,7 +4212,7 @@ function suggestLocations(id) {
   if (backstoreMatch) {
     const [, aisle, positionText, level] = backstoreMatch;
     const position = Number(positionText);
-    return state.locations
+    return scopedLocations()
       .filter((item) => item.storageType === "backstore" && item.aisle === aisle && String(item.level) === level)
       .sort((a, b) => Math.abs(a.position - position) - Math.abs(b.position - position))
       .slice(0, 3)
@@ -4119,10 +4222,10 @@ function suggestLocations(id) {
   if (!match) return [];
   const [, aisle, side, moduleText, level] = match;
   const module = Number(moduleText);
-  const sameAisle = state.locations
+  const sameAisle = scopedLocations()
     .filter((item) => item.aisle === aisle && String(item.side) === side && String(item.level) === level)
     .sort((a, b) => Math.abs(a.module - module) - Math.abs(b.module - module));
-  const sameModule = state.locations
+  const sameModule = scopedLocations()
     .filter((item) => item.module === module && String(item.side) === side && String(item.level) === level)
     .sort((a, b) => Math.abs(aisleNumber(a.aisle) - aisleNumber(aisle)) - Math.abs(aisleNumber(b.aisle) - aisleNumber(aisle)));
   return [...new Set([...sameAisle.slice(0, 1), ...sameModule.slice(0, 1)].map((item) => item.id))].slice(0, 2);
@@ -4173,7 +4276,7 @@ function openDetail(item) {
 function recommendPutawayLocation(sku) {
   const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
   if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
-  const available = state.locations.filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku) && canFitSkuFootprint(location, item.sku));
+  const available = scopedLocations().filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku) && canFitSkuFootprint(location, item.sku));
   const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
   const zoned = rules.length ? available.filter((location) => rules.some((rule) => locationMatchesRule(location, rule))) : available;
   const fastMover = item.velocityClass === "SUPER_A" || item.velocityClass === "A";
@@ -4215,7 +4318,7 @@ function applyPutawaySuggestion() {
 }
 
 function openRackDetail(side, rack) {
-  const items = state.locations.filter((item) => item.side === side && item.rack === rack);
+  const items = scopedLocations().filter((item) => item.side === side && item.rack === rack);
   if (!items.length) return;
   const occupiedItems = items.filter((item) => item.occupied);
   const blockedItems = items.filter((item) => item.blocked);
