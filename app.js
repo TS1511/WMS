@@ -2499,8 +2499,6 @@ function draw3dMap() {
 
   const bounds = state.layout3d.bounds;
   draw3dQuad(ctx, bounds.minCol - 2, bounds.minRow - 2, bounds.maxCol + 2, bounds.maxRow + 2, 0, "#f5f7f8", width, height);
-  draw3dQuad(ctx, bounds.minCol - 2, 28.2, bounds.maxCol + 2, 30.8, 0.5, "#cfd8df", width, height);
-  draw3dCoordinateGrid(ctx, width, height);
   const driveInStacks = state.render3dStacks.filter((stack) => stack.type === "drivein");
   if (driveInStacks.length) {
     draw3dQuad(
@@ -2696,22 +2694,6 @@ function draw3dGuides(ctx, width, height) {
     drawGuideLabel(ctx, "DRIVE-IN", point.x, point.y);
   }
 
-  [
-    { start: 8, count: 10, side: 1 },
-    { start: 31, count: 12, side: 2 },
-  ].forEach((section) => {
-    for (let column = 0; column <= section.count; column += 1) {
-      const row = section.start + column * 2;
-      const start = project3d(bounds.minCol - 0.8, row, 1, width, height);
-      const end = project3d(bounds.maxCol + 0.8, row, 1, width, height);
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.strokeStyle = "rgba(53, 72, 82, 0.42)";
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-    }
-  });
   ctx.restore();
 }
 
