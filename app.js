@@ -300,7 +300,7 @@ function bindEvents() {
 
   $("#side3dFilter").addEventListener("change", (event) => {
     state.view3d.side = event.target.value;
-    render3dMap();
+    focus3dFilter();
   });
 
   $("#level3dFilter").addEventListener("change", (event) => {
@@ -1356,9 +1356,9 @@ async function saveInventoryCount(event) {
   }
 }
 
-function locationSector(location) { if (location.storageType === "drivein" || location.aisle === "PE") return "PE"; if (location.storageType === "wallrack") return String(location.aisle || "ZE").toUpperCase(); return String(location.side); }
+function locationSector(location) { if (location.storageType === "drivein" || location.aisle === "PE") return "PE"; if (location.storageType === "wallrack") return String(location.aisle || "ZE").toUpperCase(); if (location.storageType === "backstore") return "BACK"; return String(location.side); }
 function locationInCountScope(location, scope) { return scope === "ALL" || locationSector(location) === scope; }
-function countScopeLabel(scope) { return ({ ALL: "Todo el depósito", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" })[scope] || scope; }
+function countScopeLabel(scope) { return ({ ALL: "Todas las zonas", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte", BACK: "Back salón Escobar" })[scope] || scope; }
 function startInventorySession() { const id = $("#countInventoryId").value.trim().toUpperCase(); const scope = $("#countScope").value; if (!id) return alert("Ingresá un identificador para el inventario."); state.countSession = { id, scope, startedAt: new Date().toISOString() }; localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession)); renderCountSession(); $("#countPosition").focus(); }
 function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = state.locations.filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
 function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
@@ -1700,7 +1700,7 @@ function fillLabelRackFilter() {
   const side = $("#labelSide").value;
   const racks = [...new Set(state.locations
     .filter((item) => aisle === "all" || item.aisle === aisle)
-    .filter((item) => side === "all" || String(item.side) === side)
+    .filter((item) => side === "all" || locationSector(item) === side)
     .map((item) => Number(item.rack)))]
     .filter(Number.isFinite)
     .sort((a, b) => a - b);
@@ -1794,7 +1794,8 @@ function renderDashboardInsights() {
 function renderSideBars() {
   const driveIn = state.locations.filter((item) => item.storageType === "drivein");
   const wall = state.locations.filter((item) => item.storageType === "wallrack");
-  const sides = groupBy(state.locations.filter((item) => !["drivein", "wallrack"].includes(item.storageType)), (item) => item.side);
+  const backstore = state.locations.filter((item) => item.storageType === "backstore");
+  const sides = groupBy(state.locations.filter((item) => !["drivein", "wallrack", "backstore"].includes(item.storageType)), (item) => item.side);
   const sideRows = Object.entries(sides)
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([side, items]) => {
@@ -1811,6 +1812,8 @@ function renderSideBars() {
   const driveOccupied = driveIn.filter((item) => item.occupied).length;
   const driveRate = driveIn.length ? driveOccupied / driveIn.length * 100 : 0;
   sideRows.push(`<div class="bar-row"><strong>Drive-In</strong><div class="bar-track"><div class="bar-fill drivein" style="width:${driveRate}%"></div></div><span>${formatRate(driveRate)}</span></div>`);
+  const backstoreRate = backstore.length ? backstore.filter((item) => item.occupied).length / backstore.length * 100 : 0;
+  sideRows.push(`<div class="bar-row"><strong>Back salón Escobar</strong><div class="bar-track"><div class="bar-fill" style="width:${backstoreRate}%"></div></div><span>${formatRate(backstoreRate)}</span></div>`);
   const wallNames = { ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" };
   Object.entries(groupBy(wall, (item) => item.aisle)).sort(([a], [b]) => a.localeCompare(b)).forEach(([aisle, items]) => {
     const rate = items.length ? items.filter((item) => item.occupied).length / items.length * 100 : 0;
@@ -1823,9 +1826,11 @@ function renderMap() {
   const items = mapLocations();
   const isDriveIn = (item) => item.storageType === "drivein" || /^PE\./i.test(item.id);
   const isWallRack = (item) => item.storageType === "wallrack" || /^Z[ENO]\.\d{1,3}\.[0-4]$/i.test(item.id);
-  const selective = items.filter((item) => !isDriveIn(item) && !isWallRack(item));
+  const isBackstore = (item) => item.storageType === "backstore";
+  const selective = items.filter((item) => !isDriveIn(item) && !isWallRack(item) && !isBackstore(item));
   const driveIn = items.filter(isDriveIn);
   const wall = items.filter(isWallRack);
+  const backstore = items.filter(isBackstore);
   const bySideRack = groupBy(selective, (item) => `${item.side}-${item.rack}`);
   const sides = [...new Set(selective.map((item) => item.side))].sort((a, b) => a - b);
 
@@ -1847,7 +1852,8 @@ function renderMap() {
   const specialSection = (title, rows, label) => rows.length ? `<section class="side-section special-storage"><h2>${title}</h2><div class="rack-grid">${Object.entries(groupBy(rows, (item) => item.rack)).map(([rack, positions]) => storageCard(label, rack, positions)).join("")}</div></section>` : "";
   const wallNames = { ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" };
   const wallSections = Object.entries(groupBy(wall, (item) => item.aisle)).sort(([a], [b]) => a.localeCompare(b)).map(([aisle, rows]) => specialSection(`Rack simple de pared · ${wallNames[aisle] || aisle}`, rows, "Módulo")).join("");
-  $("#warehouseMap").innerHTML = selectiveHtml + specialSection("Drive-In penetrable", driveIn, "Calle") + wallSections;
+  const backstoreSection = specialSection("Back salón Escobar · 17 racks dobles", backstore, "Rack doble");
+  $("#warehouseMap").innerHTML = selectiveHtml + specialSection("Drive-In penetrable", driveIn, "Calle") + wallSections + backstoreSection;
 
   $$(".rack-card").forEach((card) => {
     card.addEventListener("click", () => {
@@ -2258,7 +2264,12 @@ function render3dMap() {
 function stackSector(stack) {
   if (stack.type === "drivein" || String(stack.aisle).toUpperCase() === "PE") return "PE";
   if (stack.type === "wallrack") return String(stack.aisle || "ZE").toUpperCase();
+  if (stack.type === "backstore") return "BACK";
   return String(stack.side);
+}
+
+function preserves3dSpacing(stack) {
+  return ["drivein", "wallrack", "backstore"].includes(stack.type);
 }
 
 function update3dFilterSummary() {
@@ -2277,7 +2288,7 @@ function update3dFilterSummary() {
 
 function focus3dFilter() {
   render3dMap();
-  if (!state.view3d.sku && !state.view3d.position && state.view3d.zone === "all") return;
+  if (!state.view3d.sku && !state.view3d.position && state.view3d.zone === "all" && state.view3d.side === "all") return;
   const stacks = state.render3dStacks.filter((stack) => stack.matchesFilter);
   if (!stacks.length) return;
   const shell = $(".map3d-shell");
@@ -2288,7 +2299,7 @@ function focus3dFilter() {
   prepare3dProjection();
   const col = stacks.reduce((sum, item) => sum + item.col, 0) / stacks.length;
   const row = stacks.reduce((sum, item) => sum + item.row, 0) / stacks.length;
-  const point = project3d(col, row, 80, rect.width, rect.height, stacks.every((item) => item.type === "drivein" || item.type === "wallrack"));
+  const point = project3d(col, row, 80, rect.width, rect.height, stacks.every(preserves3dSpacing));
   state.view3d.panX = rect.width / 2 - point.x;
   state.view3d.panY = rect.height / 2 - point.y;
   update3dTransform();
@@ -2319,7 +2330,7 @@ function prepare3dProjection() {
   const tilt = (state.view3d.tilt * Math.PI) / 180;
   if (!state.layout3d.projectedColumnBounds) {
     const projectedColumns = state.layout3d.stacks.map((stack) =>
-      stack.type === "drivein" || stack.type === "wallrack"
+      preserves3dSpacing(stack)
         ? stack.col
         : expandAisleSpacing(stack.col, bounds.minCol)
     );
@@ -2428,7 +2439,7 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
   const top = bottom + POSITION_3D.height;
   const halfWidth = POSITION_3D.halfWidth;
   const halfLength = POSITION_3D.halfLength;
-  const preserveSpacing = stack.type === "drivein" || stack.type === "wallrack";
+  const preserveSpacing = preserves3dSpacing(stack);
   const angle = Number(stack.rotation || 0) * Math.PI / 180;
   const corners = [[-halfWidth, -halfLength], [halfWidth, -halfLength], [halfWidth, halfLength], [-halfWidth, halfLength]].map(([x, y]) => ({
     col: stack.col + x * Math.cos(angle) - y * Math.sin(angle),
@@ -2467,7 +2478,7 @@ function draw3dRackLevel(ctx, stack, level, color, width, height, simplified = f
 
 function stackDepth3d(stack) {
   const bounds = state.layout3d.bounds;
-  const projectedCol = stack.type === "drivein" || stack.type === "wallrack" ? stack.col : expandAisleSpacing(stack.col, bounds.minCol);
+  const projectedCol = preserves3dSpacing(stack) ? stack.col : expandAisleSpacing(stack.col, bounds.minCol);
   const x = (projectedCol - expandAisleSpacing(bounds.minCol, bounds.minCol)) * 11;
   const y = (stack.row - bounds.minRow) * 11;
   const angle = (state.view3d.rotation * Math.PI) / 180;
@@ -2647,7 +2658,7 @@ function pick3dLocation(clientX, clientY) {
       const status = stack.levels[level];
       if (!status?.location) continue;
       const z = POSITION_3D.base + level * POSITION_3D.levelPitch + POSITION_3D.height / 2;
-      const point = project3d(stack.col, stack.row, z, rect.width, rect.height, stack.type === "drivein" || stack.type === "wallrack");
+      const point = project3d(stack.col, stack.row, z, rect.width, rect.height, preserves3dSpacing(stack));
       const distance = Math.hypot(clientX - rect.left - point.x, clientY - rect.top - point.y);
       if (distance < bestDistance) {
         bestDistance = distance;
@@ -2678,7 +2689,7 @@ function locationRow(item) {
     ? `<details class="position-composition"><summary>${item.contents.length} SKU</summary>${item.contents.map((content) => `<span><strong>${escapeHtml(content.sku)}</strong>${fmt.format(content.packages || 0)} bultos</span>`).join("")}</details>`
     : escapeHtml(item.material || "");
   const sector = locationSector(item);
-  const sectorLabel = sector === "PE" ? "Penetrable" : sector === "ZE" ? "Zona Este" : sector === "ZO" ? "Zona Oeste" : sector === "ZN" ? "Zona Norte" : `Lado ${sector}`;
+  const sectorLabel = sector === "PE" ? "Penetrable" : sector === "ZE" ? "Zona Este" : sector === "ZO" ? "Zona Oeste" : sector === "ZN" ? "Zona Norte" : sector === "BACK" ? "Back salón Escobar" : `Lado ${sector}`;
   return `
     <tr data-id="${item.id}">
       <td>${item.id}</td>
@@ -3286,7 +3297,7 @@ function renderLabels() {
   const order = $("#labelOrder").value;
   const locations = state.locations
     .filter((item) => aisle === "all" || item.aisle === aisle)
-    .filter((item) => side === "all" || String(item.side) === side)
+    .filter((item) => side === "all" || locationSector(item) === side)
     .filter((item) => level === "all" || String(item.level) === level)
     .filter((item) => rack === "all" || String(item.rack) === rack)
     .sort((a, b) => compareLabelLocations(a, b, order));
@@ -3332,6 +3343,7 @@ function labelSectorName(location) {
   if (location.aisle === "ZE") return "Zona Este";
   if (location.aisle === "ZO") return "Zona Oeste";
   if (location.aisle === "ZN") return "Zona Norte";
+  if (location.storageType === "backstore") return "Back salón Escobar";
   return `Lado ${location.side}`;
 }
 
@@ -3582,11 +3594,11 @@ function coverageText(history) {
 }
 
 function renderAnalyticsSides() {
-  const sides = groupBy(state.locations, (item) => item.side);
-  $("#analyticsSides").innerHTML = Object.entries(sides).map(([side, items]) => {
+  const sectors = groupBy(state.locations, locationSector);
+  $("#analyticsSides").innerHTML = Object.entries(sectors).map(([sector, items]) => {
     const used = items.filter((item) => item.occupied).length;
     const rate = (used / items.length) * 100;
-    return `<div class="bar-row"><strong>Lado ${side}</strong><div class="bar-track"><div class="bar-fill" style="width:${rate}%"></div></div><span>${formatRate(rate)}</span></div>`;
+    return `<div class="bar-row"><strong>${countScopeLabel(sector)}</strong><div class="bar-track"><div class="bar-fill" style="width:${rate}%"></div></div><span>${formatRate(rate)}</span></div>`;
   }).join("");
 }
 
@@ -4059,6 +4071,8 @@ function normalizePosition(value) {
   if (penetrableMatch) return `PE.${penetrableMatch[1].padStart(2, "0")}.${penetrableMatch[2]}.${penetrableMatch[3]}`;
   const wallMatch = normalized.match(/^(ZE|ZO|ZN)\.(\d{1,3})\.([0-4])$/);
   if (wallMatch) return `${wallMatch[1]}.${Number(wallMatch[2])}.${wallMatch[3]}`;
+  const backstoreMatch = normalized.match(/^([A-R])\.(\d{1,2})\.([0-4])$/);
+  if (backstoreMatch) return `${backstoreMatch[1]}.${backstoreMatch[2].padStart(2, "0")}.${backstoreMatch[3]}`;
   const legacyWallMatch = normalized.match(/^E\.(\d{1,2})\.([0-4])\.(0?[12])$/);
   if (legacyWallMatch) return `ZE.${(Number(legacyWallMatch[1]) - 1) * 2 + Number(legacyWallMatch[3])}.${legacyWallMatch[2]}`;
   const match = normalized.match(/^([A-Z]+)([12])\.(\d{1,2})\.([0-4])$/);
@@ -4088,6 +4102,16 @@ function suggestLocations(id) {
     return state.locations
       .filter((item) => item.storageType === "drivein" && String(item.level) === level)
       .sort((a, b) => (Math.abs(a.rack - Number(column)) + Math.abs(a.depth - Number(depth))) - (Math.abs(b.rack - Number(column)) + Math.abs(b.depth - Number(depth))))
+      .slice(0, 3)
+      .map((item) => item.id);
+  }
+  const backstoreMatch = String(id || "").match(/^([A-R])\.(\d{2})\.([0-4])$/);
+  if (backstoreMatch) {
+    const [, aisle, positionText, level] = backstoreMatch;
+    const position = Number(positionText);
+    return state.locations
+      .filter((item) => item.storageType === "backstore" && item.aisle === aisle && String(item.level) === level)
+      .sort((a, b) => Math.abs(a.position - position) - Math.abs(b.position - position))
       .slice(0, 3)
       .map((item) => item.id);
   }
@@ -4125,8 +4149,8 @@ function openDetail(item) {
   }).join(" | ") || "Sin stock";
   const multiproduct = item.material === "MULTIPRODUCTO" || item.contents?.length > 1;
   renderDetailFields([
-    ["Sector", item.storageType === "wallrack" ? ({ ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" }[item.aisle] || item.aisle) : item.aisle],
-    [item.storageType === "drivein" ? "Acceso" : item.storageType === "wallrack" ? "Frente" : "Lado", item.storageType === "drivein" ? "Único" : item.storageType === "wallrack" ? "Pared" : item.side],
+    ["Sector", item.storageType === "wallrack" ? ({ ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte" }[item.aisle] || item.aisle) : item.storageType === "backstore" ? "Back salón Escobar" : item.aisle],
+    [item.storageType === "drivein" ? "Acceso" : ["wallrack", "backstore"].includes(item.storageType) ? "Frente" : "Lado", item.storageType === "drivein" ? "Único" : item.storageType === "wallrack" ? "Pared" : item.storageType === "backstore" ? `Pasillo ${item.aisle}` : item.side],
     [item.storageType === "drivein" ? "Columna" : "Módulo", item.rack],
     [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
     ["Nivel", item.level],

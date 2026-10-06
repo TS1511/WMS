@@ -248,9 +248,14 @@
       <section id="map" class="view">
         <div class="toolbar">
           <select id="sideFilter">
-            <option value="all">Ambos lados</option>
+            <option value="all">Todos los sectores</option>
             <option value="1">Lado 1</option>
             <option value="2">Lado 2</option>
+            <option value="PE">Penetrable</option>
+            <option value="ZE">Zona Este</option>
+            <option value="ZO">Zona Oeste</option>
+            <option value="ZN">Zona Norte</option>
+            <option value="BACK">Back salón Escobar</option>
           </select>
           <select id="levelFilter">
             <option value="all">Todos los niveles</option>
@@ -278,6 +283,7 @@
             <option value="ZE">Zona Este</option>
             <option value="ZO">Zona Oeste</option>
             <option value="ZN">Zona Norte</option>
+            <option value="BACK">Back salón Escobar</option>
           </select>
           <select id="level3dFilter">
             <option value="all">Todos los niveles</option>
@@ -316,7 +322,7 @@
           <div class="location-filters">
             <label>Posición<input id="locationPositionFilter" type="search" placeholder="Ej. A2.01.3" /></label>
             <label>Pasillo<input id="locationAisleFilter" type="search" placeholder="Ej. A" /></label>
-            <label>Sector<select id="locationSideFilter"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option></select></label>
+            <label>Sector<select id="locationSideFilter"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option><option value="BACK">Back salón Escobar</option></select></label>
             <label>Rack<input id="locationRackFilter" type="number" min="1" max="26" placeholder="Ej. 4" /></label>
             <label>Nivel<select id="locationLevelFilter"><option value="all">Todos</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
             <label>SKU<input id="locationMaterialFilter" type="search" placeholder="Código o material" /></label>
@@ -355,7 +361,7 @@
           <div class="panel-head"><h2>Inventario en curso</h2><span id="countSessionStatus" class="muted">Sin inventario iniciado</span></div>
           <div class="inventory-session-controls">
             <label>Identificador<input id="countInventoryId" placeholder="Ej. INV-2026-10" /></label>
-            <label>Alcance<select id="countScope"><option value="ALL">Todo el depósito</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option></select></label>
+            <label>Alcance<select id="countScope"><option value="ALL">Todas las zonas</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option><option value="BACK">Back salón Escobar</option></select></label>
             <button id="startInventoryCount" type="button" class="primary-action">Iniciar / unirse</button>
             <button id="finishInventoryCount" type="button" class="ghost" disabled>Finalizar y validar</button>
           </div>
@@ -569,7 +575,7 @@
       <section id="labels" class="view">
         <div class="toolbar label-toolbar">
           <label>Pasillo<select id="labelAisle"><option value="all">Todos los pasillos</option></select></label>
-          <label>Sector<select id="labelSide"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="0">Racks de pared</option></select></label>
+          <label>Sector<select id="labelSide"><option value="all">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option><option value="BACK">Back salón Escobar</option></select></label>
           <label>Rack<select id="labelRack"><option value="all">Todos los racks</option></select></label>
           <label>Nivel<select id="labelLevel"><option value="all" selected>Todos los niveles</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
           <label>Orden<select id="labelOrder"><option value="position-level">Posición → niveles 0 a 4</option><option value="level-position">Nivel → posiciones</option></select></label>
@@ -679,8 +685,8 @@
     <input id="barcodeCapture" type="file" accept="image/*" capture="environment" hidden />
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
-    <script src="data/embedded-data.js?v=20261001-3"></script>
+    <script src="data/embedded-data.js?v=20261006-1"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261005-10"></script>
+    <script src="app.js?v=20261006-1"></script>
   </body>
 </html>
