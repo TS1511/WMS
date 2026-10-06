@@ -3340,7 +3340,7 @@ function labelLevelDiagram(level) {
   const cells = [4, 3, 2, 1, 0].map((item) =>
     `<span class="label-level-cell${item === selected ? " active" : ""}"><b>${item}</b></span>`
   ).join("");
-  return `<div class="label-level-diagram" aria-label="Nivel ${selected} de 4"><div class="label-level-stack">${cells}</div><strong>NIVEL ${selected}</strong></div>`;
+  return `<div class="label-level-diagram" aria-label="Nivel ${selected} de 4"><div class="label-level-stack">${cells}</div></div>`;
 }
 
 function renderCode128Labels(sheet) {
