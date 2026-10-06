@@ -3170,8 +3170,8 @@ function selectCenteredBarcode(codes, width, height) {
     const codeCenterY = box.y + box.height / 2;
     return codeCenterX >= width * 0.10
       && codeCenterX <= width * 0.90
-      && codeCenterY >= height * 0.25
-      && codeCenterY <= height * 0.75;
+      && codeCenterY >= height * 0.12
+      && codeCenterY <= height * 0.88;
   });
   return [...centeredCodes].sort((left, right) => {
     const leftBox = left.boundingBox;
