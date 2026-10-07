@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261007-2" />
+    <link rel="stylesheet" href="styles.css?v=20261007-3" />
   </head>
   <body>
     <aside class="sidebar">
@@ -116,6 +116,10 @@
             </div>
 
             <form id="registerMovement" class="register-form" data-operation="IN">
+              <label id="registerPalletIdGroup">ID único de pallet (SAP)
+                <span class="scan-field"><input name="palletId" id="registerPalletId" autocomplete="off" required placeholder="Escanear código del pallet" /><button type="button" class="scan-button" data-scan-target="registerPalletId" aria-label="Escanear ID de pallet">Escanear pallet</button></span>
+                <small>Este código acompaña al pallet durante todo su recorrido.</small>
+              </label>
               <label id="registerLoadTypeGroup">Tipo de carga
                 <select name="loadType" id="registerLoadType">
                   <option value="PALLET_MONO">Pallet monoproducto</option>
@@ -143,7 +147,7 @@
               </label>
               <div class="register-content-grid">
                 <label id="registerPalletCountGroup">Pallets
-                  <input name="palletCount" id="registerPalletCount" type="number" min="1" value="1" inputmode="numeric" />
+                  <input name="palletCount" id="registerPalletCount" type="number" min="1" max="1" value="1" inputmode="numeric" readonly />
                 </label>
                 <label id="registerQuantityGroup" hidden>Bultos
                   <input name="quantity" id="registerQuantity" type="number" min="1" value="1" inputmode="numeric" />
@@ -161,7 +165,7 @@
                 <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
                 <button type="button" class="ghost open-manual-movement-sheet">Imprimir planilla manual</button>
               </div>
-              <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
+              <p class="import-format">Campos: referencia, ID pallet SAP, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia e ID forman un pallet multiproducto.</p>
             </section>
             <p id="registerMessage" class="message register-message" aria-live="polite"></p>
           </section>
@@ -336,6 +340,7 @@
             <label>Rack<input id="locationRackFilter" type="number" min="1" max="26" placeholder="Ej. 4" /></label>
             <label>Nivel<select id="locationLevelFilter"><option value="all">Todos</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
             <label>SKU<input id="locationMaterialFilter" type="search" placeholder="Código o material" /></label>
+            <label>ID pallet<input id="locationPalletFilter" type="search" placeholder="Código SAP" /></label>
             <label>Estado<select id="locationStatusFilter"><option value="all">Todos</option><option value="available">Libre</option><option value="occupied">Ocupada</option><option value="blocked">Bloqueada</option></select></label>
             <button id="clearLocationFilters" type="button" class="ghost">Limpiar filtros</button>
           </div>
@@ -350,6 +355,7 @@
                   <th>Módulo</th>
                   <th>Nivel</th>
                   <th>Material</th>
+                  <th>ID pallet</th>
                   <th>Cantidad logística</th>
                   <th>Estado</th>
                   <th>Última actividad</th>
@@ -426,6 +432,7 @@
             <label>Tipo<select id="movementTypeFilter"><option value="all">Todos</option><option value="IN">Ingreso</option><option value="MOVE">Reubicación</option><option value="OUT">Egreso</option><option value="ADJUST">Ajuste</option></select></label>
             <label>SKU<input id="movementSkuFilter" type="search" placeholder="Código SKU" /></label>
             <label>Posición<input id="movementPositionFilter" type="search" placeholder="Origen o destino" /></label>
+            <label>ID pallet<input id="movementPalletFilter" type="search" placeholder="Código SAP del pallet" /></label>
             <button id="clearMovementFilters" type="button" class="ghost">Limpiar</button>
             <span id="movementFilterCount" class="muted"></span>
           </div>
@@ -435,6 +442,7 @@
                 <tr>
                   <th>Fecha</th>
                   <th>Tipo</th>
+                  <th>ID pallet</th>
                   <th>Material</th>
                   <th>Desde</th>
                   <th>Hasta</th>
@@ -635,7 +643,7 @@
         </dl>
       </header>
       <table>
-        <thead><tr><th>N°</th><th>Hora</th><th>Tipo</th><th>Referencia</th><th>Posición origen</th><th>Posición destino</th><th>Tipo de carga</th><th>SKU</th><th>Bultos</th><th>Operario</th><th>Observación</th></tr></thead>
+        <thead><tr><th>N°</th><th>Hora</th><th>Tipo</th><th>Referencia</th><th>ID pallet SAP</th><th>Posición origen</th><th>Posición destino</th><th>Tipo de carga</th><th>SKU</th><th>Bultos</th><th>Operario</th><th>Observación</th></tr></thead>
         <tbody id="manualMovementRows"></tbody>
       </table>
       <footer>
@@ -691,6 +699,9 @@
         </label>
         <label>SKU / Material
           <input name="material" autocomplete="off" />
+        </label>
+        <label>ID único de pallet (SAP)
+          <input name="palletId" autocomplete="off" required />
         </label>
         <label>Desde
           <input name="from" autocomplete="off" />
@@ -759,6 +770,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261007-2"></script>
+    <script src="app.js?v=20261007-3"></script>
   </body>
 </html>

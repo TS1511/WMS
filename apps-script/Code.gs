@@ -1,4 +1,4 @@
-const SERVER_VERSION = 24;
+const SERVER_VERSION = 25;
 const SHEET_NAME = "Hoja 1";
 const SKU_SHEET_NAME = "Maestro SKU";
 const SLOTTING_SHEET_NAME = "Zonas SKU";
@@ -26,6 +26,7 @@ const COLUMNS = [
   "id_conteo",
   "motivo_ajuste",
   "contenido_anterior_json",
+  "id_pallet",
 ];
 const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass","positionsRequired","minDays","maxDays"];
 const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level","scope"];

@@ -2504,14 +2504,15 @@ dd {
   .manual-movement-sheet th:first-child,
   .manual-movement-sheet td:first-child { width: 7mm; text-align: center; }
   .manual-movement-sheet th:nth-child(2) { width: 12mm; }
-  .manual-movement-sheet th:nth-child(3) { width: 17mm; }
-  .manual-movement-sheet th:nth-child(4) { width: 24mm; }
-  .manual-movement-sheet th:nth-child(5),
-  .manual-movement-sheet th:nth-child(6) { width: 27mm; }
+  .manual-movement-sheet th:nth-child(3) { width: 16mm; }
+  .manual-movement-sheet th:nth-child(4) { width: 20mm; }
+  .manual-movement-sheet th:nth-child(5) { width: 28mm; }
+  .manual-movement-sheet th:nth-child(6),
   .manual-movement-sheet th:nth-child(7) { width: 23mm; }
-  .manual-movement-sheet th:nth-child(8) { width: 22mm; }
-  .manual-movement-sheet th:nth-child(9) { width: 13mm; }
-  .manual-movement-sheet th:nth-child(10) { width: 21mm; }
+  .manual-movement-sheet th:nth-child(8) { width: 20mm; }
+  .manual-movement-sheet th:nth-child(9) { width: 18mm; }
+  .manual-movement-sheet th:nth-child(10) { width: 12mm; }
+  .manual-movement-sheet th:nth-child(11) { width: 20mm; }
   .manual-movement-sheet footer { display: flex; justify-content: space-between; gap: 4mm; margin-top: 3mm; font-size: 7pt; }
 }
 

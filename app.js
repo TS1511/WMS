@@ -79,6 +79,7 @@ const state = {
     rack: "",
     locationLevel: "all",
     material: "",
+    palletId: "",
     locationStatus: "all",
   },
   view3d: {
@@ -116,7 +117,7 @@ const state = {
   sapStock: [],
   inventoryCounts: [],
   countSession: null,
-  movementFilters: { from: "", to: "", type: "all", sku: "", position: "" },
+  movementFilters: { from: "", to: "", type: "all", sku: "", position: "", palletId: "" },
   scanReadyAt: 0,
   operationalScope: "CD",
 };
@@ -251,6 +252,7 @@ function persistentLocationState(location) {
     blockReason: location.blockReason || "",
     contents: structuredClone(location.contents || []),
     palletCount: Number(location.palletCount || 0),
+    palletId: String(location.palletId || ""),
     footprintPrimaryId: location.footprintPrimaryId || "",
     footprintIndex: Number(location.footprintIndex || 0),
   };
@@ -286,7 +288,7 @@ function bindEvents() {
   });
   $$('[data-sku-section]').forEach((button) => button.addEventListener("click", () => switchSkuSection(button.dataset.skuSection)));
 
-  const locationFilterIds = ["locationPositionFilter", "locationAisleFilter", "locationSideFilter", "locationRackFilter", "locationLevelFilter", "locationMaterialFilter", "locationStatusFilter"];
+  const locationFilterIds = ["locationPositionFilter", "locationAisleFilter", "locationSideFilter", "locationRackFilter", "locationLevelFilter", "locationMaterialFilter", "locationPalletFilter", "locationStatusFilter"];
   locationFilterIds.forEach((id) => $(`#${id}`).addEventListener("input", updateLocationFilters));
   $("#clearLocationFilters").addEventListener("click", clearLocationFilters);
 
@@ -402,7 +404,7 @@ function bindEvents() {
   $$("[data-move-type]").forEach((button) => {
     button.addEventListener("click", () => setMovementType(button.dataset.moveType));
   });
-  ["#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerMultiContents", "#registerLoadType"].forEach((selector) => {
+  ["#registerPalletId", "#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerMultiContents", "#registerLoadType"].forEach((selector) => {
     $(selector).addEventListener("input", renderMovementPreview);
   });
   $("#registerLoadType").addEventListener("change", updateRegisterLoadFields);
@@ -414,7 +416,7 @@ function bindEvents() {
   $("#cancelBlockLocation").addEventListener("click", closeBlockLocationDialog);
   $("#resetData").addEventListener("click", resetData);
   $("#exportCsv").addEventListener("click", exportMovementsCsv);
-  ["movementDateFrom", "movementDateTo", "movementTypeFilter", "movementSkuFilter", "movementPositionFilter"].forEach((id) => $("#" + id).addEventListener("input", updateMovementFilters));
+  ["movementDateFrom", "movementDateTo", "movementTypeFilter", "movementSkuFilter", "movementPositionFilter", "movementPalletFilter"].forEach((id) => $("#" + id).addEventListener("input", updateMovementFilters));
   $("#clearMovementFilters").addEventListener("click", clearMovementFilters);
   $("#movementsTable").addEventListener("click", handleDeleteMovementClick);
   $("#recentMovementList").addEventListener("click", handleDeleteMovementClick);
@@ -730,6 +732,7 @@ function movementToCentralRecord(action, movement) {
     id_conteo: movement.countId || "",
     motivo_ajuste: movement.adjustmentReason || "",
     contenido_anterior_json: JSON.stringify(movement.previousLoad || {}),
+    id_pallet: movement.palletId || "",
   };
 }
 
@@ -850,6 +853,7 @@ function applyCentralMovements(records) {
     }
     if (!["IN", "MOVE", "OUT", "ADJUST"].includes(type)) return;
     const legacyPalletMovement = !String(record.unidad_logistica || "").trim();
+    const parsedContents = parseMovementContents(record.contenido_json, record.sku, record.bultos || record.cantidad, record.unidades, legacyPalletMovement);
     current.set(id, {
       id,
       timestamp: String(record.fecha_hora_utc || ""),
@@ -863,7 +867,8 @@ function applyCentralMovements(records) {
       palletCount: Number(record.pallets || (legacyPalletMovement ? record.cantidad : 0) || 0),
       packages: Number(record.bultos || (legacyPalletMovement ? 0 : record.cantidad) || 0),
       units: Number(record.unidades || 0),
-      contents: parseMovementContents(record.contenido_json, record.sku, record.bultos || record.cantidad, record.unidades, legacyPalletMovement),
+      contents: parsedContents,
+      palletId: String(record.id_pallet || parsedContents[0]?.palletId || ""),
       occupancyDelta: Number(record.delta_ocupacion || 0),
       dwellHours: record.permanencia_horas === "" ? null : Number(record.permanencia_horas),
       countId: String(record.id_conteo || ""),
@@ -1075,7 +1080,8 @@ function normalizeContentLine(source = {}) {
   const sku = String(source.sku || source.material || "").trim();
   const packages = Math.max(0, Number(source.packages ?? source.bultos ?? 0));
   const legacyPallets = Math.max(0, Number(source.legacyPallets || 0));
-  return { sku, packages, ...(legacyPallets ? { legacyPallets } : {}) };
+  const palletId = String(source.palletId || source.id_pallet || "").trim();
+  return { sku, packages, ...(legacyPallets ? { legacyPallets } : {}), ...(palletId ? { palletId } : {}) };
 }
 
 function normalizeLocationLoad(location) {
@@ -1099,6 +1105,7 @@ function syncLocationLoad(location) {
   location.quantity = contents.reduce((sum, item) => sum + Number(item.packages || item.legacyPallets || 0), 0);
   if (!location.occupied) {
     location.palletCount = 0;
+    location.palletId = "";
     location.occupiedSince = null;
   }
 }
@@ -1248,12 +1255,12 @@ function parseDelimited(text) {
 
 function downloadMovementTemplate() {
   const rows = [
-    ["Referencia", "Tipo", "Posición origen", "Posición destino", "Tipo de carga", "SKU", "Bultos"],
-    ["ING-001", "INGRESO", "", "A1.01.0", "PALLET", "100360", ""],
-    ["ING-002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "100360", 12],
-    ["ING-002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "555555", 8],
-    ["EGR-001", "EGRESO", "A1.01.1", "", "BULTOS", "100360", 4],
-    ["REU-001", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
+    ["Referencia", "ID pallet SAP", "Tipo", "Posición origen", "Posición destino", "Tipo de carga", "SKU", "Bultos"],
+    ["ING-001", "000000000000001", "INGRESO", "", "A1.01.0", "PALLET", "100360", ""],
+    ["ING-002", "000000000000002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "100360", 12],
+    ["ING-002", "000000000000002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "555555", 8],
+    ["EGR-001", "000000000000002", "EGRESO", "A1.01.1", "", "BULTOS", "100360", 4],
+    ["REU-001", "000000000000001", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
   ];
   downloadCsv("plantilla_movimientos.csv", rows);
 }
@@ -1292,7 +1299,7 @@ function printManualMovementSheet(event) {
   $("#manualSheetShift").textContent = String(data.get("shift") || "");
   $("#manualSheetResponsible").textContent = String(data.get("responsible") || "");
   $("#manualMovementRows").innerHTML = Array.from({ length: rowCount }, (_, index) => `
-    <tr><td>${index + 1}</td>${Array.from({ length: 10 }, () => "<td></td>").join("")}</tr>
+    <tr><td>${index + 1}</td>${Array.from({ length: 11 }, () => "<td></td>").join("")}</tr>
   `).join("");
   closeManualMovementSheetDialog();
   document.body.classList.add("printing-manual-movements");
@@ -1308,6 +1315,7 @@ async function importMovementFile(event) {
   try {
     const rows = parseDelimited(await file.text()).map((row) => ({
       reference: pickingColumn(row, ["referencia"]),
+      palletId: pickingColumn(row, ["id pallet sap", "id pallet", "pallet"]),
       type: pickingColumn(row, ["tipo"]).toUpperCase(),
       from: pickingColumn(row, ["posicion origen"]),
       to: pickingColumn(row, ["posicion destino"]),
@@ -1316,7 +1324,7 @@ async function importMovementFile(event) {
       packages: Number(String(pickingColumn(row, ["bultos", "cantidad"]) || 0).replace(",", ".")),
     })).filter((row) => row.reference && row.type);
     if (!rows.length) throw new Error("No se encontraron movimientos válidos.");
-    const groups = Object.values(groupBy(rows, (row) => row.reference));
+    const groups = Object.values(groupBy(rows, (row) => `${row.reference}::${normalizePalletId(row.palletId)}`));
     let imported = 0;
     for (const group of groups) {
       const row = group[0];
@@ -1325,6 +1333,7 @@ async function importMovementFile(event) {
       setMovementType(type);
       $("#registerFrom").value = row.from;
       $("#registerTo").value = row.to;
+      $("#registerPalletId").value = row.palletId;
       $("#registerMaterial").value = row.sku;
       $("#registerQuantity").value = row.packages || 1;
       if (type === "IN") {
@@ -1550,7 +1559,7 @@ function exportInventoryCsv() {
   const latestActivity = new Map();
   state.movements.forEach((move) => [move.from, move.to].filter(Boolean).forEach((id) => { if (!latestActivity.has(id)) latestActivity.set(id, move); }));
   const movementLabels = { IN: "Ingreso", OUT: "Egreso", MOVE: "Reubicación", ADJUST: "Ajuste" };
-  const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Usuario", "Observación"]];
+  const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "ID pallet SAP", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Usuario", "Observación"]];
   locations.forEach((location) => {
     const primary = locationsById.get(String(location.footprintPrimaryId || location.id).toUpperCase()) || location;
     const load = { palletCount: Number(primary.palletCount || 0), contents: primary.contents || [] };
@@ -1563,7 +1572,7 @@ function exportInventoryCsv() {
     rows.push([
       location.id, primary.id, countScopeLabel(locationSector(location)), location.aisle, location.rack, location.module, location.level,
       location.blocked ? "BLOQUEADA" : location.occupied ? "OCUPADA" : "LIBRE", location.blockReason || "", loadType,
-      Number(load.palletCount || 0), packages, contentLabel, location.occupiedSince ? formatDateTime(location.occupiedSince) : "",
+      Number(load.palletCount || 0), primary.palletId || "", packages, contentLabel, location.occupiedSince ? formatDateTime(location.occupiedSince) : "",
       activity ? formatMovementDate(activity) : "", activity ? movementLabels[activity.type] || activity.type : "",
       count?.inventoryId || "", count ? formatDateTime(count.timestamp) || count.date : "", count ? stripHtml(countLoadSummary(count.expected)) : "",
       count ? stripHtml(countLoadSummary(count.found)) : "", count?.result || "", count?.status || "", count?.user || "", count?.observation || "",
@@ -1914,6 +1923,7 @@ function filteredLocations() {
         || (item.contents || []).some((content) => String(content.sku || "").toLowerCase().includes(state.filters.material));
       if (!matchesMaterial) return false;
     }
+    if (state.filters.palletId && !String(item.palletId || "").toLowerCase().includes(state.filters.palletId)) return false;
     if (state.filters.locationStatus === "available" && (item.occupied || item.blocked)) return false;
     if (state.filters.locationStatus === "occupied" && !item.occupied) return false;
     if (state.filters.locationStatus === "blocked" && !item.blocked) return false;
@@ -1928,12 +1938,13 @@ function updateLocationFilters() {
   state.filters.rack = $("#locationRackFilter").value;
   state.filters.locationLevel = $("#locationLevelFilter").value;
   state.filters.material = $("#locationMaterialFilter").value.trim().toLowerCase();
+  state.filters.palletId = $("#locationPalletFilter").value.trim().toLowerCase();
   state.filters.locationStatus = $("#locationStatusFilter").value;
   renderLocationsTable();
 }
 
 function clearLocationFilters() {
-  ["#locationPositionFilter", "#locationAisleFilter", "#locationRackFilter", "#locationMaterialFilter"].forEach((selector) => { $(selector).value = ""; });
+  ["#locationPositionFilter", "#locationAisleFilter", "#locationRackFilter", "#locationMaterialFilter", "#locationPalletFilter"].forEach((selector) => { $(selector).value = ""; });
   ["#locationSideFilter", "#locationLevelFilter", "#locationStatusFilter"].forEach((selector) => { $(selector).value = "all"; });
   updateLocationFilters();
 }
@@ -2880,6 +2891,7 @@ function locationRow(item) {
       <td>${item.module}</td>
       <td>${item.level}</td>
       <td>${materialCell}</td>
+      <td>${escapeHtml(item.palletId || "")}</td>
       <td>${locationLoadLabel(item)}</td>
       <td><span class="pill ${statusClass}" title="${item.blockReason || ""}">${status}</span></td>
       <td>${activity ? formatMovementDate(activity) : "—"}</td>
@@ -2908,6 +2920,7 @@ function renderMovements() {
           <tr>
             <td>${formatMovementDate(move)}</td>
             <td>${({ IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste" })[move.type] || move.type}</td>
+            <td><strong>${escapeHtml(move.palletId || "—")}</strong></td>
             <td>${movementMaterialCell(move)}</td>
             <td>${movementPositionLabel(move.from)}</td>
             <td>${movementPositionLabel(move.to)}</td>
@@ -2916,7 +2929,7 @@ function renderMovements() {
           </tr>
         `
       )
-      .join("") || `<tr><td colspan="7">Sin movimientos cargados.</td></tr>`;
+      .join("") || `<tr><td colspan="8">Sin movimientos cargados.</td></tr>`;
 }
 
 function updateMovementFilters() {
@@ -2926,12 +2939,13 @@ function updateMovementFilters() {
     type: $("#movementTypeFilter").value,
     sku: $("#movementSkuFilter").value.trim().toLowerCase(),
     position: normalizePosition($("#movementPositionFilter").value).toLowerCase(),
+    palletId: $("#movementPalletFilter").value.trim().toLowerCase(),
   };
   renderMovements();
 }
 
 function clearMovementFilters() {
-  ["movementDateFrom", "movementDateTo", "movementSkuFilter", "movementPositionFilter"].forEach((id) => $("#" + id).value = "");
+  ["movementDateFrom", "movementDateTo", "movementSkuFilter", "movementPositionFilter", "movementPalletFilter"].forEach((id) => $("#" + id).value = "");
   $("#movementTypeFilter").value = "all";
   updateMovementFilters();
 }
@@ -2946,7 +2960,8 @@ function movementMatchesFilters(move) {
   return timestamp >= from && timestamp <= to
     && (filters.type === "all" || move.type === filters.type)
     && (!filters.sku || skus.includes(filters.sku))
-    && (!filters.position || positions.includes(filters.position));
+    && (!filters.position || positions.includes(filters.position))
+    && (!filters.palletId || String(move.palletId || "").toLowerCase().includes(filters.palletId));
 }
 
 function movementPositionLabel(position) {
@@ -3005,6 +3020,7 @@ function handleEditMovementClick(event) {
   form.dataset.movementId = movement.id;
   form.querySelector('[name="type"]').value = movement.type;
   form.querySelector('[name="material"]').value = movement.material || "";
+  form.querySelector('[name="palletId"]').value = movement.palletId || "";
   form.querySelector('[name="from"]').value = movement.from || "";
   form.querySelector('[name="to"]').value = movement.to || "";
   form.querySelector('[name="quantity"]').value = movement.quantity;
@@ -3027,6 +3043,7 @@ function saveEditedMovement(event) {
   let quantity = Number(data.quantity || 0);
   const type = data.type;
   const material = String(data.material || "").trim();
+  const palletId = normalizePalletId(data.palletId);
   const from = normalizePosition(data.from);
   const to = normalizePosition(data.to);
   let contents = movement.contents || [];
@@ -3041,8 +3058,13 @@ function saveEditedMovement(event) {
     $("#editMovementMessage").textContent = "El ingreso requiere un SKU o material.";
     return;
   }
+  if (!palletId) {
+    $("#editMovementMessage").textContent = "El ID único de pallet es obligatorio.";
+    return;
+  }
+  contents = contents.map((item) => normalizeContentLine({ ...item, palletId }));
   if (!confirm("¿Guardar los cambios y recalcular el inventario?")) return;
-  const updated = { ...movement, type, material: contents.length > 1 ? "MULTIPRODUCTO" : material, from, to, quantity, packages: contents.length > 1 ? quantity : movement.packages, contents };
+  const updated = { ...movement, type, material: contents.length > 1 ? "MULTIPRODUCTO" : material, palletId, from, to, quantity, packages: contents.length > 1 ? quantity : movement.packages, contents };
   const nextMovements = state.movements.map((item) => item.id === movement.id ? updated : item);
   try {
     rebuildInventoryFromMovements(nextMovements);
@@ -3071,9 +3093,9 @@ function rebuildInventoryFromMovements(nextMovements) {
   try {
     for (const movement of ordered) {
       const timestamp = movement.timestamp || new Date(movementTimestamp(movement)).toISOString();
-      if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount);
-      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true });
-      if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material);
+      if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount, movement.palletId);
+      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true, palletId: movement.palletId });
+      if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material, movement.palletId);
       if (movement.type === "ADJUST") registerAdjustment(movement.to, movement.contents, movement.palletCount, timestamp);
       state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
     }
@@ -3099,6 +3121,7 @@ function setMovementType(type) {
   $("#registerMaterial").required = type === "IN" && $("#registerLoadType").value !== "PALLET_MULTI";
   $("#registerFrom").required = type !== "IN";
   $("#registerTo").required = type !== "OUT";
+  $("#registerPalletId").required = true;
   $("#registerSubmit").textContent = `Registrar ${{ IN: "ingreso", MOVE: "reubicación", OUT: "egreso" }[type]}`;
   $("#registerMessage").textContent = "";
   updateRegisterLoadFields();
@@ -3133,6 +3156,7 @@ function handleRegisterEnter(event) {
   if (event.key !== "Enter" || event.target.tagName !== "INPUT") return;
   const type = $("#registerMovement").dataset.operation;
   const nextByField = {
+    registerPalletId: type === "IN" ? "registerMaterial" : "registerFrom",
     registerMaterial: type === "IN" ? "registerTo" : "registerQuantity",
     registerFrom: type === "MOVE" ? "registerTo" : "registerQuantity",
     registerTo: "registerQuantity",
@@ -3146,8 +3170,7 @@ function handleRegisterEnter(event) {
 }
 
 function focusRegisterField() {
-  const type = $("#registerMovement").dataset.operation;
-  const target = type === "IN" ? $("#registerMaterial") : $("#registerFrom");
+  const target = $("#registerPalletId");
   target.focus({ preventScroll: true });
   target.select();
 }
@@ -3176,7 +3199,7 @@ function renderMovementPreview() {
   const material = data.type === "IN" ? (contents.length > 1 ? `${contents.length} SKU` : contents[0]?.sku || "Sin SKU") : from?.material || "Sin material";
   const quantityText = data.type === "MOVE" ? "pallet completo" : data.type === "IN" && data.loadType === "PALLET_MONO" ? `${fmt.format(Number(data.palletCount || 1))} pallet` : `${fmt.format(totalPackages || Number(data.quantity || 0))} bultos`;
   $("#registerContentTotal").textContent = data.type === "IN" ? `Contenido: ${quantityText}` : "";
-  $("#movementSummary").innerHTML = `<span>${typeLabel}</span><strong>${material}</strong><small>${route} · ${quantityText}</small>`;
+  $("#movementSummary").innerHTML = `<span>${typeLabel}</span><strong>${material}</strong><small>Pallet ${escapeHtml(data.palletId || "—")} · ${route} · ${quantityText}</small>`;
 }
 
 function positionInfo(location, rawValue, role) {
@@ -3205,7 +3228,7 @@ function renderRegistration() {
     ? movements.slice(0, 8).map((move) => `
       <div class="recent-movement">
         <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT", ADJUST: "AJ" }[move.type] || move.type}</span>
-        <div><strong>${move.material || "Sin material"}</strong><small>${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
+        <div><strong>${move.material || "Sin material"}</strong><small>Pallet ${escapeHtml(move.palletId || "—")} · ${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
         <div class="recent-quantity"><strong>${movementQuantityLabel(move)}</strong><small>${formatMovementDate(move)}</small></div>
         ${actions && move.type !== "ADJUST" ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
       </div>
@@ -3242,7 +3265,7 @@ async function startBarcodeCapture(targetId) {
     });
     const dialog = $("#scannerDialog");
     const video = $("#scannerVideo");
-    $("#scannerTitle").textContent = targetId === "registerMaterial" ? "Escanear SKU" : "Escanear posición";
+    $("#scannerTitle").textContent = targetId === "registerMaterial" ? "Escanear SKU" : targetId === "registerPalletId" ? "Escanear pallet SAP" : "Escanear posición";
     $("#scannerMessage").textContent = "Buscando código…";
     video.srcObject = state.scanStream;
     dialog.showModal();
@@ -3415,7 +3438,7 @@ function stopScannerCamera() {
 }
 
 function applyScannedValue(rawValue) {
-  const isPosition = state.scanTarget !== "registerMaterial";
+  const isPosition = !["registerMaterial", "registerPalletId"].includes(state.scanTarget);
   const value = isPosition ? normalizePosition(rawValue) : String(rawValue || "").trim();
   const target = $(`#${state.scanTarget}`);
   if (!target || !value) return;
@@ -3431,6 +3454,7 @@ function applyScannedValue(rawValue) {
 function advanceAfterScan(target) {
   const type = $("#registerMovement").dataset.operation;
   const nextByField = {
+    registerPalletId: type === "IN" ? "registerMaterial" : "registerFrom",
     registerMaterial: type === "IN" ? "registerTo" : "registerQuantity",
     registerFrom: type === "MOVE" ? "registerTo" : "registerQuantity",
     registerTo: "registerQuantity",
@@ -3953,6 +3977,7 @@ function handleMovement(event) {
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const type = event.currentTarget.id === "registerMovement" ? event.currentTarget.dataset.operation : data.type;
   const loadType = String(data.loadType || "PALLET_MONO");
+  const palletId = normalizePalletId(data.palletId);
   const quantity = Number(data.quantity || 0);
   const palletCount = type === "IN" ? Number(data.palletCount || 1) : 0;
   const material = String(data.material || "").trim();
@@ -3972,23 +3997,32 @@ function handleMovement(event) {
     : null;
 
   try {
+    if (!palletId) throw new Error("Escaneá o ingresá el ID único del pallet SAP.");
     [from, to].filter(Boolean).forEach((position) => {
       const location = findLocation(position);
       if (location && !locationInOperationalScope(location)) throw new Error(`La posición ${position} no pertenece al ámbito ${scopeLabel()}.`);
     });
-    const contents = type === "IN"
+    let contents = type === "IN"
       ? loadType === "PALLET_MULTI"
         ? parseMultiContents(data.multiContents)
         : [normalizeContentLine({ sku: material, legacyPallets: palletCount })]
       : [];
+    if (type === "IN") {
+      const activeDuplicate = state.locations.find((location) => location.occupied && normalizePalletId(location.palletId) === palletId);
+      if (activeDuplicate) throw new Error(`El pallet ${palletId} ya está activo en ${activeDuplicate.id}.`);
+      contents = contents.map((item) => normalizeContentLine({ ...item, palletId }));
+    } else {
+      const storedPalletId = normalizePalletId(originBefore?.palletId);
+      if (storedPalletId && storedPalletId !== palletId) throw new Error(`El pallet de ${from} es ${storedPalletId}; el código escaneado no coincide.`);
+    }
     const movementPackages = type === "IN" ? contents.reduce((sum, item) => sum + item.packages, 0) : type === "MOVE" ? Number(originBefore?.quantity || 0) : quantity;
     const movementQuantity = type === "IN" && loadType === "PALLET_MONO" ? palletCount : movementPackages;
     if (type === "OUT" && quantity <= 0) throw new Error("La cantidad de bultos debe ser mayor a cero.");
     if (type === "IN" && !contents.length) throw new Error("Indicá el contenido de la carga.");
     if (type === "IN" && contents.some((item) => !item.sku || (loadType === "PALLET_MULTI" && item.packages <= 0))) throw new Error("Cada SKU multiproducto debe tener una cantidad de bultos mayor a cero.");
-    if (type === "IN") registerIn(material, to, quantity, timestamp, contents, palletCount);
-    if (type === "OUT") registerOut(material, from, quantity);
-    if (type === "MOVE") registerMove(from, to, quantity, timestamp, material);
+    if (type === "IN") registerIn(material, to, quantity, timestamp, contents, palletCount, palletId);
+    if (type === "OUT") registerOut(material, from, quantity, { palletId });
+    if (type === "MOVE") registerMove(from, to, quantity, timestamp, material, palletId);
 
     const occupiedAfter = state.locations.filter((item) => item.occupied).length;
 
@@ -3998,6 +4032,7 @@ function handleMovement(event) {
       timestamp,
       type,
       material: type === "OUT" ? (material || originMaterial) : type === "MOVE" ? originMaterial : contents.length > 1 ? "MULTIPRODUCTO" : contents[0].sku,
+      palletId,
       from,
       to: type === "OUT" ? "" : to,
       quantity: movementQuantity,
@@ -4007,8 +4042,8 @@ function handleMovement(event) {
       contents: type === "IN"
         ? contents
         : type === "MOVE"
-          ? originContents
-          : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0 })] : [],
+          ? originContents.map((item) => normalizeContentLine({ ...item, palletId }))
+          : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0, palletId })] : [],
       occupancyDelta: occupiedAfter - occupiedBefore,
       dwellHours: type === "IN" ? null : dwellHours,
     };
@@ -4089,12 +4124,13 @@ function canFitSkuFootprint(location, sku) {
   }
 }
 
-function occupyLocationFootprint(primary, contents, palletCount, timestamp) {
+function occupyLocationFootprint(primary, contents, palletCount, timestamp, palletId = "") {
   const required = positionsRequiredForContents(contents);
   const positions = requiredLocationFootprint(primary, required);
   positions.forEach((location, index) => {
     location.contents = structuredClone(contents);
     location.palletCount = palletCount;
+    location.palletId = normalizePalletId(palletId || contents[0]?.palletId);
     location.occupiedSince = timestamp;
     location.footprintPrimaryId = required > 1 ? primary.id : "";
     location.footprintIndex = index;
@@ -4106,6 +4142,7 @@ function syncLocationFootprint(primary) {
   footprintLocations(primary).filter((location) => location.id !== primary.id).forEach((location) => {
     location.contents = structuredClone(primary.contents || []);
     location.palletCount = Number(primary.palletCount || 0);
+    location.palletId = primary.palletId || "";
     location.occupiedSince = primary.occupiedSince;
     syncLocationLoad(location);
   });
@@ -4115,6 +4152,7 @@ function releaseLocationFootprint(location) {
   footprintLocations(location).forEach((linked) => {
     linked.contents = [];
     linked.palletCount = 0;
+    linked.palletId = "";
     linked.occupiedSince = null;
     delete linked.footprintPrimaryId;
     delete linked.footprintIndex;
@@ -4147,7 +4185,7 @@ function registerAdjustment(position, contents, palletCount, timestamp) {
   occupyLocationFootprint(location, normalizedContents, Number(palletCount || 0), timestamp);
 }
 
-function registerIn(material, to, quantity, timestamp, contents = [], palletCount = 1) {
+function registerIn(material, to, quantity, timestamp, contents = [], palletCount = 1, palletId = "") {
   if (!to) throw new Error("Indicá una posición destino.");
   const destination = requiredLocation(to);
   if (destination.blocked) throw new Error(`La posición destino está bloqueada: ${destination.blockReason || "sin motivo informado"}.`);
@@ -4156,7 +4194,7 @@ function registerIn(material, to, quantity, timestamp, contents = [], palletCoun
   if (destination.storageType === "drivein" && normalizedContents.length > 1) throw new Error("Los pallets multiproducto deben ubicarse en racks selectivos, no en Drive-In.");
   const laneMaterial = normalizedContents.length === 1 ? normalizedContents[0].sku : "MULTIPRODUCTO";
   validateDriveInPutaway(destination, laneMaterial);
-  occupyLocationFootprint(destination, normalizedContents, Number(palletCount || 0), timestamp);
+  occupyLocationFootprint(destination, normalizedContents, Number(palletCount || 0), timestamp, palletId);
 }
 
 function registerOut(material, from, quantity, options = {}) {
@@ -4183,12 +4221,13 @@ function registerOut(material, from, quantity, options = {}) {
   } else {
     target.packages -= quantity;
   }
+  footprintLocations(origin).forEach((location) => { location.palletId = normalizePalletId(options.palletId || origin.palletId); });
   syncLocationLoad(origin);
   if (!origin.occupied) releaseLocationFootprint(origin);
   else syncLocationFootprint(origin);
 }
 
-function registerMove(from, to, quantity, timestamp, material = "") {
+function registerMove(from, to, quantity, timestamp, material = "", palletId = "") {
   if (!from || !to) throw new Error("Indicá origen y destino.");
   const origin = footprintPrimaryLocation(requiredLocation(from));
   const destination = requiredLocation(to);
@@ -4197,9 +4236,9 @@ function registerMove(from, to, quantity, timestamp, material = "") {
   if (destination.occupied) throw new Error("La posición destino ya está ocupada.");
   validateDriveInRetrieval(origin);
   validateDriveInPutaway(destination, origin.material);
-  const contents = structuredClone(origin.contents || []);
+  const contents = structuredClone(origin.contents || []).map((item) => normalizeContentLine({ ...item, palletId: palletId || origin.palletId }));
   const palletCount = Number(origin.palletCount || 0);
-  occupyLocationFootprint(destination, contents, palletCount, timestamp);
+  occupyLocationFootprint(destination, contents, palletCount, timestamp, palletId || origin.palletId);
   releaseLocationFootprint(origin);
 }
 
@@ -4245,6 +4284,10 @@ function findLocation(id) {
 function findOperationalLocation(id) {
   const location = findLocation(id);
   return locationInOperationalScope(location) ? location : null;
+}
+
+function normalizePalletId(value) {
+  return String(value || "").trim().toUpperCase();
 }
 
 function requiredLocation(id) {
@@ -4349,6 +4392,7 @@ function openDetail(item) {
     [item.storageType === "drivein" ? "Profundidad" : "Posición", item.storageType === "wallrack" ? item.position : item.depth || item.module],
     ["Nivel", item.level],
     ["Tipo de carga", multiproduct ? "Pallet multiproducto" : item.palletCount ? "Pallet monoproducto" : "Bultos"],
+    ["ID pallet SAP", item.palletId || "—"],
     ["Pallets", item.palletCount || 0],
     ["Carga", locationLoadLabel(item) || "—"],
     ["Contenido", contentText],
@@ -4541,8 +4585,8 @@ function resetData() {
 }
 
 function exportMovementsCsv() {
-  const header = ["Fecha", "Tipo", "Material", "Desde", "Hasta", "Cantidad"];
-  const rows = state.movements.map((move) => [formatMovementDate(move), move.type, move.material, move.from, move.to, move.quantity]);
+  const header = ["Fecha", "Tipo", "ID pallet SAP", "Material", "Desde", "Hasta", "Cantidad"];
+  const rows = state.movements.map((move) => [formatMovementDate(move), move.type, move.palletId || "", move.material, move.from, move.to, move.quantity]);
   const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
