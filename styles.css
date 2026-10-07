@@ -429,6 +429,61 @@ label select {
   display: none;
 }
 
+.form-tool-panel {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+}
+
+.form-tool-icon {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.form-tool-copy h2,
+.form-tool-copy p {
+  margin: 0;
+}
+
+.form-tool-copy p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.form-tool-copy ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .form-tool-panel {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .form-tool-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .form-tool-panel > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
 .side-section {
   background: var(--panel);
   border: 1px solid var(--line);

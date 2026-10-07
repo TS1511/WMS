@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261007-1" />
+    <link rel="stylesheet" href="styles.css?v=20261007-2" />
   </head>
   <body>
     <aside class="sidebar">
@@ -31,6 +31,7 @@
         <button class="nav-item" data-view="analytics">Análisis</button>
         <button class="nav-item" data-view="reconciliation">Conciliación SAP</button>
         <span class="nav-section-label">Herramientas</span>
+        <button class="nav-item" data-view="forms">Planillas</button>
         <button class="nav-item" data-view="labels">Etiquetas</button>
       </nav>
       <div class="source">
@@ -158,7 +159,7 @@
               <div class="picking-file-bar movement-import-bar">
                 <label class="ghost file-action">Importar movimientos<input id="movementImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
                 <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
-                <button id="openManualMovementSheet" type="button" class="ghost">Imprimir planilla manual</button>
+                <button type="button" class="ghost open-manual-movement-sheet">Imprimir planilla manual</button>
               </div>
               <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
             </section>
@@ -594,6 +595,25 @@
         </div>
         <div id="labelSheet" class="label-sheet"></div>
       </section>
+
+      <section id="forms" class="view">
+        <header class="section-heading">
+          <div><h1>Planillas</h1><p>Documentos operativos para continuar trabajando cuando no haya un celular disponible.</p></div>
+        </header>
+        <section class="panel form-tool-panel">
+          <div class="form-tool-icon" aria-hidden="true">MOV</div>
+          <div class="form-tool-copy">
+            <h2>Planilla manual de movimientos</h2>
+            <p>Registra ingresos, egresos y reubicaciones para cargarlos posteriormente en GPS. Incluye pallets, bultos y cargas multiproducto.</p>
+            <ul>
+              <li>Formato A4 apaisado</li>
+              <li>Fecha, ámbito, turno y responsable</li>
+              <li>Cantidad de renglones configurable</li>
+            </ul>
+          </div>
+          <button type="button" class="primary-action open-manual-movement-sheet">Imprimir planilla</button>
+        </section>
+      </section>
     </main>
 
     <aside id="detailPanel" class="detail hidden">
@@ -739,6 +759,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261007-1"></script>
+    <script src="app.js?v=20261007-2"></script>
   </body>
 </html>

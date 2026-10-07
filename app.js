@@ -26,11 +26,11 @@ const ROLE_LABELS = {
   admin: "Administrador",
 };
 const ROLE_SECTIONS = {
-  operations: ["dashboard", "register", "locations", "map", "map3d"],
+  operations: ["dashboard", "register", "locations", "map", "map3d", "forms"],
   picking: ["dashboard", "picking", "locations", "map", "map3d"],
   inventory: ["counts"],
-  supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
-  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "labels"],
+  supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels"],
+  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels"],
 };
 const ROLE_PERMISSIONS = {
   operations: ["movement_write"],
@@ -366,7 +366,7 @@ function bindEvents() {
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
   $("#movementImport").addEventListener("change", importMovementFile);
   $("#downloadMovementTemplate").addEventListener("click", downloadMovementTemplate);
-  $("#openManualMovementSheet").addEventListener("click", openManualMovementSheetDialog);
+  $$(".open-manual-movement-sheet").forEach((button) => button.addEventListener("click", openManualMovementSheetDialog));
   $("#manualMovementForm").addEventListener("submit", printManualMovementSheet);
   $("#closeManualMovementDialog").addEventListener("click", closeManualMovementSheetDialog);
   $("#cancelManualMovement").addEventListener("click", closeManualMovementSheetDialog);
@@ -595,7 +595,7 @@ function applyRoleAccess() {
   $("#skuForm").hidden = !hasPermission("sku_write");
   $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
   $("#slottingForm").hidden = !hasPermission("slotting_write");
-  $("#openManualMovementSheet").hidden = !hasPermission("movement_write");
+  $$(".open-manual-movement-sheet").forEach((button) => { button.hidden = !hasPermission("movement_write"); });
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
   $("#inventoryCountForm").hidden = !hasPermission("count_write");
   const blindCount = isBlindCounter();
