@@ -425,6 +425,10 @@ label select {
   display: block;
 }
 
+.manual-movement-sheet {
+  display: none;
+}
+
 .side-section {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -2393,6 +2397,69 @@ dd {
   .pick-quantity small { color: #333; font-size: 10px; }
 }
 
+@page manual-movements {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  body.printing-manual-movements {
+    color: #111;
+    background: #fff;
+  }
+
+  body.printing-manual-movements > .sidebar,
+  body.printing-manual-movements > main,
+  body.printing-manual-movements > .detail,
+  body.printing-manual-movements > dialog,
+  body.printing-manual-movements > .scan-status,
+  body.printing-manual-movements #picking,
+  body.printing-manual-movements #labels {
+    display: none !important;
+  }
+
+  body.printing-manual-movements #manualMovementSheet {
+    display: block !important;
+    page: manual-movements;
+    width: 100%;
+    font-family: Arial, sans-serif;
+  }
+
+  .manual-movement-sheet header {
+    display: flex;
+    justify-content: space-between;
+    gap: 10mm;
+    align-items: start;
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1.5px solid #111;
+  }
+
+  .manual-movement-sheet header span { font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+  .manual-movement-sheet h1 { margin: 1mm 0 0; font-size: 17pt; }
+  .manual-movement-sheet dl { display: grid; grid-template-columns: repeat(3, minmax(32mm, auto)); gap: 2mm 5mm; margin: 0; }
+  .manual-movement-sheet dl div { display: grid; grid-template-columns: auto 1fr; gap: 2mm; border-bottom: 1px solid #777; }
+  .manual-movement-sheet dt { font-size: 7pt; font-weight: 700; text-transform: uppercase; }
+  .manual-movement-sheet dd { min-width: 20mm; margin: 0; font-size: 8pt; font-weight: 700; }
+  .manual-movement-sheet table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 7pt; }
+  .manual-movement-sheet th,
+  .manual-movement-sheet td { padding: 1mm; border: 0.3mm solid #222; text-align: left; }
+  .manual-movement-sheet th { background: #e8edf0; line-height: 1.1; }
+  .manual-movement-sheet tbody tr { height: 8mm; }
+  .manual-movement-sheet th:first-child,
+  .manual-movement-sheet td:first-child { width: 7mm; text-align: center; }
+  .manual-movement-sheet th:nth-child(2) { width: 12mm; }
+  .manual-movement-sheet th:nth-child(3) { width: 17mm; }
+  .manual-movement-sheet th:nth-child(4) { width: 24mm; }
+  .manual-movement-sheet th:nth-child(5),
+  .manual-movement-sheet th:nth-child(6) { width: 27mm; }
+  .manual-movement-sheet th:nth-child(7) { width: 23mm; }
+  .manual-movement-sheet th:nth-child(8) { width: 22mm; }
+  .manual-movement-sheet th:nth-child(9) { width: 13mm; }
+  .manual-movement-sheet th:nth-child(10) { width: 21mm; }
+  .manual-movement-sheet footer { display: flex; justify-content: space-between; gap: 4mm; margin-top: 3mm; font-size: 7pt; }
+}
+
 @media print {
   body {
     display: block;
@@ -2400,7 +2467,7 @@ dd {
   }
 
   body > .sidebar,
-  body:not(.printing-picking) main > :not(#labels),
+  body:not(.printing-picking):not(.printing-manual-movements) main > :not(#labels),
   #labels .toolbar,
   body > .detail,
   body > dialog,
@@ -2412,7 +2479,7 @@ dd {
     padding: 0;
   }
 
-  body:not(.printing-picking) #labels {
+  body:not(.printing-picking):not(.printing-manual-movements) #labels {
     display: block !important;
   }
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261006-4" />
+    <link rel="stylesheet" href="styles.css?v=20261007-1" />
   </head>
   <body>
     <aside class="sidebar">
@@ -158,6 +158,7 @@
               <div class="picking-file-bar movement-import-bar">
                 <label class="ghost file-action">Importar movimientos<input id="movementImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
                 <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
+                <button id="openManualMovementSheet" type="button" class="ghost">Imprimir planilla manual</button>
               </div>
               <p class="import-format">Campos: referencia, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia forman un pallet multiproducto.</p>
             </section>
@@ -602,6 +603,41 @@
       <button id="toggleLocationBlock" type="button" class="block-location-action"></button>
     </aside>
 
+    <section id="manualMovementSheet" class="manual-movement-sheet" aria-hidden="true">
+      <header>
+        <div><span>GPS · Registro alternativo</span><h1>Planilla manual de movimientos</h1></div>
+        <dl>
+          <div><dt>Hoja</dt><dd id="manualSheetNumber"></dd></div>
+          <div><dt>Fecha</dt><dd id="manualSheetDate"></dd></div>
+          <div><dt>Ámbito</dt><dd id="manualSheetScope"></dd></div>
+          <div><dt>Turno</dt><dd id="manualSheetShift"></dd></div>
+          <div><dt>Responsable</dt><dd id="manualSheetResponsible"></dd></div>
+        </dl>
+      </header>
+      <table>
+        <thead><tr><th>N°</th><th>Hora</th><th>Tipo</th><th>Referencia</th><th>Posición origen</th><th>Posición destino</th><th>Tipo de carga</th><th>SKU</th><th>Bultos</th><th>Operario</th><th>Observación</th></tr></thead>
+        <tbody id="manualMovementRows"></tbody>
+      </table>
+      <footer>
+        <span>Tipos: INGRESO · EGRESO · REUBICACIÓN</span>
+        <span>Carga: PALLET · MULTIPRODUCTO · BULTOS</span>
+        <span>Multiproducto: usar una fila por SKU, repitiendo referencia y posición.</span>
+      </footer>
+    </section>
+
+    <dialog id="manualMovementDialog" class="movement-dialog">
+      <form id="manualMovementForm">
+        <div class="panel-head"><h2>Planilla manual</h2><button type="button" id="closeManualMovementDialog" class="close">&times;</button></div>
+        <label>Número de hoja<input id="manualMovementNumber" name="number" required /></label>
+        <label>Fecha<input id="manualMovementDate" name="date" type="date" required /></label>
+        <label>Ámbito<select id="manualMovementScope" name="scope" required><option value="CD">CD</option><option value="BACK">Back salón</option></select></label>
+        <label>Turno<input name="shift" placeholder="Ej. Mañana" required /></label>
+        <label>Responsable<input id="manualMovementResponsible" name="responsible" required /></label>
+        <label>Cantidad de renglones<input name="rows" type="number" min="10" max="30" value="18" required /></label>
+        <div class="dialog-actions"><button type="button" id="cancelManualMovement" class="ghost">Cancelar</button><button type="submit" class="primary-action">Imprimir</button></div>
+      </form>
+    </dialog>
+
     <dialog id="blockLocationDialog" class="movement-dialog">
       <form id="blockLocationForm">
         <div class="panel-head"><h2>Bloquear posición</h2><button type="button" id="closeBlockLocation" class="close">&times;</button></div>
@@ -703,6 +739,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261006-7"></script>
+    <script src="app.js?v=20261007-1"></script>
   </body>
 </html>

@@ -366,6 +366,10 @@ function bindEvents() {
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
   $("#movementImport").addEventListener("change", importMovementFile);
   $("#downloadMovementTemplate").addEventListener("click", downloadMovementTemplate);
+  $("#openManualMovementSheet").addEventListener("click", openManualMovementSheetDialog);
+  $("#manualMovementForm").addEventListener("submit", printManualMovementSheet);
+  $("#closeManualMovementDialog").addEventListener("click", closeManualMovementSheetDialog);
+  $("#cancelManualMovement").addEventListener("click", closeManualMovementSheetDialog);
   $("#skuTable").addEventListener("click", editSkuFromTable);
   $("#slottingForm").addEventListener("submit", saveSlottingRule);
   $("#slottingTable").addEventListener("click", deleteSlottingRule);
@@ -591,6 +595,7 @@ function applyRoleAccess() {
   $("#skuForm").hidden = !hasPermission("sku_write");
   $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
   $("#slottingForm").hidden = !hasPermission("slotting_write");
+  $("#openManualMovementSheet").hidden = !hasPermission("movement_write");
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
   $("#inventoryCountForm").hidden = !hasPermission("count_write");
   const blindCount = isBlindCounter();
@@ -1251,6 +1256,48 @@ function downloadMovementTemplate() {
     ["REU-001", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
   ];
   downloadCsv("plantilla_movimientos.csv", rows);
+}
+
+function localDateInputValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function openManualMovementSheetDialog() {
+  if (!requirePermission("movement_write")) return;
+  const date = localDateInputValue();
+  $("#manualMovementNumber").value = `MOV-${date.replaceAll("-", "")}-001`;
+  $("#manualMovementDate").value = date;
+  $("#manualMovementScope").value = state.operationalScope === "BACK" ? "BACK" : "CD";
+  $("#manualMovementResponsible").value = state.syncConfig.operator || "";
+  $("#manualMovementDialog").showModal();
+}
+
+function closeManualMovementSheetDialog() {
+  $("#manualMovementDialog").close();
+}
+
+function printManualMovementSheet(event) {
+  event.preventDefault();
+  if (!requirePermission("movement_write")) return;
+  const data = new FormData(event.currentTarget);
+  const rowCount = clamp(Number(data.get("rows") || 18), 10, 30);
+  const dateValue = String(data.get("date") || localDateInputValue());
+  const date = new Date(`${dateValue}T12:00:00`);
+  $("#manualSheetNumber").textContent = String(data.get("number") || "");
+  $("#manualSheetDate").textContent = Number.isNaN(date.getTime()) ? dateValue : date.toLocaleDateString("es-AR");
+  $("#manualSheetScope").textContent = scopeLabel(String(data.get("scope") || "CD"));
+  $("#manualSheetShift").textContent = String(data.get("shift") || "");
+  $("#manualSheetResponsible").textContent = String(data.get("responsible") || "");
+  $("#manualMovementRows").innerHTML = Array.from({ length: rowCount }, (_, index) => `
+    <tr><td>${index + 1}</td>${Array.from({ length: 10 }, () => "<td></td>").join("")}</tr>
+  `).join("");
+  closeManualMovementSheetDialog();
+  document.body.classList.add("printing-manual-movements");
+  window.print();
+  setTimeout(() => document.body.classList.remove("printing-manual-movements"), 0);
 }
 
 async function importMovementFile(event) {
