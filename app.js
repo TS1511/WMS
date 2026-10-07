@@ -1399,7 +1399,7 @@ function guideMapPageHeader(label, generated, paper) {
 }
 
 function guideOverviewSvg(stacks, area) {
-  const points = stacks.map((stack) => ({ x: Number(stack.col), y: Number(stack.row) }));
+  const points = stacks.map(guideMapPoint);
   const includeStreet = area === "CD";
   const minX = Math.min(...points.map((point) => point.x)) - 2;
   const maxX = Math.max(...points.map((point) => point.x)) + 2;
@@ -1407,17 +1407,28 @@ function guideOverviewSvg(stacks, area) {
   const maxY = Math.max(...points.map((point) => point.y), ...(includeStreet ? [30.2] : [])) + 2;
   const width = Math.max(1, maxX - minX);
   const height = Math.max(1, maxY - minY);
+  const selectivePoints = stacks.filter((stack) => !stack.type).map(guideMapPoint);
+  const streetMinX = selectivePoints.length ? Math.min(...selectivePoints.map((point) => point.x)) - 1 : minX;
+  const streetMaxX = selectivePoints.length ? Math.max(...selectivePoints.map((point) => point.x)) + 1 : maxX;
   const street = includeStreet ? `
-    <rect class="guide-main-road" x="${minX}" y="27.8" width="${width}" height="2.4" />
-    <text class="guide-main-road-label" x="${minX + width / 2}" y="29.3">CALLE PRINCIPAL</text>
+    <rect class="guide-main-road" x="${streetMinX}" y="27.8" width="${streetMaxX - streetMinX}" height="2.4" />
+    <text class="guide-main-road-label" x="${(streetMinX + streetMaxX) / 2}" y="29.3">CALLE PRINCIPAL</text>
   ` : "";
   const cells = stacks.map((stack) => {
+    const point = guideMapPoint(stack);
     const rotation = Number(stack.rotation || 0);
-    const transform = rotation ? ` transform="rotate(${rotation} ${stack.col} ${stack.row})"` : "";
-    return `<g${transform}><rect class="guide-position-cell guide-${stack.type || "selective"}" x="${Number(stack.col) - 0.4}" y="${Number(stack.row) - 0.4}" width="0.8" height="0.8" /><text class="guide-position-number" x="${stack.col}" y="${Number(stack.row) + 0.13}">${escapeHtml(guideMapPositionNumber(stack, area))}</text></g>`;
+    const transform = rotation ? ` transform="rotate(${rotation} ${point.x} ${point.y})"` : "";
+    return `<g${transform}><rect class="guide-position-cell guide-${stack.type || "selective"}" x="${point.x - 0.4}" y="${point.y - 0.4}" width="0.8" height="0.8" /><text class="guide-position-number" x="${point.x}" y="${point.y + 0.17}">${escapeHtml(guideMapPositionNumber(stack, area))}</text></g>`;
   }).join("");
   const labels = guideMapAisleLabels(stacks, area).join("");
   return `<div class="guide-overview"><svg viewBox="${minX} ${minY} ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa aéreo ${escapeHtml(guideMapAreaLabel(area))}">${street}${cells}${labels}</svg><div class="guide-map-legend"><span><i></i> Cada cuadro es una posición base</span><strong>${escapeHtml(guideMapCodeLegend(area))}</strong></div></div>`;
+}
+
+function guideMapPoint(stack) {
+  return {
+    x: preserves3dSpacing(stack) ? Number(stack.col) : expandAisleSpacing(Number(stack.col), state.layout3d.bounds.minCol),
+    y: Number(stack.row),
+  };
 }
 
 function guideMapPositionNumber(stack, area) {
@@ -1427,27 +1438,41 @@ function guideMapPositionNumber(stack, area) {
 
 function guideMapAisleLabels(stacks, area) {
   if (area === "PE") {
-    return Object.values(groupBy(stacks, (stack) => stack.rack)).map((items) => {
-      const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
-      const y = Math.min(...items.map((item) => Number(item.row))) - 0.55;
-      return `<text class="guide-aisle-label compact" x="${x}" y="${y}">PE.${String(items[0].rack).padStart(2, "0")}</text>`;
+    const groups = Object.values(groupBy(stacks, (stack) => stack.rack));
+    const labels = groups.map((items) => {
+      const points = items.map(guideMapPoint);
+      const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const y = Math.min(...points.map((point) => point.y)) - 0.55;
+      return `<text class="guide-aisle-label compact" x="${x}" y="${y}">${String(items[0].rack).padStart(2, "0")}</text>`;
     });
+    const points = stacks.map(guideMapPoint);
+    labels.push(`<text class="guide-zone-label" x="${Math.min(...points.map((point) => point.x)) - 1.2}" y="${Math.min(...points.map((point) => point.y)) - 0.55}">CALLES PE</text>`);
+    return labels;
   }
   const labels = [];
   const regular = stacks.filter((stack) => stack.type !== "wallrack");
+  const regularPoints = regular.map(guideMapPoint);
+  const minRegularX = Math.min(...regularPoints.map((point) => point.x));
+  const maxRegularX = Math.max(...regularPoints.map((point) => point.x));
+  const regularCenterX = (minRegularX + maxRegularX) / 2;
   Object.values(groupBy(regular, (stack) => area === "BACK" ? stack.aisle : `${stack.side}-${stack.aisle}`)).forEach((items) => {
-    const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
+    const points = items.map(guideMapPoint);
+    const uniqueX = [...new Set(points.map((point) => point.x))];
+    let x = uniqueX.reduce((sum, value) => sum + value, 0) / uniqueX.length;
+    if (uniqueX.length === 1) x += x <= regularCenterX ? -1.2 : 1.2;
     const side = Number(items[0].side);
-    const y = area === "BACK" || side === 1
-      ? Math.min(...items.map((item) => Number(item.row))) - 0.7
-      : Math.max(...items.map((item) => Number(item.row))) + 0.95;
-    const label = area === "BACK" ? `PASILLO ${items[0].aisle}` : `PASILLO ${items[0].aisle} · LADO ${side}`;
-    labels.push(`<text class="guide-aisle-label" x="${x}" y="${y}">${escapeHtml(label)}</text>`);
+    const y = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const label = area === "BACK" ? `PASILLO ${items[0].aisle}` : `PASILLO ${items[0].aisle} · L${side}`;
+    labels.push(`<text class="guide-aisle-label" x="${x}" y="${y}" transform="rotate(-90 ${x} ${y})">${escapeHtml(label)}</text>`);
   });
   Object.entries(groupBy(stacks.filter((stack) => stack.type === "wallrack"), (stack) => stack.aisle)).forEach(([aisle, items]) => {
-    const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
-    const y = aisle === "ZE" ? Math.max(...items.map((item) => Number(item.row))) + 1.2 : Math.min(...items.map((item) => Number(item.row))) - 1;
-    labels.push(`<text class="guide-zone-label" x="${x}" y="${y}">${escapeHtml(({ ZE: "ZONA ESTE · ZE", ZO: "ZONA OESTE · ZO", ZN: "ZONA NORTE · ZN" })[aisle] || aisle)}</text>`);
+    const points = items.map(guideMapPoint);
+    const x = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const averageY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const y = aisle === "ZE" ? averageY - 1.1 : aisle === "ZO" ? averageY + 1.25 : averageY;
+    const rotation = aisle === "ZN" ? ` transform="rotate(75 ${x - 1.4} ${y})"` : "";
+    const labelX = aisle === "ZN" ? x - 1.4 : x;
+    labels.push(`<text class="guide-zone-label" x="${labelX}" y="${y}"${rotation}>${escapeHtml(({ ZE: "ZONA ESTE · ZE", ZO: "ZONA OESTE · ZO", ZN: "ZONA NORTE · ZN" })[aisle] || aisle)}</text>`);
   });
   return labels;
 }

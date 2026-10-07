@@ -523,10 +523,10 @@ label select {
 .guide-direction-label { font-size: 0.8px; font-weight: 800; text-anchor: middle; fill: #333; }
 .guide-direction-label { text-anchor: end; }
 .guide-rack-label { font-size: 0.55px; font-weight: 800; text-anchor: middle; fill: #111; }
-.guide-position-number { font-size: 0.45px; font-weight: 800; text-anchor: middle; fill: #111; }
-.guide-aisle-label { font-size: 0.65px; font-weight: 800; text-anchor: middle; fill: #111; }
-.guide-aisle-label.compact { font-size: 0.42px; }
-.guide-zone-label { font-size: 0.8px; font-weight: 900; text-anchor: middle; fill: #111; }
+.guide-position-number { font-size: 0.55px; font-weight: 800; text-anchor: middle; fill: #111; }
+.guide-aisle-label { font-size: 0.78px; font-weight: 900; text-anchor: middle; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: 0.18px; }
+.guide-aisle-label.compact { font-size: 0.36px; stroke-width: 0.1px; }
+.guide-zone-label { font-size: 0.85px; font-weight: 900; text-anchor: middle; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: 0.22px; }
 
 .guide-map-legend {
   display: flex;
@@ -2847,10 +2847,10 @@ dd {
   .guide-direction-label { font-size: 0.8px; font-weight: 800; text-anchor: middle; fill: #333; }
   .guide-direction-label { text-anchor: end; }
   .guide-rack-label { font-size: 0.55px; font-weight: 800; text-anchor: middle; fill: #111; }
-  .guide-position-number { font-size: 0.45px; font-weight: 800; text-anchor: middle; fill: #111; }
-  .guide-aisle-label { font-size: 0.65px; font-weight: 800; text-anchor: middle; fill: #111; }
-  .guide-aisle-label.compact { font-size: 0.42px; }
-  .guide-zone-label { font-size: 0.8px; font-weight: 900; text-anchor: middle; fill: #111; }
+  .guide-position-number { font-size: 0.55px; font-weight: 800; text-anchor: middle; fill: #111; }
+  .guide-aisle-label { font-size: 0.78px; font-weight: 900; text-anchor: middle; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: 0.18px; }
+  .guide-aisle-label.compact { font-size: 0.36px; stroke-width: 0.1px; }
+  .guide-zone-label { font-size: 0.85px; font-weight: 900; text-anchor: middle; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: 0.22px; }
 
   .guide-map-legend,
   .guide-map-page > footer {
