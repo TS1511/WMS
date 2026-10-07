@@ -2282,9 +2282,7 @@ function calculatePickingRoute(event) {
   const shortages = [];
   requests.forEach(({ sku, quantity }) => {
     let pending = quantity;
-    const positions = scopedLocations()
-      .filter((item) => item.occupied && !item.blocked && !isFootprintSecondary(item) && item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase()))
-      .sort((a, b) => pickingAge(a) - pickingAge(b) || a.id.localeCompare(b.id));
+    const positions = pickingCandidatesForSku(sku);
     positions.forEach((location) => {
       if (pending <= 0) return;
       const available = availablePackages(location, sku);
@@ -2323,6 +2321,32 @@ function availablePackages(location, sku) {
 function pickingAge(location) {
   const value = new Date(location.occupiedSince || 0).getTime();
   return Number.isFinite(value) ? value : 0;
+}
+
+function pickingCandidatesForSku(sku) {
+  const occupied = scopedLocations().filter((item) => item.occupied && !isFootprintSecondary(item));
+  const matchesSku = (item) => item.contents?.some((content) => content.sku.toLowerCase() === sku.toLowerCase());
+  const queues = occupied
+    .filter((item) => item.storageType !== "drivein" && !item.blocked && matchesSku(item))
+    .map((item) => [item]);
+  const driveInGroups = Object.values(groupBy(
+    occupied.filter((item) => item.storageType === "drivein"),
+    (item) => `${item.aisle}|${item.rack}|${item.level}`
+  ));
+  driveInGroups.forEach((lane) => {
+    const ordered = lane.sort((a, b) => a.depth - b.depth);
+    const stopIndex = ordered.findIndex((item) => item.blocked || !matchesSku(item));
+    const retrievable = stopIndex < 0 ? ordered : ordered.slice(0, stopIndex);
+    if (retrievable.length) queues.push(retrievable);
+  });
+  const candidates = [];
+  while (queues.length) {
+    queues.sort((a, b) => pickingAge(a[0]) - pickingAge(b[0]) || a[0].id.localeCompare(b[0].id));
+    const queue = queues[0];
+    candidates.push(queue.shift());
+    if (!queue.length) queues.shift();
+  }
+  return candidates;
 }
 
 function pickingPoint(location) {
@@ -2367,7 +2391,7 @@ function renderPickingRoute(route, shortages, requests) {
     quantity.className = "pick-quantity";
     step.textContent = index + 1;
     locationId.textContent = stop.location.id;
-    locationDetail.textContent = `Pasillo ${stop.location.aisle} · Rack ${String(stop.location.rack).padStart(2, "0")} · Módulo ${stop.location.module} · Nivel ${stop.location.level}`;
+    locationDetail.textContent = `Pasillo ${stop.location.aisle} · Rack ${String(stop.location.rack).padStart(2, "0")} · Módulo ${stop.location.module} · Nivel ${stop.location.level}${stop.location.palletId ? ` · Pallet ${stop.location.palletId}` : ""}`;
     quantityValue.textContent = fmt.format(stop.quantity);
     sku.textContent = `${stop.sku}${stop.fullPallet ? " · PALLET COMPLETO" : " · bultos"}`;
     location.append(locationId, locationDetail);
@@ -2383,7 +2407,7 @@ function renderPickingRoute(route, shortages, requests) {
   $("#pickingStops").textContent = fmt.format(route.length);
   $("#pickingMissing").textContent = fmt.format(shortages.reduce((sum, item) => sum + item.missing, 0));
   $("#printPickingRoute").disabled = route.length === 0;
-  $("#pickingMessage").textContent = route.length ? "Ruta calculada con posiciones disponibles y no bloqueadas." : "No hay stock disponible para el pedido.";
+  $("#pickingMessage").textContent = route.length ? "Ruta calculada: FIFO en racks selectivos y secuencia LIFO en Drive-In." : "No hay stock accesible para el pedido.";
 
   const shortageBox = $("#pickingShortages");
   shortageBox.replaceChildren();
