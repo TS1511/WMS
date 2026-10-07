@@ -198,7 +198,7 @@ async function init() {
   if (state.operationalScope === "ALL" && state.syncConfig.role !== "admin") state.operationalScope = "CD";
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
-  state.slottingRules = loadJson(SLOTTING_RULES_KEY, []);
+  state.slottingRules = loadJson(SLOTTING_RULES_KEY, []).map(normalizeSlottingRule);
   state.inventoryCounts = loadJson(COUNT_CACHE_KEY, []).map(normalizeInventoryCount);
   state.countSession = loadJson(COUNT_SESSION_KEY, null);
   saveState();
@@ -648,6 +648,8 @@ function renderScopeControls() {
   control.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
   control.value = state.operationalScope;
   control.disabled = !state.syncConfig.authenticated;
+  const slottingScope = $("#slottingScope");
+  if (slottingScope && state.operationalScope !== "ALL") slottingScope.value = state.operationalScope;
   $("#configuredPositionCount").title = `Ámbito activo: ${scopeLabel()}`;
 }
 
@@ -1702,8 +1704,14 @@ function parseJsonValue(value, fallback) {
 }
 
 function normalizeSlottingRule(source) {
+  const rawScope = String(source.scope || source.ambito || "").trim().toUpperCase();
+  const generatedScope = ["CD", "BACK"].includes(rawScope) ? rawScope : "CD";
+  const generatedId = `${generatedScope}-zone-${crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+  const id = String(source.id || generatedId);
+  const scope = ["CD", "BACK"].includes(rawScope) ? rawScope : id.toUpperCase().startsWith("BACK-") ? "BACK" : "CD";
   return {
-    id: String(source.id || (crypto.randomUUID ? crypto.randomUUID() : `zone-${Date.now()}`)),
+    id,
+    scope,
     velocityClass: String(source.velocityClass || "").toUpperCase(),
     aisle: String(source.aisle || "ALL").trim().toUpperCase(),
     side: String(source.side || "all"),
@@ -1717,7 +1725,8 @@ function normalizeSlottingRule(source) {
 
 function locationMatchesRule(location, rule) {
   const aisles = String(rule.aisle || "ALL").split(/[,;\s]+/).map((value) => value.trim().toUpperCase()).filter(Boolean);
-  return (aisles.includes("ALL") || aisles.includes(String(location.aisle).toUpperCase()))
+  return locationInOperationalScope(location, rule.scope || "CD")
+    && (aisles.includes("ALL") || aisles.includes(String(location.aisle).toUpperCase()))
     && (rule.side === "all" || String(location.side) === rule.side)
     && Number(location.rack) >= rule.rackFrom && Number(location.rack) <= rule.rackTo
     && Number(location.module) >= rule.moduleFrom && Number(location.module) <= rule.moduleTo
@@ -1734,6 +1743,7 @@ async function saveSlottingRule(event) {
   renderSlottingRules();
   renderSkuAlerts();
   event.currentTarget.reset();
+  $("#slottingScope").value = rule.scope;
   try {
     const result = await centralRequest("slotting_save", { rule, admin_password: ADMIN_PASSWORD_HASH });
     if (!result.ok) throw new Error(result.error || "No se pudo guardar la zona.");
@@ -1758,8 +1768,10 @@ async function deleteSlottingRule(event) {
 function renderSlottingRules() {
   const body = $("#slottingTable");
   if (!body) return;
-  body.innerHTML = state.slottingRules.map((rule) => `
+  const visibleRules = state.slottingRules.filter((rule) => state.operationalScope === "ALL" || rule.scope === state.operationalScope);
+  body.innerHTML = visibleRules.map((rule) => `
     <tr>
+      <td>${scopeLabel(rule.scope)}</td>
       <td>${formatVelocityClass(rule.velocityClass)}</td>
       <td>${rule.aisle === "ALL" ? "Todos" : rule.aisle}</td>
       <td>${rule.side === "all" ? "Ambos" : rule.side}</td>
@@ -1767,7 +1779,7 @@ function renderSlottingRules() {
       <td>${rule.moduleFrom}-${rule.moduleTo}</td>
       <td>${rule.level === "all" ? "Todos" : rule.level}</td>
       <td><button type="button" class="icon-action danger" data-rule-id="${rule.id}" title="Eliminar zona">×</button></td>
-    </tr>`).join("");
+    </tr>`).join("") || `<tr><td colspan="8">No hay reglas definidas para ${scopeLabel()}.</td></tr>`;
 }
 
 function renderSkuAlerts() {

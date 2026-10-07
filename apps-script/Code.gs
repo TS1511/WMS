@@ -28,7 +28,7 @@ const COLUMNS = [
   "contenido_anterior_json",
 ];
 const SKU_COLUMNS = ["sku","description","ean","category","unit","unitsPerCase","casesPerPallet","unitsPerPallet","weightKg","lotControl","expiryControl","minStock","maxStock","preferredLocation","active","dailyConsumption","velocityClass","positionsRequired","minDays","maxDays"];
-const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level"];
+const SLOTTING_COLUMNS = ["id","velocityClass","aisle","side","rackFrom","rackTo","moduleFrom","moduleTo","level","scope"];
 const COUNT_COLUMNS = ["id_conteo","fecha_hora_utc","fecha_local","posicion","esperado_json","encontrado_json","resultado","estado","observacion","usuario","ajuste_id","ajustado_por","ajustado_en","inventario_id","alcance"];
 
 const BASELINE_STOCK = {
@@ -163,6 +163,10 @@ function getSlottingSheet() {
     sheet.appendRow(SLOTTING_COLUMNS);
     sheet.setFrozenRows(1);
   }
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), SLOTTING_COLUMNS.length)).getDisplayValues()[0];
+  SLOTTING_COLUMNS.forEach((column, index) => {
+    if (headers[index] !== column) sheet.getRange(1, index + 1).setValue(column);
+  });
   return sheet;
 }
 
