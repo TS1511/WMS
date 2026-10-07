@@ -11,9 +11,9 @@ const aisles = "ABCDEFGHIJKLMNOPQR".split("");
 const rackCount = 17;
 const positionsPerFace = 22;
 const levels = 5;
-// Anchor the last face exactly as surveyed: R.01.0 = X -75 / Y 20.
+// Anchor the last face exactly as surveyed: R.01.0 = X -65 / Y 20.
 const backstoreStartRow = 20;
-const backstoreAnchorCol = -75;
+const backstoreAnchorCol = -65;
 
 locationsPayload.locations = locationsPayload.locations.filter((item) => item.storageType !== "backstore");
 layoutPayload.stacks = layoutPayload.stacks.filter((item) => item.type !== "backstore");

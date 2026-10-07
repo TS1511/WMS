@@ -93,6 +93,7 @@ const state = {
     position: "",
     zone: "all",
     dragging: false,
+    interactionMode: "orbit",
     dragMode: "orbit",
     didDrag: false,
     lastPointer: null,
@@ -352,6 +353,9 @@ function bindEvents() {
     Object.assign(state.view3d, { rotation: -12, tilt: 56, scale: 0.35, panX: 0, panY: 0 });
     update3dTransform();
   });
+
+  $("#orbit3dMode").addEventListener("click", () => set3dInteractionMode("orbit"));
+  $("#pan3dMode").addEventListener("click", () => set3dInteractionMode("pan"));
 
   bind3dMouseControls();
 
@@ -911,7 +915,9 @@ function bind3dMouseControls() {
   shell.addEventListener("pointerdown", (event) => {
     state.view3d.dragging = true;
     state.view3d.didDrag = false;
-    state.view3d.dragMode = event.button === 2 ? "pan" : "orbit";
+    state.view3d.dragMode = event.button === 2 || event.button === 1 || event.shiftKey
+      ? "pan"
+      : state.view3d.interactionMode;
     state.view3d.lastPointer = { x: event.clientX, y: event.clientY };
     shell.setPointerCapture(event.pointerId);
     shell.classList.add("dragging");
@@ -922,7 +928,7 @@ function bind3dMouseControls() {
       const hovered = pick3dLocation(event.clientX, event.clientY) || "";
       if (hovered !== state.view3d.hoveredLocationId) {
         state.view3d.hoveredLocationId = hovered;
-        shell.style.cursor = hovered ? "pointer" : "grab";
+        shell.style.cursor = state.view3d.interactionMode === "pan" ? "move" : hovered ? "pointer" : "grab";
         scheduleTransform();
       }
       return;
@@ -946,7 +952,7 @@ function bind3dMouseControls() {
   shell.addEventListener("pointerleave", () => {
     if (!state.view3d.dragging && state.view3d.hoveredLocationId) {
       state.view3d.hoveredLocationId = "";
-      shell.style.cursor = "grab";
+      shell.style.cursor = state.view3d.interactionMode === "pan" ? "move" : "grab";
       scheduleTransform();
     }
   });
@@ -963,6 +969,19 @@ function bind3dMouseControls() {
   });
 
   window.addEventListener("resize", scheduleTransform);
+}
+
+function set3dInteractionMode(mode) {
+  state.view3d.interactionMode = mode === "pan" ? "pan" : "orbit";
+  const shell = $(".map3d-shell");
+  shell?.classList.toggle("pan-mode", state.view3d.interactionMode === "pan");
+  if (shell) shell.style.cursor = state.view3d.interactionMode === "pan" ? "move" : "grab";
+  [["orbit3dMode", "orbit"], ["pan3dMode", "pan"]].forEach(([id, value]) => {
+    const button = $(`#${id}`);
+    const active = state.view3d.interactionMode === value;
+    button?.classList.toggle("active", active);
+    button?.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function end3dDrag(shell, pointerId) {

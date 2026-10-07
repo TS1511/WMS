@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261006-3" />
+    <link rel="stylesheet" href="styles.css?v=20261006-4" />
   </head>
   <body>
     <aside class="sidebar">
@@ -302,6 +302,10 @@
           <button id="rotateRight" class="ghost">Girar derecha</button>
           <button id="tiltUp" class="ghost">Subir vista</button>
           <button id="tiltDown" class="ghost">Bajar vista</button>
+          <div class="map3d-mode" role="group" aria-label="Modo de arrastre">
+            <button id="orbit3dMode" type="button" class="ghost active" aria-pressed="true" title="Arrastrar para cambiar el ángulo">Girar</button>
+            <button id="pan3dMode" type="button" class="ghost" aria-pressed="false" title="Arrastrar para desplazarse por el plano">Mover</button>
+          </div>
           <button id="reset3dView" class="ghost">Centrar</button>
         </div>
         <div class="map3d-shell">
@@ -696,8 +700,8 @@
     <input id="barcodeCapture" type="file" accept="image/*" capture="environment" hidden />
     <div id="scanStatus" class="scan-status hidden" role="status"></div>
 
-    <script src="data/embedded-data.js?v=20261006-4"></script>
+    <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261006-5"></script>
+    <script src="app.js?v=20261006-6"></script>
   </body>
 </html>

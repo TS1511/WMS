@@ -342,6 +342,34 @@ label select {
   cursor: grabbing;
 }
 
+.map3d-shell.pan-mode {
+  cursor: move;
+}
+
+.map3d-mode {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.map3d-mode button {
+  min-height: 36px;
+  border: 0;
+  border-radius: 0;
+}
+
+.map3d-mode button + button {
+  border-left: 1px solid var(--line);
+}
+
+.map3d-mode button.active {
+  color: #fff;
+  background: var(--primary);
+}
+
 .map3d-legend {
   position: absolute;
   top: 14px;
