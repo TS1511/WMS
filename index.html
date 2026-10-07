@@ -621,6 +621,26 @@
           </div>
           <button type="button" class="primary-action open-manual-movement-sheet">Imprimir planilla</button>
         </section>
+        <section class="panel form-tool-panel">
+          <div class="form-tool-icon" aria-hidden="true">MAP</div>
+          <div class="form-tool-copy">
+            <h2>Mapa de orientación y rotulado</h2>
+            <p>Genera una vista aérea imprimible con racks, pasillos, calle principal y códigos de posiciones para orientar al equipo durante el rotulado.</p>
+            <ul>
+              <li>Selección por ambiente y sector</li>
+              <li>Plano general y detalle de posiciones</li>
+              <li>Formato A4 apaisado</li>
+            </ul>
+          </div>
+          <button type="button" id="openGuideMap" class="primary-action">Preparar mapa</button>
+        </section>
+        <section id="guideMapPreviewPanel" class="panel guide-map-preview-panel" hidden>
+          <div class="panel-head">
+            <div><h2>Vista previa del mapa</h2><span id="guideMapPreviewSummary"></span></div>
+            <div class="guide-preview-actions"><button type="button" id="editGuideMap" class="ghost">Cambiar selección</button><button type="button" id="printGuideMapPreview" class="primary-action">Imprimir</button></div>
+          </div>
+          <div id="guideMapPreview" class="guide-map-preview"></div>
+        </section>
       </section>
     </main>
 
@@ -653,6 +673,8 @@
       </footer>
     </section>
 
+    <section id="guideMapSheet" class="guide-map-sheet" aria-hidden="true"></section>
+
     <dialog id="manualMovementDialog" class="movement-dialog">
       <form id="manualMovementForm">
         <div class="panel-head"><h2>Planilla manual</h2><button type="button" id="closeManualMovementDialog" class="close">&times;</button></div>
@@ -663,6 +685,25 @@
         <label>Responsable<input id="manualMovementResponsible" name="responsible" required /></label>
         <label>Cantidad de renglones<input name="rows" type="number" min="10" max="30" value="18" required /></label>
         <div class="dialog-actions"><button type="button" id="cancelManualMovement" class="ghost">Cancelar</button><button type="submit" class="primary-action">Imprimir</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="guideMapDialog" class="movement-dialog guide-map-dialog">
+      <form id="guideMapForm">
+        <div class="panel-head"><h2>Mapa de orientación</h2><button type="button" id="closeGuideMapDialog" class="close">&times;</button></div>
+        <label>Ambiente
+          <select id="guideMapEnvironment" name="environment" required>
+            <option value="CD">Centro de distribución</option>
+            <option value="BACK">Back salón Escobar</option>
+          </select>
+        </label>
+        <fieldset class="guide-sector-fieldset">
+          <legend>Sectores a imprimir</legend>
+          <div id="guideMapSectors" class="guide-sector-options"></div>
+        </fieldset>
+        <label class="check-row"><input id="guideMapDetails" name="details" type="checkbox" checked /> Incluir páginas con códigos de posiciones</label>
+        <p id="guideMapMessage" class="message"></p>
+        <div class="dialog-actions"><button type="button" id="cancelGuideMap" class="ghost">Cancelar</button><button type="submit" class="primary-action">Generar vista previa</button></div>
       </form>
     </dialog>
 
@@ -770,6 +811,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261007-4"></script>
+    <script src="app.js?v=20261007-7"></script>
   </body>
 </html>
