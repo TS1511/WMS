@@ -41,17 +41,11 @@ const ROLE_PERMISSIONS = {
 };
 const SKU_FIELDS = ["sku","description","ean","category","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
-const GUIDE_MAP_SECTORS = {
-  CD: [
-    ["1", "Lado 1"],
-    ["2", "Lado 2"],
-    ["PE", "Drive-In"],
-    ["ZE", "Zona Este"],
-    ["ZO", "Zona Oeste"],
-    ["ZN", "Zona Norte"],
-  ],
-  BACK: [["ALL", "Back salón completo"]],
-};
+const GUIDE_MAP_AREAS = [
+  ["CD", "CD completo"],
+  ["PE", "Drive-In"],
+  ["BACK", "Back salón Escobar"],
+];
 const POSITION_3D = {
   halfWidth: 0.38,
   halfLength: 0.456,
@@ -384,7 +378,6 @@ function bindEvents() {
   $("#closeManualMovementDialog").addEventListener("click", closeManualMovementSheetDialog);
   $("#cancelManualMovement").addEventListener("click", closeManualMovementSheetDialog);
   $("#openGuideMap").addEventListener("click", openGuideMapDialog);
-  $("#guideMapEnvironment").addEventListener("change", renderGuideMapSectorOptions);
   $("#guideMapForm").addEventListener("submit", printGuideMap);
   $("#closeGuideMapDialog").addEventListener("click", closeGuideMapDialog);
   $("#cancelGuideMap").addEventListener("click", closeGuideMapDialog);
@@ -1326,10 +1319,8 @@ function printManualMovementSheet(event) {
 }
 
 function openGuideMapDialog() {
-  const environment = state.operationalScope === "BACK" ? "BACK" : "CD";
-  $("#guideMapEnvironment").value = environment;
   $("#guideMapMessage").textContent = "";
-  renderGuideMapSectorOptions();
+  $("#guideMapMessage").classList.remove("error");
   $("#guideMapDialog").showModal();
 }
 
@@ -1337,181 +1328,134 @@ function closeGuideMapDialog() {
   $("#guideMapDialog").close();
 }
 
-function renderGuideMapSectorOptions() {
-  const environment = $("#guideMapEnvironment").value;
-  const sectors = environment === "BACK"
-    ? [
-        ...GUIDE_MAP_SECTORS.BACK,
-        ...[...new Set(state.locations.filter((item) => item.storageType === "backstore").map((item) => item.aisle))]
-          .sort((a, b) => a.localeCompare(b, "es", { numeric: true }))
-          .map((aisle) => [aisle, `Pasillo ${aisle}`]),
-      ]
-    : GUIDE_MAP_SECTORS.CD;
-  $("#guideMapSectors").innerHTML = sectors.map(([value, label], index) => `
-    <label class="guide-sector-option"><input type="checkbox" name="guideSector" value="${escapeHtml(value)}" ${index === 0 ? "checked" : ""} /> <span>${escapeHtml(label)}</span></label>
-  `).join("");
-}
-
 function printGuideMap(event) {
   event.preventDefault();
-  const environment = $("#guideMapEnvironment").value;
-  let sectors = $$('#guideMapSectors input[name="guideSector"]:checked').map((input) => input.value);
+  const areas = $$('#guideMapAreas input[name="guideArea"]:checked').map((input) => input.value);
   const message = $("#guideMapMessage");
-  if (!sectors.length) {
-    message.textContent = "Seleccioná al menos un sector.";
+  if (!areas.length) {
+    message.textContent = "Seleccioná al menos un plano.";
     message.classList.add("error");
     return;
   }
-  if (environment === "BACK" && sectors.includes("ALL")) sectors = ["ALL"];
   message.classList.remove("error");
-  renderGuideMapSheet(environment, sectors, $("#guideMapDetails").checked);
+  const paper = $("#guideMapPaper").value;
+  renderGuideMapSheet(areas, paper);
   closeGuideMapDialog();
-  renderGuideMapPreview(environment, sectors);
+  renderGuideMapPreview(areas, paper);
 }
 
 function openGuideMapPrintDialog() {
-  document.body.classList.add("printing-guide-map");
+  const paper = $("#guideMapSheet").dataset.paper || "A2";
+  document.body.classList.add("printing-guide-map", `guide-paper-${paper.toLowerCase()}`);
   requestAnimationFrame(() => requestAnimationFrame(() => {
     window.print();
-    setTimeout(() => document.body.classList.remove("printing-guide-map"), 0);
+    setTimeout(() => document.body.classList.remove("printing-guide-map", `guide-paper-${paper.toLowerCase()}`), 0);
   }));
 }
 
-function guideMapSector(stack) {
-  if (stack.type === "drivein") return "PE";
-  if (stack.type === "wallrack") return String(stack.aisle).toUpperCase();
-  if (stack.type === "backstore") return "BACK";
-  return String(stack.side);
+function guideMapStacks(area) {
+  if (area === "PE") return state.layout3d.stacks.filter((stack) => stack.type === "drivein");
+  if (area === "BACK") return state.layout3d.stacks.filter((stack) => stack.type === "backstore");
+  return state.layout3d.stacks.filter((stack) => stack.type !== "backstore" && stack.type !== "drivein");
 }
 
-function guideMapStacks(environment, sector) {
-  return state.layout3d.stacks.filter((stack) => {
-    if (environment === "BACK") {
-      return stack.type === "backstore" && (sector === "ALL" || stack.aisle === sector);
-    }
-    return stack.type !== "backstore" && guideMapSector(stack) === sector;
-  });
+function guideMapAreaLabel(area) {
+  return Object.fromEntries(GUIDE_MAP_AREAS)[area] || area;
 }
 
-function guideMapSectorLabel(environment, sector) {
-  if (environment === "BACK") return sector === "ALL" ? "Back salón Escobar" : `Back salón · Pasillo ${sector}`;
-  return Object.fromEntries(GUIDE_MAP_SECTORS.CD)[sector] || sector;
-}
-
-function renderGuideMapSheet(environment, sectors, includeDetails) {
+function renderGuideMapSheet(areas, paper) {
   const sheet = $("#guideMapSheet");
   const generated = formatDateTime();
-  const pages = [];
-  sectors.forEach((sector) => {
-    const stacks = guideMapStacks(environment, sector);
-    if (!stacks.length) return;
-    const label = guideMapSectorLabel(environment, sector);
-    pages.push(`
+  sheet.dataset.paper = paper;
+  sheet.innerHTML = areas.map((area) => {
+    const stacks = guideMapStacks(area);
+    const label = guideMapAreaLabel(area);
+    return `
       <article class="guide-map-page">
-        ${guideMapPageHeader(environment, label, generated)}
-        ${guideOverviewSvg(stacks, environment, sector)}
-        <footer><span>${fmt.format(stacks.length)} posiciones base · niveles 0 a 4</span><span>Vista aérea orientativa · no usar como plano de evacuación</span></footer>
+        ${guideMapPageHeader(label, generated, paper)}
+        ${guideOverviewSvg(stacks, area)}
+        <footer><span>${fmt.format(stacks.length)} posiciones base · niveles 0 a 4</span><span>${escapeHtml(guideMapCodeLegend(area))}</span></footer>
       </article>
-    `);
-    if (includeDetails) pages.push(...guideDetailPages(stacks, environment, sector, label, generated));
-  });
-  sheet.innerHTML = pages.join("");
+    `;
+  }).join("");
   sheet.setAttribute("aria-hidden", "false");
 }
 
-function renderGuideMapPreview(environment, sectors) {
+function renderGuideMapPreview(areas, paper) {
   const sheet = $("#guideMapSheet");
   const panel = $("#guideMapPreviewPanel");
-  const overviewPages = [...sheet.querySelectorAll(".guide-map-page:not(.guide-detail-page)")];
-  const totalPages = sheet.querySelectorAll(".guide-map-page").length;
-  $("#guideMapPreviewSummary").textContent = `${fmt.format(totalPages)} páginas listas para imprimir`;
-  $("#guideMapPreview").innerHTML = overviewPages.map((page, index) => {
-    const title = guideMapSectorLabel(environment, sectors[index] || sectors[0]);
+  const pages = [...sheet.querySelectorAll(".guide-map-page")];
+  $("#guideMapPreviewSummary").textContent = `${fmt.format(pages.length)} hoja${pages.length === 1 ? "" : "s"} ${paper} lista${pages.length === 1 ? "" : "s"} para imprimir`;
+  $("#guideMapPreview").innerHTML = pages.map((page, index) => {
+    const title = guideMapAreaLabel(areas[index]);
     return `<article class="guide-preview-item"><h3>${escapeHtml(title)}</h3>${page.querySelector(".guide-overview")?.outerHTML || ""}</article>`;
   }).join("");
   panel.hidden = false;
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function guideMapPageHeader(environment, label, generated, detail = false) {
-  return `<header><div><span>GPS · ${environment === "BACK" ? "Back salón Escobar" : "Centro de distribución"}</span><h1>${detail ? "Códigos de posiciones" : "Mapa de orientación"}</h1></div><dl><div><dt>Sector</dt><dd>${escapeHtml(label)}</dd></div><div><dt>Generado</dt><dd>${escapeHtml(generated)}</dd></div></dl></header>`;
+function guideMapPageHeader(label, generated, paper) {
+  return `<header><div><span>GPS · Guía para rotulado</span><h1>Mapa general de posiciones</h1></div><dl><div><dt>Ambiente</dt><dd>${escapeHtml(label)}</dd></div><div><dt>Hoja</dt><dd>${escapeHtml(paper)} apaisado</dd></div><div><dt>Generado</dt><dd>${escapeHtml(generated)}</dd></div></dl></header>`;
 }
 
-function guideOverviewSvg(stacks, environment, sector) {
+function guideOverviewSvg(stacks, area) {
   const points = stacks.map((stack) => ({ x: Number(stack.col), y: Number(stack.row) }));
-  const includeStreet = environment === "CD" && ["1", "2"].includes(sector);
+  const includeStreet = area === "CD";
   const minX = Math.min(...points.map((point) => point.x)) - 2;
   const maxX = Math.max(...points.map((point) => point.x)) + 2;
   const minY = Math.min(...points.map((point) => point.y), ...(includeStreet ? [27.8] : [])) - 2;
   const maxY = Math.max(...points.map((point) => point.y), ...(includeStreet ? [30.2] : [])) + 2;
   const width = Math.max(1, maxX - minX);
   const height = Math.max(1, maxY - minY);
-  const groups = Object.values(groupBy(stacks, guideMapGroupKey));
   const street = includeStreet ? `
     <rect class="guide-main-road" x="${minX}" y="27.8" width="${width}" height="2.4" />
     <text class="guide-main-road-label" x="${minX + width / 2}" y="29.3">CALLE PRINCIPAL</text>
   ` : "";
   const cells = stacks.map((stack) => {
     const rotation = Number(stack.rotation || 0);
-    return `<rect class="guide-position-cell guide-${stack.type || "selective"}" x="${Number(stack.col) - 0.38}" y="${Number(stack.row) - 0.38}" width="0.76" height="0.76" ${rotation ? `transform="rotate(${rotation} ${stack.col} ${stack.row})"` : ""} />`;
+    const transform = rotation ? ` transform="rotate(${rotation} ${stack.col} ${stack.row})"` : "";
+    return `<g${transform}><rect class="guide-position-cell guide-${stack.type || "selective"}" x="${Number(stack.col) - 0.4}" y="${Number(stack.row) - 0.4}" width="0.8" height="0.8" /><text class="guide-position-number" x="${stack.col}" y="${Number(stack.row) + 0.13}">${escapeHtml(guideMapPositionNumber(stack, area))}</text></g>`;
   }).join("");
-  const labels = groups.map((items) => {
+  const labels = guideMapAisleLabels(stacks, area).join("");
+  return `<div class="guide-overview"><svg viewBox="${minX} ${minY} ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa aéreo ${escapeHtml(guideMapAreaLabel(area))}">${street}${cells}${labels}</svg><div class="guide-map-legend"><span><i></i> Cada cuadro es una posición base</span><strong>${escapeHtml(guideMapCodeLegend(area))}</strong></div></div>`;
+}
+
+function guideMapPositionNumber(stack, area) {
+  if (area === "PE") return String(stack.depth);
+  return String(stack.wallPosition || stack.position || stack.module).padStart(2, "0");
+}
+
+function guideMapAisleLabels(stacks, area) {
+  if (area === "PE") {
+    return Object.values(groupBy(stacks, (stack) => stack.rack)).map((items) => {
+      const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
+      const y = Math.min(...items.map((item) => Number(item.row))) - 0.55;
+      return `<text class="guide-aisle-label compact" x="${x}" y="${y}">PE.${String(items[0].rack).padStart(2, "0")}</text>`;
+    });
+  }
+  const labels = [];
+  const regular = stacks.filter((stack) => stack.type !== "wallrack");
+  Object.values(groupBy(regular, (stack) => area === "BACK" ? stack.aisle : `${stack.side}-${stack.aisle}`)).forEach((items) => {
     const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
-    const y = Math.min(...items.map((item) => Number(item.row))) - 0.7;
-    return `<text class="guide-rack-label" x="${x}" y="${y}">${escapeHtml(guideMapGroupLabel(items[0]))}</text>`;
-  }).join("");
-  const direction = environment === "CD" && sector === "PE" ? `<text class="guide-direction-label" x="${maxX - 1}" y="${minY + 1}">CALLE PRINCIPAL →</text>` : "";
-  const aisles = [...new Set(stacks.map((stack) => stack.aisle))].sort((a, b) => String(a).localeCompare(String(b), "es", { numeric: true }));
-  return `<div class="guide-overview"><svg viewBox="${minX} ${minY} ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa aéreo ${escapeHtml(guideMapSectorLabel(environment, sector))}">${street}${cells}${labels}${direction}</svg><div class="guide-map-legend"><span><i></i> Rack / posición base</span><strong>Pasillos: ${escapeHtml(aisles.join(" · "))}</strong></div></div>`;
+    const side = Number(items[0].side);
+    const y = area === "BACK" || side === 1
+      ? Math.min(...items.map((item) => Number(item.row))) - 0.7
+      : Math.max(...items.map((item) => Number(item.row))) + 0.95;
+    const label = area === "BACK" ? `PASILLO ${items[0].aisle}` : `PASILLO ${items[0].aisle} · LADO ${side}`;
+    labels.push(`<text class="guide-aisle-label" x="${x}" y="${y}">${escapeHtml(label)}</text>`);
+  });
+  Object.entries(groupBy(stacks.filter((stack) => stack.type === "wallrack"), (stack) => stack.aisle)).forEach(([aisle, items]) => {
+    const x = items.reduce((sum, item) => sum + Number(item.col), 0) / items.length;
+    const y = aisle === "ZE" ? Math.max(...items.map((item) => Number(item.row))) + 1.2 : Math.min(...items.map((item) => Number(item.row))) - 1;
+    labels.push(`<text class="guide-zone-label" x="${x}" y="${y}">${escapeHtml(({ ZE: "ZONA ESTE · ZE", ZO: "ZONA OESTE · ZO", ZN: "ZONA NORTE · ZN" })[aisle] || aisle)}</text>`);
+  });
+  return labels;
 }
 
-function guideMapGroupKey(stack) {
-  if (stack.type === "drivein") return `PE-${stack.rack}`;
-  if (stack.type === "wallrack") return `${stack.aisle}-${stack.rack}`;
-  return `${stack.type || "selective"}-${stack.side}-${stack.rack}`;
-}
-
-function guideMapGroupLabel(stack) {
-  if (stack.type === "drivein") return `PE.${String(stack.rack).padStart(2, "0")}`;
-  if (stack.type === "wallrack") return `${stack.aisle} · Rack ${stack.rack}`;
-  return `Rack ${String(stack.rack).padStart(2, "0")}`;
-}
-
-function guideDetailPages(stacks, environment, sector, label, generated) {
-  const groups = Object.values(groupBy(stacks, guideMapGroupKey))
-    .sort((a, b) => Number(a[0].rack) - Number(b[0].rack));
-  const perPage = sector === "PE" ? 20 : stacks[0]?.type === "wallrack" ? 2 : 4;
-  const pages = [];
-  for (let index = 0; index < groups.length; index += perPage) {
-    pages.push(`
-      <article class="guide-map-page guide-detail-page">
-        ${guideMapPageHeader(environment, label, generated, true)}
-        <p class="guide-code-note">Los códigos muestran la posición base. Para la etiqueta completa, agregar el nivel correspondiente de 0 a 4.${sector === "PE" ? " En Drive-In también se indica la profundidad." : ""}</p>
-        <div class="guide-rack-details${sector === "PE" ? " drivein-details" : ""}">${groups.slice(index, index + perPage).map(guideRackDetail).join("")}</div>
-        <footer><span>Página ${Math.floor(index / perPage) + 1} de ${Math.ceil(groups.length / perPage)} · detalle ${escapeHtml(label)}</span><span>Verificar el código antes de fijar cada etiqueta</span></footer>
-      </article>
-    `);
-  }
-  return pages;
-}
-
-function guideRackDetail(items) {
-  const first = items[0];
-  if (first.type === "drivein") {
-    const depth = [...items].sort((a, b) => Number(a.depth) - Number(b.depth));
-    return `<section class="guide-rack-detail drivein-lane"><h2>Calle ${escapeHtml(guideMapGroupLabel(first))}</h2><div class="guide-position-strip">${depth.map((stack) => `<span><b>Prof. ${stack.depth}</b><small>${escapeHtml(`PE.${String(stack.column).padStart(2, "0")}.[0-4].${stack.depth}`)}</small></span>`).join("")}</div></section>`;
-  }
-  const faces = Object.entries(groupBy(items, (stack) => stack.aisle))
-    .sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true }));
-  return `<section class="guide-rack-detail"><h2>${escapeHtml(guideMapGroupLabel(first))}</h2>${faces.map(([aisle, rows]) => `<div class="guide-rack-face"><strong>Pasillo ${escapeHtml(aisle)}</strong><div class="guide-position-strip">${rows.sort(guidePhysicalPositionSort).map((stack) => `<span>${escapeHtml(guideBasePositionCode(stack))}</span>`).join("")}</div></div>`).join("")}</section>`;
-}
-
-function guidePhysicalPositionSort(a, b) {
-  return Number(a.row) - Number(b.row) || Number(a.col) - Number(b.col) || Number(a.position || a.module) - Number(b.position || b.module);
-}
-
-function guideBasePositionCode(stack) {
-  return String(stack.baseId || stack.key || "").replace(/\.0$/, "");
+function guideMapCodeLegend(area) {
+  if (area === "PE") return "Código: PE.calle.nivel.profundidad";
+  if (area === "BACK") return "Código: pasillo.posición.nivel · Ej.: A.02.0";
+  return "Código: pasillo+lado.posición.nivel · Ej.: A2.02.0";
 }
 
 async function importMovementFile(event) {

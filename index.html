@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261007-3" />
+    <link rel="stylesheet" href="styles.css?v=20261007-4" />
   </head>
   <body>
     <aside class="sidebar">
@@ -627,9 +627,9 @@
             <h2>Mapa de orientación y rotulado</h2>
             <p>Genera una vista aérea imprimible con racks, pasillos, calle principal y códigos de posiciones para orientar al equipo durante el rotulado.</p>
             <ul>
-              <li>Selección por ambiente y sector</li>
-              <li>Plano general y detalle de posiciones</li>
-              <li>Formato A4 apaisado</li>
+              <li>Una lámina general por ambiente</li>
+              <li>Números dentro de cada posición</li>
+              <li>Formato A2, A3 o A4 apaisado</li>
             </ul>
           </div>
           <button type="button" id="openGuideMap" class="primary-action">Preparar mapa</button>
@@ -691,17 +691,18 @@
     <dialog id="guideMapDialog" class="movement-dialog guide-map-dialog">
       <form id="guideMapForm">
         <div class="panel-head"><h2>Mapa de orientación</h2><button type="button" id="closeGuideMapDialog" class="close">&times;</button></div>
-        <label>Ambiente
-          <select id="guideMapEnvironment" name="environment" required>
-            <option value="CD">Centro de distribución</option>
-            <option value="BACK">Back salón Escobar</option>
-          </select>
-        </label>
         <fieldset class="guide-sector-fieldset">
-          <legend>Sectores a imprimir</legend>
-          <div id="guideMapSectors" class="guide-sector-options"></div>
+          <legend>Planos a imprimir</legend>
+          <div id="guideMapAreas" class="guide-sector-options">
+            <label class="guide-sector-option"><input type="checkbox" name="guideArea" value="CD" checked /> <span>CD completo</span></label>
+            <label class="guide-sector-option"><input type="checkbox" name="guideArea" value="PE" /> <span>Drive-In</span></label>
+            <label class="guide-sector-option"><input type="checkbox" name="guideArea" value="BACK" /> <span>Back salón Escobar</span></label>
+          </div>
         </fieldset>
-        <label class="check-row"><input id="guideMapDetails" name="details" type="checkbox" checked /> Incluir páginas con códigos de posiciones</label>
+        <label>Tamaño de hoja
+          <select id="guideMapPaper" name="paper"><option value="A2" selected>A2 apaisado (recomendado)</option><option value="A3">A3 apaisado</option><option value="A4">A4 apaisado</option></select>
+        </label>
+        <p class="muted">Se genera una hoja por ambiente seleccionado. Las posiciones se identifican dentro de cada cuadrado.</p>
         <p id="guideMapMessage" class="message"></p>
         <div class="dialog-actions"><button type="button" id="cancelGuideMap" class="ghost">Cancelar</button><button type="submit" class="primary-action">Generar vista previa</button></div>
       </form>
@@ -811,6 +812,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261007-7"></script>
+    <script src="app.js?v=20261007-8"></script>
   </body>
 </html>
