@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-    <link rel="stylesheet" href="styles.css?v=20261007-6" />
+  <link rel="stylesheet" href="styles.css?v=20261013-claves-ambito" />
   </head>
   <body>
     <aside class="sidebar">
@@ -33,6 +33,8 @@
         <span class="nav-section-label">Herramientas</span>
         <button class="nav-item" data-view="forms">Planillas</button>
         <button class="nav-item" data-view="labels">Etiquetas</button>
+        <span class="nav-section-label">Administración</span>
+        <button class="nav-item" data-view="staff">Legajos y roles</button>
       </nav>
       <div class="source">
         <span>Almacén</span>
@@ -96,6 +98,10 @@
             <div id="dashboardInsights" class="dashboard-insight-grid"></div>
           </section>
         </div>
+        <section id="adminPresencePanel" class="panel admin-presence" hidden>
+          <div class="panel-head"><h2>Usuarios en la aplicación</h2><span id="presenceSummary">0 sesiones activas</span></div>
+          <div id="presenceList" class="presence-list"><p class="empty-state">No hay sesiones activas.</p></div>
+        </section>
       </section>
 
       <section id="register" class="view">
@@ -118,7 +124,7 @@
             <form id="registerMovement" class="register-form" data-operation="IN">
               <label id="registerPalletIdGroup">ID único de pallet (SAP)
                 <span class="scan-field"><input name="palletId" id="registerPalletId" autocomplete="off" required placeholder="Escanear código del pallet" /><button type="button" class="scan-button" data-scan-target="registerPalletId" aria-label="Escanear ID de pallet">Escanear pallet</button></span>
-                <small>Este código acompaña al pallet durante todo su recorrido.</small>
+                <small id="registerPalletIdHelp">Este código acompaña al pallet durante todo su recorrido.</small>
               </label>
               <label id="registerLoadTypeGroup">Tipo de carga
                 <select name="loadType" id="registerLoadType">
@@ -146,6 +152,12 @@
                 <small id="registerToInfo" class="field-info"></small>
               </label>
               <div class="register-content-grid">
+                <label id="registerExitModeGroup" hidden>Tipo de egreso
+                  <select name="exitMode" id="registerExitMode">
+                    <option value="PALLET">Pallet completo</option>
+                    <option value="PACKAGES">Detallar bultos</option>
+                  </select>
+                </label>
                 <label id="registerPalletCountGroup">Pallets
                   <input name="palletCount" id="registerPalletCount" type="number" min="1" max="1" value="1" inputmode="numeric" readonly />
                 </label>
@@ -165,7 +177,20 @@
                 <button id="downloadMovementTemplate" type="button" class="ghost">Descargar plantilla</button>
                 <button type="button" class="ghost open-manual-movement-sheet">Imprimir planilla manual</button>
               </div>
-              <p class="import-format">Campos: referencia, ID pallet SAP, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. Las filas con la misma referencia e ID forman un pallet multiproducto.</p>
+              <p class="import-format">Campos: referencia, ID pallet SAP, tipo, posición origen, posición destino, tipo de carga, SKU y bultos. El ID es obligatorio sólo para ingresos; en egresos y reubicaciones se obtiene desde la posición origen. Las filas de ingreso con la misma referencia e ID forman un pallet multiproducto.</p>
+              <form id="bulkInitialLoadForm" class="bulk-initial-load">
+                <div><strong>Carga inicial por pasillo</strong><small>Ocupa todas las posiciones libres que coincidan con el filtro.</small></div>
+                <label>SKU<input id="bulkLoadSku" name="sku" required autocomplete="off" placeholder="Ej. 100360" /></label>
+                <label>Pasillo<input id="bulkLoadAisle" name="aisle" required autocomplete="off" placeholder="Ej. A" /></label>
+                <label>Lado<select id="bulkLoadSide" name="side"><option value="ALL">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option></select></label>
+                <label>Nivel<select id="bulkLoadLevel" name="level"><option value="ALL">Todos</option><option value="0">Nivel 0</option><option value="1">Nivel 1</option><option value="2">Nivel 2</option><option value="3">Nivel 3</option><option value="4">Nivel 4</option></select></label>
+                <label>Rack desde<input id="bulkLoadRackFrom" name="rackFrom" type="number" min="1" placeholder="Todos" /></label>
+                <label>Rack hasta<input id="bulkLoadRackTo" name="rackTo" type="number" min="1" placeholder="Todos" /></label>
+                <label>Prefijo ID temporal<input id="bulkLoadPalletPrefix" name="palletPrefix" value="INICIAL" maxlength="24" /></label>
+                <button id="previewBulkInitialLoad" type="button" class="ghost">Revisar posiciones</button>
+                <button type="submit" class="primary-action">Registrar carga inicial</button>
+                <p id="bulkInitialLoadMessage" class="message"></p>
+              </form>
             </section>
             <p id="registerMessage" class="message register-message" aria-live="polite"></p>
           </section>
@@ -200,7 +225,7 @@
               <button id="loadPickingExample" type="button" class="ghost">Usar stock actual</button>
             </div>
             <div class="picking-order-fields">
-              <label>Pedido / referencia<input id="pickingOrderRef" placeholder="Ej. PED-1048"></label>
+              <label>Número de viaje<input id="pickingOrderRef" placeholder="Ej. V1048" required></label>
               <label>Sucursal destino<input id="pickingDestination" placeholder="Ej. Sucursal Centro" required></label>
               <label>Prioridad<select id="pickingPriority"><option>Normal</option><option>Urgente</option></select></label>
             </div>
@@ -208,9 +233,9 @@
               <label class="ghost file-action">Importar archivo<input id="pickingImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadPickingTemplate" type="button" class="ghost">Descargar plantilla</button>
             </div>
-            <p class="import-format">Formato requerido: número de viaje, número de entrega, sucursal destino, SKU y bultos. Una fila por SKU y entrega.</p>
+            <p class="import-format">Formato requerido: número de viaje, número de entrega, sucursal destino, SKU y bultos. Todas las entregas del mismo viaje se consolidan en una sola preparación.</p>
             <div id="pickingImportPanel" class="picking-import-panel hidden">
-              <label>Viaje y entrega<select id="pickingOrderSelect"></select></label>
+              <label>Viaje consolidado<select id="pickingOrderSelect"></select></label>
               <span id="pickingImportSummary"></span>
             </div>
             <div class="picking-quick-add">
@@ -244,7 +269,7 @@
               </div>
               <div class="picking-print-head">
                 <h1>Hoja de preparación</h1>
-                <div><span>Pedido</span><strong id="printPickingReference">Sin referencia</strong></div>
+                <div><span>Viaje</span><strong id="printPickingReference">Sin viaje</strong></div>
                 <div><span>Prioridad</span><strong id="printPickingPriority">Normal</strong></div>
                 <div><span>Destino</span><strong id="printPickingDestination">Sin destino</strong></div>
                 <div><span>Resumen</span><strong id="printPickingSummary">Sin calcular</strong></div>
@@ -378,10 +403,14 @@
           <div class="inventory-session-controls">
             <label>Identificador<input id="countInventoryId" placeholder="Ej. INV-2026-10" /></label>
             <label>Alcance<select id="countScope"><option value="ALL">Todas las zonas</option><option value="1">Lado 1</option><option value="2">Lado 2</option><option value="PE">Penetrable</option><option value="ZE">Zona Este</option><option value="ZO">Zona Oeste</option><option value="ZN">Zona Norte</option><option value="BACK">Back salón Escobar</option></select></label>
+            <label>Pasillo del recorrido<input id="countRouteAisle" placeholder="Todos" autocomplete="off" /></label>
+            <label>Lado<select id="countRouteSide"><option value="ALL">Todos</option><option value="1">Lado 1</option><option value="2">Lado 2</option></select></label>
+            <label>Responsable / equipo<input id="countAssignee" placeholder="Operario o equipo" autocomplete="off" /></label>
             <button id="startInventoryCount" type="button" class="primary-action">Iniciar / unirse</button>
             <button id="finishInventoryCount" type="button" class="ghost" disabled>Finalizar y validar</button>
           </div>
           <div id="countSessionProgress" class="inventory-session-progress">Iniciá un inventario para controlar la cobertura.</div>
+          <div id="countRouteOverview" class="inventory-route-overview" hidden></div>
           <div id="countSessionReport" class="inventory-session-report" hidden></div>
         </section>
         <div class="count-kpis">
@@ -415,7 +444,7 @@
           </form>
           <section class="panel count-history">
             <div class="panel-head"><h2>Historial de conteos</h2><span class="muted">Compartido entre usuarios</span></div>
-            <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Posición</th><th>Sistema</th><th>Encontrado</th><th>Resultado</th><th>Estado</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="inventoryCountsTable"><tr><td colspan="8">Todavía no hay conteos registrados.</td></tr></tbody></table></div>
+            <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Posición</th><th>Sistema</th><th>Encontrado</th><th>Resultado</th><th>Estado</th><th>Responsable</th><th>Acción</th></tr></thead><tbody id="inventoryCountsTable"><tr><td colspan="8">Todavía no hay conteos registrados.</td></tr></tbody></table></div>
           </section>
         </div>
       </section>
@@ -527,6 +556,7 @@
               <label>Descripción<input name="description" required /></label>
               <label>EAN / código de barras<input name="ean" inputmode="numeric" /></label>
               <label>Categoría<input name="category" /></label>
+              <label>Grupo<select name="productGroup"><option value="">Sin grupo</option><option value="FOOD">FOOD</option><option value="NON_FOOD">NON FOOD</option><option value="PERFUMERIA">PERFUMERÍA</option><option value="LIMPIEZA">LIMPIEZA</option></select></label>
               <label>Clasificación<select name="velocityClass"><option value="">Sin clasificar</option><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select></label>
               <label>Bultos por pallet<input name="casesPerPallet" type="number" min="0" value="0" /></label>
               <label>Peso unitario (kg)<input name="weightKg" type="number" min="0" step="0.001" value="0" /></label>
@@ -545,9 +575,10 @@
               <input id="skuSearch" type="search" placeholder="Buscar SKU, EAN o descripción" />
               <label class="ghost file-action">Importar CSV/TSV<input id="skuImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadSkuTemplate" type="button" class="ghost">Descargar plantilla</button>
+              <button id="exportSkuMaster" type="button" class="ghost">Exportar maestro</button>
             </div>
-            <p class="import-format">Campos: SKU, descripción, EAN, categoría, clasificación, bultos por pallet, peso kg, posiciones requeridas, días de stock mínimo, días de stock máximo, consumo diario en bultos y activo.</p>
-            <div class="table-wrap sku-table-wrap"><table class="sku-master-table"><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Categoría</th><th>Clase</th><th>Bultos/pallet</th><th>Peso kg</th><th>Posiciones</th><th>Stock actual</th><th>Días mín.</th><th>Días máx.</th><th>Stock mín.</th><th>Stock máx.</th><th>Consumo/día</th><th>Stock en días</th><th>Activo</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
+            <p class="import-format">Campos: SKU, descripción, EAN, categoría, grupo, clasificación, bultos por pallet, peso kg, posiciones requeridas, días de stock mínimo, días de stock máximo, consumo diario en bultos y activo.</p>
+            <div class="table-wrap sku-table-wrap"><table class="sku-master-table"><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Categoría</th><th>Grupo</th><th>Clase</th><th>Bultos/pallet</th><th>Peso kg</th><th>Posiciones</th><th>Stock actual</th><th>Días mín.</th><th>Días máx.</th><th>Stock mín.</th><th>Stock máx.</th><th>Consumo/día</th><th>Stock en días</th><th>Activo</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
           </section>
           </div>
         </div>
@@ -641,6 +672,82 @@
           </div>
           <div id="guideMapPreview" class="guide-map-preview"></div>
         </section>
+      </section>
+
+      <section id="staff" class="view">
+        <header class="section-heading">
+          <div><h1>Legajos y roles</h1><p>Accesos individuales y permisos operativos de GPS.</p></div>
+          <span id="staffSyncStatus" class="muted">Registro administrativo</span>
+        </header>
+        <div class="staff-layout">
+          <section class="panel staff-editor">
+            <div class="panel-head"><div><h2>Alta o modificación</h2><span>El legajo identifica a la persona en movimientos y auditoría.</span></div></div>
+            <form id="staffForm" class="form-grid">
+              <label>Legajo
+                <input id="staffEmployeeId" name="employeeId" inputmode="numeric" autocomplete="off" pattern="[0-9]{1,12}" maxlength="12" required placeholder="Ej. 123456" />
+              </label>
+              <label>Nombre y apellido
+                <input id="staffName" name="name" autocomplete="name" maxlength="80" required />
+              </label>
+              <label>Rol
+                <select id="staffRole" name="role" required>
+                  <option value="operations">Operación</option>
+                  <option value="picking">Preparación</option>
+                  <option value="inventory">Inventario</option>
+                  <option value="supervisor">Supervisión</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </label>
+              <label>Ámbito habilitado
+                <select id="staffScope" name="scope" required>
+                  <option value="CD">CD</option>
+                  <option value="BACK">Back salón</option>
+                  <option value="ALL">Todo Escobar</option>
+                </select>
+              </label>
+              <label class="staff-active"><input id="staffActive" name="active" type="checkbox" checked /> Legajo activo</label>
+              <div class="staff-form-actions">
+                <button type="button" id="clearStaffForm" class="ghost">Limpiar</button>
+                <button type="submit" class="primary-action">Guardar legajo</button>
+              </div>
+              <p id="staffFormMessage" class="message"></p>
+            </form>
+          </section>
+          <section class="panel staff-list-panel">
+            <div class="panel-head"><div><h2>Base de legajos</h2><span id="staffCount">0 registros</span></div><input id="staffSearch" type="search" placeholder="Buscar legajo o nombre" /></div>
+            <div class="table-wrap"><table><thead><tr><th>Legajo</th><th>Nombre</th><th>Rol</th><th>Ámbito</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="staffTable"><tr><td colspan="6">No hay legajos cargados.</td></tr></tbody></table></div>
+          </section>
+          <section class="panel staff-access-panel">
+            <div class="panel-head"><div><h2>Contraseñas por ámbito</h2><span>Son compartidas por los legajos habilitados para cada ambiente.</span></div></div>
+            <form id="accessKeysForm" class="access-keys-grid">
+              <label>CD Escobar
+                <input id="accessKeyCd" name="CD" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave de 6 dígitos" />
+              </label>
+              <label>Back salón
+                <input id="accessKeyBack" name="BACK" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave de 6 dígitos" />
+              </label>
+              <label>Todo Escobar
+                <input id="accessKeyAll" name="ALL" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave administrativa" />
+              </label>
+              <p class="access-keys-help">Completá solamente las claves que quieras cambiar. Las contraseñas actuales nunca se muestran.</p>
+              <div class="staff-form-actions"><button type="submit" class="primary-action">Guardar contraseñas</button></div>
+              <p id="accessKeysMessage" class="message"></p>
+            </form>
+          </section>
+          <section class="panel staff-permissions-panel">
+            <div class="panel-head"><div><h2>Permisos por rol</h2><span>Las acciones sensibles siguen validadas por permiso.</span></div></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>Rol</th><th>Secciones habilitadas</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Operación</strong></td><td>Panel, Registrar, Ubicaciones, Mapa, Mapa 3D y Planillas</td></tr>
+                <tr><td><strong>Preparación</strong></td><td>Panel, Preparar pedido, Ubicaciones, Mapa y Mapa 3D</td></tr>
+                <tr><td><strong>Inventario</strong></td><td>Conteo ciego, recorrido asignado y posiciones ya relevadas</td></tr>
+                <tr><td><strong>Supervisión</strong></td><td>Operación, inventario, movimientos, maestros, análisis y conciliación</td></tr>
+                <tr><td><strong>Administrador</strong></td><td>Acceso total, bloqueos, ajustes, restauración y administración de legajos</td></tr>
+              </tbody>
+            </table></div>
+          </section>
+        </div>
       </section>
     </main>
 
@@ -771,11 +878,14 @@
           <h2>Acceso a GPS</h2>
           <button type="button" id="closeSyncSettings" class="close">×</button>
         </div>
-        <label>Usuario
-          <input id="operatorName" name="operator" autocomplete="username" required placeholder="Usuario" />
+        <label>Legajo
+          <input id="operatorName" name="operator" inputmode="numeric" autocomplete="username" required placeholder="Legajo" />
         </label>
-        <label>Contraseña
-          <input id="operatorPassword" name="password" type="password" autocomplete="current-password" required placeholder="Contraseña" />
+        <label><span id="loginPasswordLabel">Contraseña de CD Escobar</span>
+          <input id="operatorPassword" name="password" type="password" autocomplete="current-password" required placeholder="Clave compartida de CD Escobar" />
+        </label>
+        <label>Puesto o equipo <span class="muted">(opcional)</span>
+          <input id="sessionDisplayName" name="displayName" autocomplete="off" placeholder="Ej. Autoelevador 2" />
         </label>
         <label>Ámbito de trabajo
           <select id="loginScope" name="scope" required>
@@ -784,7 +894,7 @@
             <option value="ALL">Todo Escobar (solo administrador)</option>
           </select>
         </label>
-        <p class="login-note">El acceso habilita únicamente las secciones y acciones asignadas al rol.</p>
+        <p class="login-note"><strong>Esta no es una contraseña personal.</strong> Usá la clave compartida del ámbito seleccionado. El legajo identifica al operario y su rol define las secciones habilitadas.</p>
         <p id="syncSettingsMessage" class="message"></p>
         <div class="dialog-actions">
           <button type="button" id="retrySync" class="ghost">Reintentar pendientes</button>
@@ -812,6 +922,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261007-9"></script>
+    <script src="app.js?v=20261014-auth-segura"></script>
   </body>
 </html>

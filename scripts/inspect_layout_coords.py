@@ -1,9 +1,12 @@
 import re
+import os
+import sys
+from pathlib import Path
 
 import openpyxl
 
 
-SOURCE = r"C:\Users\santi\Desktop\wms\Layout WMS.xlsx"
+SOURCE = Path(os.environ.get("GPS_LAYOUT_XLSX", sys.argv[1] if len(sys.argv) > 1 else "Layout WMS.xlsx"))
 POSITION_RE = re.compile(r"^[A-Z]{1,2}[12]\.\d{2}\.\d$")
 
 

@@ -2,21 +2,21 @@ const STORAGE_KEY = "mini-wms-state-v3";
 const SYNC_CONFIG_KEY = "mini-wms-sync-config-v2";
 const SYNC_OUTBOX_KEY = "mini-wms-sync-outbox-v2";
 const SKU_MASTER_KEY = "mini-wms-sku-master-v1";
+const SKU_SYNC_OUTBOX_KEY = "gps-sku-sync-outbox-v1";
 const SLOTTING_RULES_KEY = "mini-wms-slotting-rules-v1";
 const COUNT_CACHE_KEY = "gps-inventory-counts-v1";
+const COUNT_OUTBOX_KEY = "gps-inventory-count-outbox-v1";
 const COUNT_SESSION_KEY = "gps-inventory-session-v1";
 const LOCATION_SCOPE_KEY = "gps-location-scope-v1";
+const PRESENCE_SESSION_KEY = "gps-presence-session-v1";
+const STAFF_CACHE_KEY = "gps-staff-cache-v1";
+const ACCESS_KEYS_CACHE_KEY = "gps-access-keys-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 const POSITION_RECODE_CUTOFF = Date.parse("2026-09-30T17:30:00.000Z");
-const ADMIN_USER = "Escobar";
-const ADMIN_PASSWORD_HASH = "6ca6cb535d1f4783a1af2501bf80c6cf3fcdb1e1ff9f3b77499a8939faf139aa";
+const ADMIN_USER = "100360";
 const USER_ACCOUNTS = [
-  { username: "Operaciones", passwordHash: "896686f12205057b7a33a2d6a5d82d55d7f63af03ee9d17073694e3d7e99cb49", role: "operations" },
-  { username: "Preparacion", passwordHash: "25a6c07493b35707c069a92e87f39d6cee9abdf37f3309935a88656de9af48e6", role: "picking" },
-  { username: "Inventario", passwordHash: "c554d63d341eced5dd8692e7362df7fbd6a82071d3f1411f8c4175f7911b0974", role: "inventory" },
-  { username: "Supervisor", passwordHash: "be160d8612a8f649c96bd0d4ef66d22e1d367f9eef7699e4892f95b4e0b5cc9f", role: "supervisor" },
-  { username: ADMIN_USER, passwordHash: ADMIN_PASSWORD_HASH, role: "admin" },
+  { employeeId: ADMIN_USER, name: "Administrador GPS", role: "admin", scope: "ALL", active: true },
 ];
 const ROLE_LABELS = {
   operations: "Operación",
@@ -30,7 +30,7 @@ const ROLE_SECTIONS = {
   picking: ["dashboard", "picking", "locations", "map", "map3d"],
   inventory: ["counts"],
   supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels"],
-  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels"],
+  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels", "staff"],
 };
 const ROLE_PERMISSIONS = {
   operations: ["movement_write"],
@@ -39,8 +39,9 @@ const ROLE_PERMISSIONS = {
   supervisor: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust"],
   admin: ["movement_write", "picking_write", "movement_correct", "sku_write", "slotting_write", "sap_import", "count_write", "inventory_adjust", "block_locations", "reset_data", "admin"],
 };
-const SKU_FIELDS = ["sku","description","ean","category","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
+const SKU_FIELDS = ["sku","description","ean","category","productGroup","casesPerPallet","weightKg","positionsRequired","minDays","maxDays","active","dailyConsumption","velocityClass"];
 const VELOCITY_CLASSES = ["SUPER_A", "A", "B", "C", "ESTACIONAL"];
+const PRODUCT_GROUPS = ["FOOD", "NON_FOOD", "PERFUMERIA", "LIMPIEZA"];
 const GUIDE_MAP_AREAS = [
   ["CD", "CD completo"],
   ["PE", "Drive-In"],
@@ -117,14 +118,26 @@ const state = {
   syncError: "",
   centralBlocks: new Map(),
   skuMaster: [],
+  skuSyncOutbox: [],
+  skuSyncBusy: false,
+  skuSyncError: "",
   slottingRules: [],
   pickingOrders: [],
   sapStock: [],
   inventoryCounts: [],
+  countOutbox: [],
+  countSyncBusy: false,
+  countBackendWarning: "",
   countSession: null,
   movementFilters: { from: "", to: "", type: "all", sku: "", position: "", palletId: "" },
   scanReadyAt: 0,
   operationalScope: "CD",
+  presenceSessionId: "",
+  presenceUsers: [],
+  presenceTimer: 0,
+  staffMembers: [],
+  accessKeys: { CD: "", BACK: "", ALL: "" },
+  authHash: "",
 };
 
 const shadeCache = new Map();
@@ -190,23 +203,31 @@ async function init() {
     state.locations.filter((location) => location.blocked).map((location) => [location.id, location.blockReason])
   );
   state.history = saved?.history || [createSnapshot(new Date().toISOString())];
+  state.staffMembers = loadJson(STAFF_CACHE_KEY, []).map(normalizeStaffMember).filter((item) => item.employeeId);
+  if (!state.staffMembers.some((item) => item.employeeId === ADMIN_USER)) {
+    state.staffMembers.push(normalizeStaffMember(USER_ACCOUNTS[0]));
+    localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(state.staffMembers));
+  }
+  state.accessKeys = { ...state.accessKeys, ...loadJson(ACCESS_KEYS_CACHE_KEY, {}) };
   state.syncConfig = loadJson(SYNC_CONFIG_KEY, state.syncConfig);
   state.operationalScope = loadJson(LOCATION_SCOPE_KEY, state.syncConfig.scope || "CD");
   if (!state.syncConfig.endpoint) state.syncConfig.endpoint = DEFAULT_SYNC_ENDPOINT;
-  const storedAccount = userAccount(state.syncConfig.operator);
-  if (!storedAccount || storedAccount.role !== state.syncConfig.role || Number(state.syncConfig.expiresAt || 0) <= Date.now()) {
-    state.syncConfig.authenticated = false;
-    state.syncConfig.operator = "";
-    state.syncConfig.role = "";
-    state.syncConfig.expiresAt = 0;
-    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
-  }
+  state.syncConfig.authenticated = false;
+  state.syncConfig.operator = "";
+  state.syncConfig.role = "";
+  state.syncConfig.expiresAt = 0;
+  state.authHash = "";
+  localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   if (state.operationalScope === "ALL" && state.syncConfig.role !== "admin") state.operationalScope = "CD";
   state.syncOutbox = loadJson(SYNC_OUTBOX_KEY, []);
   state.skuMaster = loadJson(SKU_MASTER_KEY, []);
+  state.skuSyncOutbox = loadJson(SKU_SYNC_OUTBOX_KEY, []).map(normalizeSku).filter((item) => item.sku);
+  state.presenceSessionId = localStorage.getItem(PRESENCE_SESSION_KEY) || (crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}-${Math.random()}`);
+  localStorage.setItem(PRESENCE_SESSION_KEY, state.presenceSessionId);
   state.slottingRules = loadJson(SLOTTING_RULES_KEY, []).map(normalizeSlottingRule);
   state.inventoryCounts = loadJson(COUNT_CACHE_KEY, []).map(normalizeInventoryCount);
-  state.countSession = loadJson(COUNT_SESSION_KEY, null);
+  state.countOutbox = loadJson(COUNT_OUTBOX_KEY, []);
+  state.countSession = normalizeCountSession(loadJson(COUNT_SESSION_KEY, null));
   saveState();
 
   fillLevelFilter();
@@ -219,14 +240,22 @@ async function init() {
   renderCountSession();
   renderSyncStatus();
   if (!state.syncConfig.authenticated) openSyncSettings();
-  else scheduleSessionExpiry();
+  else {
+    scheduleSessionExpiry();
+    startPresenceTracking();
+  }
   flushSyncOutbox();
+  flushCountOutbox();
+  await flushSkuSyncOutbox();
   await pullSkuMaster();
   await pullCentralMovements();
   await pullSlottingRules();
   await pullInventoryCounts();
+  if (state.syncConfig.role === "admin") await pullStaffRegistry();
   state.syncTimer = window.setInterval(() => {
     pullCentralMovements();
+    flushCountOutbox();
+    flushSkuSyncOutbox();
     pullInventoryCounts();
   }, 15000);
 }
@@ -371,6 +400,9 @@ function bindEvents() {
   $("#skuSearch").addEventListener("input", renderSkuMaster);
   $("#skuImport").addEventListener("change", importSkuFile);
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
+  $("#exportSkuMaster").addEventListener("click", exportSkuMaster);
+  $("#previewBulkInitialLoad").addEventListener("click", previewBulkInitialLoad);
+  $("#bulkInitialLoadForm").addEventListener("submit", registerBulkInitialLoad);
   $("#movementImport").addEventListener("change", importMovementFile);
   $("#downloadMovementTemplate").addEventListener("click", downloadMovementTemplate);
   $$(".open-manual-movement-sheet").forEach((button) => button.addEventListener("click", openManualMovementSheetDialog));
@@ -404,6 +436,7 @@ function bindEvents() {
   $("#countPosition").addEventListener("input", renderCountExpected);
   $("#countLoadType").addEventListener("change", updateCountLoadFields);
   $("#inventoryCountsTable").addEventListener("click", handleCountAdjustment);
+  $("#countRouteOverview").addEventListener("click", openCountRoutePosition);
   $("#startInventoryCount").addEventListener("click", startInventorySession);
   $("#finishInventoryCount").addEventListener("click", finishInventorySession);
   $("#exportInventoryCsv").addEventListener("click", exportInventoryCsv);
@@ -415,10 +448,14 @@ function bindEvents() {
   $$("[data-move-type]").forEach((button) => {
     button.addEventListener("click", () => setMovementType(button.dataset.moveType));
   });
-  ["#registerPalletId", "#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerMultiContents", "#registerLoadType"].forEach((selector) => {
-    $(selector).addEventListener("input", renderMovementPreview);
+  ["#registerPalletId", "#registerMaterial", "#registerFrom", "#registerTo", "#registerQuantity", "#registerPalletCount", "#registerMultiContents", "#registerLoadType", "#registerExitMode"].forEach((selector) => {
+    $(selector).addEventListener("input", () => {
+      if (selector === "#registerFrom" || selector === "#registerExitMode") syncOriginMovementFields();
+      renderMovementPreview();
+    });
   });
   $("#registerLoadType").addEventListener("change", updateRegisterLoadFields);
+  $("#registerExitMode").addEventListener("change", updateRegisterLoadFields);
   $("#useSuggestedPosition").addEventListener("click", applyPutawaySuggestion);
   $("#closeDetail").addEventListener("click", () => $("#detailPanel").classList.add("hidden"));
   $("#toggleLocationBlock").addEventListener("click", toggleLocationBlock);
@@ -480,11 +517,18 @@ function bindEvents() {
   $("#logoutSession").addEventListener("click", () => logoutSession(false));
   $("#closeSyncSettings").addEventListener("click", closeSyncSettings);
   $("#syncSettingsForm").addEventListener("submit", saveSyncSettings);
+  $("#loginScope").addEventListener("change", updateLoginPasswordLabel);
+  $("#staffForm").addEventListener("submit", saveStaffMember);
+  $("#accessKeysForm").addEventListener("submit", saveAccessKeys);
+  $("#clearStaffForm").addEventListener("click", clearStaffForm);
+  $("#staffSearch").addEventListener("input", renderStaffRegistry);
+  $("#staffTable").addEventListener("click", handleStaffAction);
   $("#retrySync").addEventListener("click", flushSyncOutbox);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       pullCentralMovements();
       pullInventoryCounts();
+      pullPresence();
     }
   });
   $("#syncSettingsDialog").addEventListener("cancel", (event) => {
@@ -494,43 +538,63 @@ function bindEvents() {
 
 function openSyncSettings() {
   $("#operatorName").value = state.syncConfig.operator || "";
+  $("#sessionDisplayName").value = state.syncConfig.workstation || "";
   $("#operatorPassword").value = "";
   $("#loginScope").value = state.operationalScope || "CD";
+  updateLoginPasswordLabel();
   $("#syncSettingsMessage").textContent = state.syncOutbox.length
     ? `${state.syncOutbox.length} registro(s) pendientes de envío.`
     : state.syncError || "Los movimientos se guardan en este dispositivo y en el registro central.";
   if (!$("#syncSettingsDialog").open) $("#syncSettingsDialog").showModal();
 }
 
+function updateLoginPasswordLabel() {
+  const scope = $("#loginScope").value || "CD";
+  const label = scope === "CD" ? "CD Escobar" : scope === "BACK" ? "Back salón" : "Todo Escobar";
+  $("#loginPasswordLabel").textContent = `Contraseña de ${label}`;
+  $("#operatorPassword").placeholder = `Clave compartida de ${label}`;
+}
+
 async function saveSyncSettings(event) {
   event.preventDefault();
   const data = new FormData(event.currentTarget);
   const operator = String(data.get("operator") || "").trim();
+  const workstation = String(data.get("displayName") || "").trim();
   const password = String(data.get("password") || "");
   const requestedScope = String(data.get("scope") || "CD").toUpperCase();
+  if (!/^\d{1,12}$/.test(operator)) {
+    $("#syncSettingsMessage").textContent = "Ingresá un legajo numérico válido.";
+    $("#syncSettingsMessage").classList.add("error");
+    $("#operatorName").focus();
+    return;
+  }
   const hash = await sha256(password);
-  const account = userAccount(operator);
-  if (!account || hash !== account.passwordHash) {
-    $("#syncSettingsMessage").textContent = "Usuario o contraseña incorrectos.";
+  const account = await authenticateStaffLegajo(operator, hash, requestedScope);
+  if (!account) {
+    $("#syncSettingsMessage").textContent = "Legajo o contraseña de ámbito incorrectos, o legajo desactivado.";
     $("#syncSettingsMessage").classList.add("error");
     $("#operatorPassword").select();
     return;
   }
-  if (requestedScope === "ALL" && account.role !== "admin") {
-    $("#syncSettingsMessage").textContent = "La vista Todo Escobar está disponible únicamente para administradores.";
+  if (!staffScopeAllows(account.scope, requestedScope, account.role)) {
+    $("#syncSettingsMessage").textContent = "El legajo no está habilitado para el ámbito seleccionado.";
     $("#syncSettingsMessage").classList.add("error");
     return;
   }
   state.operationalScope = ["CD", "BACK", "ALL"].includes(requestedScope) ? requestedScope : "CD";
   localStorage.setItem(LOCATION_SCOPE_KEY, JSON.stringify(state.operationalScope));
   state.syncConfig = {
-    operator: account.username,
+    operator: account.employeeId,
+    employeeName: account.name,
+    displayName: workstation ? `${account.name} · ${workstation}` : account.name,
+    workstation,
     role: account.role,
     endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
     expiresAt: Date.now() + SESSION_DURATION_MS,
     authenticated: true,
     scope: state.operationalScope,
   };
+  state.authHash = hash;
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   $("#syncSettingsMessage").classList.remove("error");
   applyRoleAccess();
@@ -542,7 +606,10 @@ async function saveSyncSettings(event) {
   renderSyncStatus();
   $("#syncSettingsDialog").close();
   scheduleSessionExpiry();
+  startPresenceTracking();
   flushSyncOutbox();
+  flushSkuSyncOutbox();
+  if (account.role === "admin") pullStaffRegistry();
 }
 
 function closeSyncSettings() {
@@ -555,7 +622,9 @@ async function sha256(value) {
 }
 
 function renderSyncStatus() {
-  $("#operatorLabel").textContent = state.syncConfig.operator || "Identificar operario";
+  $("#operatorLabel").textContent = state.syncConfig.authenticated
+    ? `${state.syncConfig.employeeName || "Legajo"} · ${state.syncConfig.operator}`
+    : "Ingresar con legajo";
   $("#roleLabel").textContent = state.syncConfig.authenticated ? ROLE_LABELS[state.syncConfig.role] || "" : "Sin sesión";
   const indicator = $("#syncIndicator");
   indicator.className = `sync-indicator ${state.syncOutbox.length ? "pending" : state.syncConfig.endpoint ? "online" : "local"}`;
@@ -564,8 +633,270 @@ function renderSyncStatus() {
     : state.syncError || (state.syncConfig.endpoint ? "Registro central conectado" : "Guardado local; falta configurar el registro central");
 }
 
-function userAccount(username) {
-  return USER_ACCOUNTS.find((account) => account.username.toLowerCase() === String(username || "").trim().toLowerCase());
+function presencePayload() {
+  return {
+    session_id: state.presenceSessionId,
+    usuario: state.syncConfig.operator,
+    nombre_puesto: state.syncConfig.displayName || state.syncConfig.operator,
+    rol: state.syncConfig.role,
+    ambito: state.operationalScope,
+    ultima_actividad: new Date().toISOString(),
+  };
+}
+
+function startPresenceTracking() {
+  window.clearInterval(state.presenceTimer);
+  if (!state.syncConfig.authenticated) return;
+  pingPresence();
+  state.presenceTimer = window.setInterval(pingPresence, 45000);
+}
+
+function stopPresenceTracking(notifyServer = false) {
+  window.clearInterval(state.presenceTimer);
+  state.presenceTimer = 0;
+  if (notifyServer && state.syncConfig.authenticated && state.presenceSessionId) {
+    centralRequest("presence_leave", { session_id: state.presenceSessionId }).catch(() => null);
+  }
+  state.presenceUsers = [];
+  renderAdminPresence();
+}
+
+async function pingPresence() {
+  if (!state.syncConfig.authenticated || !state.syncConfig.endpoint) return;
+  try {
+    await centralRequest("presence_ping", { presence: presencePayload() });
+    if (state.syncConfig.role === "admin") await pullPresence();
+  } catch (error) {
+    console.warn("No se pudo actualizar la presencia:", error);
+  }
+}
+
+async function pullPresence() {
+  if (state.syncConfig.role !== "admin" || !state.syncConfig.endpoint) return;
+  try {
+    const result = await centralRequest("presence_list");
+    if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
+    state.presenceUsers = result.items;
+  } catch (error) {
+    state.presenceUsers = [];
+  }
+  renderAdminPresence();
+}
+
+function renderAdminPresence() {
+  const panel = $("#adminPresencePanel");
+  const list = $("#presenceList");
+  if (!panel || !list) return;
+  panel.hidden = state.syncConfig.role !== "admin";
+  if (panel.hidden) return;
+  const active = state.presenceUsers
+    .filter((item) => Date.now() - Date.parse(item.ultima_actividad || item.lastSeen || 0) < 180000)
+    .sort((a, b) => Date.parse(b.ultima_actividad || 0) - Date.parse(a.ultima_actividad || 0));
+  $("#presenceSummary").textContent = `${fmt.format(active.length)} ${active.length === 1 ? "sesión activa" : "sesiones activas"}`;
+  list.innerHTML = active.map((item) => `<div class="presence-row">
+    <strong>${escapeHtml(item.nombre_puesto || item.usuario || "Sin identificar")}</strong>
+    <span>${escapeHtml(item.usuario || "—")} · ${escapeHtml(ROLE_LABELS[item.rol] || item.rol || "—")}</span>
+    <span>${escapeHtml(scopeLabel(item.ambito))}</span>
+    <small>Activo ${escapeHtml(formatDateTime(item.ultima_actividad))}</small>
+  </div>`).join("") || '<p class="empty-state">No hay otras sesiones activas.</p>';
+}
+
+async function pullStaffRegistry() {
+  if (!hasPermission("admin") || !state.syncConfig.endpoint) return;
+  const status = $("#staffSyncStatus");
+  try {
+    const [staffResult, accessResult] = await Promise.all([
+      centralRequest("staff_list", { admin_password: state.authHash }),
+      centralRequest("access_list", { admin_password: state.authHash }),
+    ]);
+    if (!staffResult.ok || !Array.isArray(staffResult.items)) throw new Error(staffResult.error || "Respuesta inválida");
+    state.staffMembers = staffResult.items.map(normalizeStaffMember).filter((item) => item.employeeId);
+    localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(state.staffMembers));
+    if (!accessResult.ok) throw new Error(accessResult.error || "No se pudo leer la configuración de acceso");
+    if (status) status.textContent = "Base central sincronizada";
+  } catch (error) {
+    if (status) status.textContent = "Copia local; falta actualizar el servicio central";
+  }
+  renderStaffRegistry();
+}
+
+function renderStaffRegistry() {
+  const table = $("#staffTable");
+  if (!table) return;
+  const query = String($("#staffSearch")?.value || "").trim().toLowerCase();
+  const items = state.staffMembers
+    .filter((item) => !query || item.employeeId.toLowerCase().includes(query) || item.name.toLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name, "es") || a.employeeId.localeCompare(b.employeeId, "es", { numeric: true }));
+  $("#staffCount").textContent = `${fmt.format(state.staffMembers.length)} ${state.staffMembers.length === 1 ? "registro" : "registros"}`;
+  table.innerHTML = items.map((item) => `<tr>
+    <td><strong>${escapeHtml(item.employeeId)}</strong></td>
+    <td>${escapeHtml(item.name || "Sin nombre")}</td>
+    <td>${escapeHtml(ROLE_LABELS[item.role] || item.role)}</td>
+    <td>${escapeHtml(scopeLabel(item.scope))}</td>
+    <td><span class="staff-status ${item.active ? "active" : "inactive"}">${item.active ? "Activo" : "Inactivo"}</span></td>
+    <td><div class="staff-row-actions"><button type="button" class="ghost" data-edit-staff="${escapeHtml(item.employeeId)}">Editar</button><button type="button" class="ghost" data-toggle-staff="${escapeHtml(item.employeeId)}">${item.active ? "Desactivar" : "Activar"}</button></div></td>
+  </tr>`).join("") || '<tr><td colspan="6">No hay legajos que coincidan con la búsqueda.</td></tr>';
+}
+
+async function saveStaffMember(event) {
+  event.preventDefault();
+  if (!requirePermission("admin", "Solo Administración puede gestionar legajos y roles.")) return;
+  const data = new FormData(event.currentTarget);
+  const employeeId = String(data.get("employeeId") || "").trim();
+  const name = String(data.get("name") || "").trim();
+  const role = String(data.get("role") || "operations").toLowerCase();
+  const scope = String(data.get("scope") || "CD").toUpperCase();
+  const message = $("#staffFormMessage");
+  if (!/^\d{1,12}$/.test(employeeId)) return showStaffMessage("El legajo debe contener solamente números.", true);
+  if (!name) return showStaffMessage("Ingresá el nombre y apellido.", true);
+  if (!ROLE_LABELS[role]) return showStaffMessage("Seleccioná un rol válido.", true);
+  if (!["CD", "BACK", "ALL"].includes(scope)) return showStaffMessage("Seleccioná un ámbito válido.", true);
+  if (scope === "ALL" && role !== "admin") return showStaffMessage("Todo Escobar está reservado para administradores.", true);
+  const member = normalizeStaffMember({
+    employeeId,
+    name,
+    role,
+    scope,
+    active: data.get("active") === "on",
+    updatedAt: new Date().toISOString(),
+  });
+  state.staffMembers = state.staffMembers.filter((item) => item.employeeId !== employeeId);
+  state.staffMembers.push(member);
+  localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(state.staffMembers));
+  renderStaffRegistry();
+  message.classList.remove("error");
+  message.textContent = "Legajo guardado en este dispositivo. Sincronizando…";
+  try {
+    const result = await centralRequest("staff_save", {
+      item: { legajo: member.employeeId, nombre: member.name, rol: member.role, ambito: member.scope, activo: member.active, actualizado_en: member.updatedAt },
+      admin_password: state.authHash,
+    });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar");
+    message.textContent = "Legajo guardado y compartido con todos los dispositivos.";
+    $("#staffSyncStatus").textContent = "Base central sincronizada";
+  } catch (error) {
+    message.textContent = "Guardado localmente. Para compartirlo, actualizá el servicio central con la nueva versión.";
+    $("#staffSyncStatus").textContent = "Pendiente de sincronización central";
+  }
+  clearStaffForm(false);
+}
+
+async function saveAccessKeys(event) {
+  event.preventDefault();
+  if (!requirePermission("admin", "Solo Administración puede cambiar las contraseñas de acceso.")) return;
+  const data = new FormData(event.currentTarget);
+  const changes = {};
+  for (const scope of ["CD", "BACK", "ALL"]) {
+    const password = String(data.get(scope) || "");
+    if (!password) continue;
+    if (!/^\d{6}$/.test(password)) {
+      return showAccessKeysMessage(`La contraseña de ${scopeLabel(scope)} debe tener exactamente seis dígitos.`, true);
+    }
+    changes[scope] = await sha256(password);
+  }
+  if (!Object.keys(changes).length) return showAccessKeysMessage("Completá al menos una contraseña para actualizar.", true);
+  state.accessKeys = { ...state.accessKeys, ...changes };
+  localStorage.setItem(ACCESS_KEYS_CACHE_KEY, JSON.stringify(state.accessKeys));
+  showAccessKeysMessage("Contraseñas guardadas en este dispositivo. Sincronizando…");
+  try {
+    const result = await centralRequest("access_save", { changes, admin_password: state.authHash });
+    if (!result.ok) throw new Error(result.error || "No se pudieron guardar");
+    showAccessKeysMessage("Contraseñas actualizadas para todos los dispositivos.");
+    $("#staffSyncStatus").textContent = "Base central sincronizada";
+  } catch (error) {
+    showAccessKeysMessage("Guardadas localmente. Para compartirlas, actualizá el servicio central con la nueva versión.", true);
+    $("#staffSyncStatus").textContent = "Pendiente de sincronización central";
+  }
+  event.currentTarget.reset();
+}
+
+function showAccessKeysMessage(text, error = false) {
+  const message = $("#accessKeysMessage");
+  message.textContent = text;
+  message.classList.toggle("error", error);
+}
+
+function showStaffMessage(text, error = false) {
+  const message = $("#staffFormMessage");
+  message.textContent = text;
+  message.classList.toggle("error", error);
+}
+
+function clearStaffForm(clearMessage = true) {
+  $("#staffForm").reset();
+  $("#staffActive").checked = true;
+  $("#staffEmployeeId").readOnly = false;
+  if (clearMessage) showStaffMessage("");
+}
+
+function handleStaffAction(event) {
+  const editButton = event.target.closest("[data-edit-staff]");
+  const toggleButton = event.target.closest("[data-toggle-staff]");
+  const employeeId = editButton?.dataset.editStaff || toggleButton?.dataset.toggleStaff;
+  if (!employeeId) return;
+  const item = state.staffMembers.find((member) => member.employeeId === employeeId);
+  if (!item) return;
+  if (editButton) {
+    $("#staffEmployeeId").value = item.employeeId;
+    $("#staffEmployeeId").readOnly = true;
+    $("#staffName").value = item.name;
+    $("#staffRole").value = item.role;
+    $("#staffScope").value = item.scope;
+    $("#staffActive").checked = item.active;
+    $("#staffName").focus();
+    return;
+  }
+  if (item.employeeId === state.syncConfig.operator && item.active) return alert("No podés desactivar el legajo de la sesión actual.");
+  $("#staffEmployeeId").value = item.employeeId;
+  $("#staffName").value = item.name;
+  $("#staffRole").value = item.role;
+  $("#staffScope").value = item.scope;
+  $("#staffActive").checked = !item.active;
+  $("#staffForm").requestSubmit();
+}
+
+function normalizeStaffMember(source = {}) {
+  return {
+    employeeId: String(source.employeeId || source.legajo || source.username || "").trim(),
+    name: String(source.name || source.nombre || "").trim(),
+    role: String(source.role || source.rol || "operations").trim().toLowerCase(),
+    scope: String(source.scope || source.ambito || "CD").trim().toUpperCase(),
+    active: source.active === true || source.activo === true || !["0", "false", "no", "inactivo"].includes(String(source.active ?? source.activo ?? true).trim().toLowerCase()),
+    updatedAt: String(source.updatedAt || source.actualizado_en || ""),
+  };
+}
+
+function userAccount(employeeId) {
+  const normalized = String(employeeId || "").trim();
+  const cached = state.staffMembers.find((account) => account.employeeId === normalized);
+  if (cached) return cached;
+  return USER_ACCOUNTS.find((account) => account.employeeId === normalized) || null;
+}
+
+async function authenticateStaffLegajo(employeeId, accessHash, requestedScope) {
+  if (state.syncConfig.endpoint) {
+    try {
+      const result = await centralRequest("staff_login", { legajo: employeeId, ambito: requestedScope, access_hash: accessHash });
+      if (result.ok && result.account) {
+        const account = normalizeStaffMember(result.account);
+        state.staffMembers = state.staffMembers.filter((item) => item.employeeId !== account.employeeId);
+        state.staffMembers.push(account);
+        localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(state.staffMembers));
+        return account.active ? account : null;
+      }
+      if (result.error && !/Acción no válida/i.test(result.error)) return null;
+    } catch (error) {
+      console.warn("Validación central de legajo no disponible:", error);
+    }
+  }
+  const account = userAccount(employeeId);
+  const expectedHash = state.accessKeys[String(requestedScope || "CD").toUpperCase()] || "";
+  return account?.active && staffScopeAllows(account.scope, requestedScope, account.role) && expectedHash === accessHash ? account : null;
+}
+
+function staffScopeAllows(allowedScope, requestedScope, role) {
+  if (role === "admin" || allowedScope === "ALL") return true;
+  return String(allowedScope || "CD").toUpperCase() === String(requestedScope || "CD").toUpperCase();
 }
 
 function hasPermission(permission) {
@@ -607,6 +938,9 @@ function applyRoleAccess() {
   $("#logoutSession").hidden = !state.syncConfig.authenticated;
   $("#skuForm").hidden = !hasPermission("sku_write");
   $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
+  $("#exportSkuMaster").hidden = !canAccessView("sku-master");
+  $("#bulkInitialLoadForm").hidden = !hasPermission("movement_write");
+  $("#adminPresencePanel").hidden = !hasPermission("admin");
   $("#slottingForm").hidden = !hasPermission("slotting_write");
   $$(".open-manual-movement-sheet").forEach((button) => { button.hidden = !hasPermission("movement_write"); });
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
@@ -615,7 +949,7 @@ function applyRoleAccess() {
   $("#exportInventoryCsv").hidden = blindCount;
   $("#finishInventoryCount").hidden = blindCount;
   $(".count-kpis").hidden = blindCount;
-  $(".count-history").hidden = blindCount;
+  $(".count-history").hidden = false;
   $("#countExpectedLoad").classList.toggle("blind-count", blindCount);
   if (blindCount) $("#countSessionReport").hidden = true;
   renderCountExpected();
@@ -686,6 +1020,7 @@ function setOperationalScope(scope) {
   renderScopeControls();
   renderAll();
   renderCountSession();
+  pingPresence();
 }
 
 function scheduleSessionExpiry() {
@@ -697,13 +1032,18 @@ function scheduleSessionExpiry() {
 
 function logoutSession(expired = false) {
   window.clearTimeout(state.sessionTimer);
+  stopPresenceTracking(true);
   state.syncConfig = {
     operator: "",
+    employeeName: "",
     role: "",
     endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
     authenticated: false,
     expiresAt: 0,
+    displayName: "",
+    workstation: "",
   };
+  state.authHash = "";
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
   applyRoleAccess();
   renderScopeControls();
@@ -1027,6 +1367,7 @@ function switchView(view) {
   if (view === "register") requestAnimationFrame(() => focusRegisterField());
   if (view === "counts") requestAnimationFrame(() => $("#countPosition").focus());
   if (view === "labels") requestAnimationFrame(renderLabels);
+  if (view === "staff") requestAnimationFrame(renderStaffRegistry);
 }
 
 function renderAll() {
@@ -1044,6 +1385,8 @@ function renderAll() {
   renderSkuAlerts();
   renderSapComparison();
   renderInventoryCounts();
+  renderAdminPresence();
+  renderStaffRegistry();
 }
 
 function switchSkuSection(section) {
@@ -1062,18 +1405,21 @@ function normalizeSku(source) {
   item.sku = String(item.sku).trim();
   item.description = String(item.description).trim();
   item.ean = String(item.ean).trim();
-  item.velocityClass = String(item.velocityClass || "").trim().toUpperCase();
+  item.productGroup = String(item.productGroup || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (!PRODUCT_GROUPS.includes(item.productGroup)) item.productGroup = "";
+  item.velocityClass = String(item.velocityClass || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase().replace(/[\s-]+/g, "_");
   ["casesPerPallet","weightKg","positionsRequired","minDays","maxDays","dailyConsumption"].forEach((field) => item[field] = Number(item[field] || 0));
   item.positionsRequired = Math.max(1, item.positionsRequired || 1);
   item.minDays = Math.max(0, item.minDays || 0);
   item.maxDays = Math.max(item.minDays, item.maxDays || 0);
-  item.active = item.active === true || ["1","true","si","sí","yes"].includes(String(item.active).toLowerCase());
+  item.active = item.active === true || !["0","false","no","inactivo"].includes(String(item.active).trim().toLowerCase());
   return item;
 }
 
 function normalizeSkuHeaders(source = {}) {
   const aliases = {
     sku: "sku", descripcion: "description", descripción: "description", ean: "ean", categoria: "category", categoría: "category",
+    grupo: "productGroup", "grupo de producto": "productGroup", product_group: "productGroup", productgroup: "productGroup",
     clasificacion: "velocityClass", clasificación: "velocityClass", clase: "velocityClass", "bultos por pallet": "casesPerPallet",
     bultos_por_pallet: "casesPerPallet", "peso kg": "weightKg", peso_kg: "weightKg", "posiciones requeridas": "positionsRequired",
     posiciones_requeridas: "positionsRequired", "dias de stock minimo": "minDays", "días de stock mínimo": "minDays",
@@ -1085,6 +1431,23 @@ function normalizeSkuHeaders(source = {}) {
 
 function formatVelocityClass(value) {
   return ({ SUPER_A: "Súper A", A: "A", B: "B", C: "C", ESTACIONAL: "Estacional" })[value] || "Sin clasificar";
+}
+
+function formatProductGroup(value) {
+  return ({ FOOD: "FOOD", NON_FOOD: "NON FOOD", PERFUMERIA: "PERFUMERÍA", LIMPIEZA: "LIMPIEZA" })[value] || "Sin grupo";
+}
+
+function skuMasterItem(value) {
+  const sku = String(value || "").trim().toLowerCase();
+  return state.skuMaster.find((item) => item.sku.toLowerCase() === sku);
+}
+
+function requireKnownSku(value) {
+  const sku = String(value || "").trim();
+  const item = skuMasterItem(sku);
+  if (!item) throw new Error(`El SKU ${sku || "indicado"} no existe en el maestro.`);
+  if (!item.active) throw new Error(`El SKU ${sku} está inactivo en el maestro.`);
+  return item;
 }
 
 function normalizeContentLine(source = {}) {
@@ -1149,22 +1512,61 @@ async function saveSku(event) {
   const item = normalizeSku(raw);
   if (!item.sku || !item.description) return setSkuMessage("SKU y descripción son obligatorios.", true);
   upsertSkuLocal(item);
+  queueSkuSync([item]);
   renderSkuMaster();
-  try {
-    const result = await centralRequest("sku_save", { item, admin_password: ADMIN_PASSWORD_HASH });
-    if (!result.ok) throw new Error(result.error || "No se pudo guardar centralmente");
-    setSkuMessage(`SKU ${item.sku} guardado.`);
-    clearSkuForm(false);
-  } catch (error) {
-    setSkuMessage(`Guardado en este dispositivo; no se pudo sincronizar: ${error.message}`, true);
-  }
+  const synced = await flushSkuSyncOutbox();
+  setSkuMessage(synced ? `SKU ${item.sku} guardado y sincronizado.` : `SKU ${item.sku} guardado; queda pendiente de sincronización.`, !synced);
+  clearSkuForm(false);
 }
 
-function upsertSkuLocal(item) {
+function upsertSkuLocal(item, persist = true) {
   const index = state.skuMaster.findIndex((current) => current.sku.toLowerCase() === item.sku.toLowerCase());
   if (index >= 0) state.skuMaster[index] = item;
   else state.skuMaster.push(item);
-  localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
+  if (persist) localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
+}
+
+function queueSkuSync(items) {
+  const pending = new Map(state.skuSyncOutbox.map((item) => [item.sku.toUpperCase(), item]));
+  items.map(normalizeSku).filter((item) => item.sku).forEach((item) => pending.set(item.sku.toUpperCase(), item));
+  state.skuSyncOutbox = [...pending.values()];
+  localStorage.setItem(SKU_SYNC_OUTBOX_KEY, JSON.stringify(state.skuSyncOutbox));
+}
+
+function nextSkuSyncBatch() {
+  const batch = [];
+  for (const item of state.skuSyncOutbox) {
+    const candidate = [...batch, item];
+    const payloadSize = encodeURIComponent(JSON.stringify({ items: candidate, admin_password: state.authHash })).length;
+    if (batch.length && (candidate.length > 10 || payloadSize > 5500)) break;
+    batch.push(item);
+  }
+  return batch;
+}
+
+async function flushSkuSyncOutbox() {
+  if (state.skuSyncBusy || !state.syncConfig.endpoint) return state.skuSyncOutbox.length === 0;
+  if (!state.skuSyncOutbox.length) return true;
+  state.skuSyncBusy = true;
+  try {
+    while (state.skuSyncOutbox.length) {
+      const batch = nextSkuSyncBatch();
+      const result = await centralRequest("sku_bulk", { items: batch, admin_password: state.authHash });
+      if (!result.ok) throw new Error(result.error || "No se pudo guardar el maestro centralmente.");
+      const sent = new Map(batch.map((item) => [item.sku.toUpperCase(), JSON.stringify(item)]));
+      state.skuSyncOutbox = state.skuSyncOutbox.filter((item) => sent.get(item.sku.toUpperCase()) !== JSON.stringify(item));
+      localStorage.setItem(SKU_SYNC_OUTBOX_KEY, JSON.stringify(state.skuSyncOutbox));
+      renderSkuMaster();
+    }
+    state.skuSyncError = "";
+    return true;
+  } catch (error) {
+    state.skuSyncError = error.message;
+    console.warn("Maestro SKU pendiente de sincronización:", error);
+    return false;
+  } finally {
+    state.skuSyncBusy = false;
+  }
 }
 
 function clearSkuForm(clearMessage = true) {
@@ -1183,7 +1585,7 @@ function renderSkuMaster() {
   const items = state.skuMaster.filter((item) => !query || SKU_FIELDS.some((field) => String(item[field] ?? "").toLowerCase().includes(query)));
   const currentStock = stockBySku();
   const stockMetrics = stockMetricsBySku();
-  $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU`;
+  $("#skuCount").textContent = `${fmt.format(state.skuMaster.length)} SKU${state.skuSyncOutbox.length ? ` · ${fmt.format(state.skuSyncOutbox.length)} pendientes` : ""}`;
   const body = $("#skuTable");
   body.replaceChildren();
   items.sort((a,b) => a.sku.localeCompare(b.sku)).forEach((item) => {
@@ -1201,6 +1603,7 @@ function renderSkuMaster() {
       item.description,
       item.ean || "—",
       item.category || "—",
+      formatProductGroup(item.productGroup),
       formatVelocityClass(item.velocityClass),
       item.casesPerPallet || "—",
       item.weightKg || "—",
@@ -1243,12 +1646,15 @@ async function importSkuFile(event) {
     const rows = parseDelimited(await file.text());
     const items = rows.map(normalizeSku).filter((item) => item.sku && item.description);
     if (!items.length) throw new Error("El archivo no contiene filas válidas.");
-    items.forEach(upsertSkuLocal);
-    renderSkuMaster();
-    const result = await centralRequest("sku_bulk", { items, admin_password: ADMIN_PASSWORD_HASH });
-    if (!result.ok) throw new Error(result.error || "No se pudo importar centralmente");
+    items.forEach((item) => upsertSkuLocal(item, false));
     localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
-    setSkuMessage(`${items.length} SKU importados.`);
+    queueSkuSync(items);
+    renderSkuMaster();
+    setSkuMessage(`${items.length} SKU guardados en este dispositivo. Sincronizando en lotes…`);
+    const synced = await flushSkuSyncOutbox();
+    setSkuMessage(synced
+      ? `${items.length} SKU importados y sincronizados.`
+      : `${items.length} SKU importados. Quedan ${state.skuSyncOutbox.length} pendientes de sincronización: ${state.skuSyncError}`, !synced);
   } catch (error) {
     setSkuMessage(error.message, true);
   } finally {
@@ -1257,11 +1663,34 @@ async function importSkuFile(event) {
 }
 
 function parseDelimited(text) {
-  const lines = String(text).replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) return [];
-  const delimiter = lines[0].includes("\t") ? "\t" : lines[0].includes(";") ? ";" : ",";
-  const headers = lines.shift().split(delimiter).map((value) => value.trim());
-  return lines.map((line) => Object.fromEntries(headers.map((header, index) => [header, (line.split(delimiter)[index] || "").trim()])));
+  const source = String(text || "").replace(/^\uFEFF/, "");
+  const firstLine = source.split(/\r?\n/, 1)[0] || "";
+  const delimiter = firstLine.includes("\t") ? "\t" : firstLine.includes(";") ? ";" : ",";
+  const matrix = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === '"') {
+      if (quoted && source[index + 1] === '"') { cell += '"'; index += 1; }
+      else quoted = !quoted;
+    } else if (character === delimiter && !quoted) {
+      row.push(cell.trim()); cell = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && source[index + 1] === "\n") index += 1;
+      row.push(cell.trim()); cell = "";
+      if (row.some((value) => value !== "")) matrix.push(row);
+      row = [];
+    } else {
+      cell += character;
+    }
+  }
+  row.push(cell.trim());
+  if (row.some((value) => value !== "")) matrix.push(row);
+  if (matrix.length < 2) return [];
+  const headers = matrix.shift();
+  return matrix.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""])));
 }
 
 function downloadMovementTemplate() {
@@ -1270,10 +1699,107 @@ function downloadMovementTemplate() {
     ["ING-001", "000000000000001", "INGRESO", "", "A1.01.0", "PALLET", "100360", ""],
     ["ING-002", "000000000000002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "100360", 12],
     ["ING-002", "000000000000002", "INGRESO", "", "A1.01.1", "MULTIPRODUCTO", "555555", 8],
-    ["EGR-001", "000000000000002", "EGRESO", "A1.01.1", "", "BULTOS", "100360", 4],
-    ["REU-001", "000000000000001", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
+    ["EGR-001", "", "EGRESO", "A1.01.1", "", "PALLET", "", ""],
+    ["REU-001", "", "REUBICACIÓN", "A1.01.0", "B1.01.0", "PALLET", "", ""],
   ];
   downloadCsv("plantilla_movimientos.csv", rows);
+}
+
+function bulkInitialLoadTargets() {
+  const sku = String($("#bulkLoadSku").value || "").trim();
+  const master = requireKnownSku(sku);
+  const aisle = String($("#bulkLoadAisle").value || "").trim().toUpperCase();
+  if (!aisle) throw new Error("Indicá el pasillo que querés cargar.");
+  const side = $("#bulkLoadSide").value;
+  const level = $("#bulkLoadLevel").value;
+  const rackFrom = Number($("#bulkLoadRackFrom").value || 0);
+  const rackTo = Number($("#bulkLoadRackTo").value || 0);
+  if (rackFrom && rackTo && rackFrom > rackTo) throw new Error("El rack desde no puede ser mayor que el rack hasta.");
+  const candidates = scopedLocations()
+    .filter((location) => location.storageType !== "drivein" && !isFootprintSecondary(location) && !location.occupied && !location.blocked)
+    .filter((location) => String(location.aisle || "").toUpperCase() === aisle)
+    .filter((location) => side === "ALL" || String(location.side) === side)
+    .filter((location) => level === "ALL" || String(location.level) === level)
+    .filter((location) => !rackFrom || Number(location.rack) >= rackFrom)
+    .filter((location) => !rackTo || Number(location.rack) <= rackTo)
+    .sort(compareInventoryRoute);
+  const reserved = new Set();
+  const targets = [];
+  for (const location of candidates) {
+    if (reserved.has(location.id)) continue;
+    try {
+      const footprint = requiredLocationFootprint(location, Math.max(1, Number(master.positionsRequired || 1)));
+      if (footprint.some((item) => reserved.has(item.id))) continue;
+      footprint.forEach((item) => reserved.add(item.id));
+      targets.push({ location, footprint });
+    } catch {}
+  }
+  return { sku, master, aisle, side, level, targets, positions: reserved.size };
+}
+
+function previewBulkInitialLoad() {
+  const message = $("#bulkInitialLoadMessage");
+  try {
+    const selection = bulkInitialLoadTargets();
+    const sample = selection.targets.slice(0, 8).map((item) => item.location.id).join(", ");
+    message.classList.remove("error");
+    message.textContent = selection.targets.length
+      ? `${fmt.format(selection.targets.length)} pallets ocuparán ${fmt.format(selection.positions)} posiciones. Inicio: ${sample}${selection.targets.length > 8 ? "…" : ""}`
+      : "No hay posiciones libres que coincidan con el filtro.";
+  } catch (error) {
+    message.classList.add("error");
+    message.textContent = error.message;
+  }
+}
+
+function registerBulkInitialLoad(event) {
+  event.preventDefault();
+  if (!requirePermission("movement_write")) return;
+  const message = $("#bulkInitialLoadMessage");
+  try {
+    const selection = bulkInitialLoadTargets();
+    if (!selection.targets.length) throw new Error("No hay posiciones libres que coincidan con el filtro.");
+    if (!confirm(`Se registrarán ${fmt.format(selection.targets.length)} pallets del SKU ${selection.sku} en ${fmt.format(selection.positions)} posiciones.\n\n¿Estás seguro de continuar?`)) return;
+    const previousLocations = structuredClone(state.locations);
+    const previousMovements = structuredClone(state.movements);
+    const previousHistory = structuredClone(state.history);
+    const timestamp = new Date().toISOString();
+    const prefix = String($("#bulkLoadPalletPrefix").value || "INICIAL").trim().toUpperCase().replace(/[^A-Z0-9_-]+/g, "-") || "INICIAL";
+    const batchCode = Date.now().toString(36).toUpperCase();
+    const created = [];
+    try {
+      selection.targets.forEach(({ location, footprint }, index) => {
+        const palletId = normalizePalletId(`${prefix}-${batchCode}-${location.id.replace(/\./g, "-")}`);
+        const contents = [normalizeContentLine({ sku: selection.sku, legacyPallets: 1, palletId })];
+        occupyLocationFootprint(location, contents, 1, timestamp, palletId);
+        created.push({
+          id: crypto.randomUUID ? crypto.randomUUID() : `bulk-${Date.now()}-${index}`,
+          date: formatDateTime(timestamp), timestamp, type: "IN", material: selection.sku, palletId,
+          from: "", to: location.id, quantity: 1, logisticsUnit: "PALLET", palletCount: 1,
+          packages: Number(selection.master.casesPerPallet || 0), contents,
+          occupancyDelta: footprint.length, dwellHours: null,
+        });
+      });
+      state.movements.unshift(...created.slice().reverse());
+      state.history.push({ ...createSnapshot(timestamp), movementId: created.at(-1)?.id || "" });
+      saveState();
+      state.syncOutbox.push(...created.map((movement) => movementToCentralRecord("CREADO", movement)));
+      localStorage.setItem(SYNC_OUTBOX_KEY, JSON.stringify(state.syncOutbox));
+      renderAll();
+      renderSyncStatus();
+      flushSyncOutbox();
+    } catch (error) {
+      state.locations = previousLocations;
+      state.movements = previousMovements;
+      state.history = previousHistory;
+      throw error;
+    }
+    message.classList.remove("error");
+    message.textContent = `${fmt.format(created.length)} pallets registrados. Los ID temporales pueden reemplazarse al relevar los códigos SAP.`;
+  } catch (error) {
+    message.classList.add("error");
+    message.textContent = error.message;
+  }
 }
 
 function localDateInputValue(date = new Date()) {
@@ -1489,7 +2015,7 @@ async function importMovementFile(event) {
   if (!file) return;
   const message = $("#registerMessage");
   try {
-    const rows = parseDelimited(await file.text()).map((row) => ({
+    const rows = parseDelimited(await file.text()).map((row, rowIndex) => ({
       reference: pickingColumn(row, ["referencia"]),
       palletId: pickingColumn(row, ["id pallet sap", "id pallet", "pallet"]),
       type: pickingColumn(row, ["tipo"]).toUpperCase(),
@@ -1498,9 +2024,15 @@ async function importMovementFile(event) {
       loadType: pickingColumn(row, ["tipo de carga"]).toUpperCase(),
       sku: pickingColumn(row, ["sku", "material"]),
       packages: Number(String(pickingColumn(row, ["bultos", "cantidad"]) || 0).replace(",", ".")),
+      rowIndex,
     })).filter((row) => row.reference && row.type);
     if (!rows.length) throw new Error("No se encontraron movimientos válidos.");
-    const groups = Object.values(groupBy(rows, (row) => `${row.reference}::${normalizePalletId(row.palletId)}`));
+    const groups = Object.values(groupBy(rows, (row) => {
+      const isInbound = row.type.startsWith("ING");
+      return isInbound && row.palletId
+        ? `${row.reference}::${normalizePalletId(row.palletId)}`
+        : `${row.reference}::FILA-${row.rowIndex}`;
+    }));
     let imported = 0;
     for (const group of groups) {
       const row = group[0];
@@ -1512,6 +2044,10 @@ async function importMovementFile(event) {
       $("#registerPalletId").value = row.palletId;
       $("#registerMaterial").value = row.sku;
       $("#registerQuantity").value = row.packages || 1;
+      if (type === "OUT") {
+        $("#registerExitMode").value = row.loadType.includes("BULTO") || row.loadType.includes("PARCIAL") ? "PACKAGES" : "PALLET";
+        updateRegisterLoadFields();
+      }
       if (type === "IN") {
         const multi = row.loadType.includes("MULTI") || group.length > 1;
         $("#registerLoadType").value = multi ? "PALLET_MULTI" : "PALLET_MONO";
@@ -1576,7 +2112,7 @@ function renderSapComparison() {
   $("#sapCompared").textContent = fmt.format(rows.length);
   $("#sapDifferences").textContent = fmt.format(differences.length);
   $("#sapNetDifference").textContent = fmt.format(rows.filter((item) => !item.unknownConversion).reduce((sum, item) => sum + item.difference, 0));
-  body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference || item.unknownConversion ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${item.unknownConversion ? "Sin conversión" : fmt.format(item.app)}</td><td>${item.unknownConversion ? "—" : `${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}`}</td><td>${item.positions.join(", ") || "—"}</td><td>${item.unknownConversion ? "Definir bultos/pallet" : item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
+  body.innerHTML = rows.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).map((item) => `<tr class="${item.difference || item.unknownConversion ? "has-difference" : "is-balanced"}"><td>${escapeHtml(item.sku)}</td><td>${fmt.format(item.stock)}</td><td>${item.unknownConversion ? "Sin conversión" : fmt.format(item.app)}</td><td>${item.unknownConversion ? "—" : `${item.difference > 0 ? "+" : ""}${fmt.format(item.difference)}`}</td><td>${item.positions.map(escapeHtml).join(", ") || "—"}</td><td>${item.unknownConversion ? "Definir bultos/pallet" : item.difference ? "Revisar" : "Coincide"}</td></tr>`).join("");
 }
 
 function locationLoadSnapshot(location) {
@@ -1631,6 +2167,7 @@ function readCountFound() {
     const sku = String($("#countSku").value || "").trim();
     const packages = Number($("#countPackageCount").value || 0);
     if (!sku || !(packages > 0)) throw new Error("Indicá el SKU y la cantidad de bultos encontrados.");
+    requireKnownSku(sku);
     return { occupied: true, palletCount: 0, contents: [normalizeContentLine({ sku, packages })] };
   }
   const palletCount = Number($("#countPalletCount").value || 0);
@@ -1638,10 +2175,12 @@ function readCountFound() {
   if (type === "PALLET_MULTI") {
     const contents = parseMultiContents($("#countMultiContents").value);
     if (palletCount !== 1) throw new Error("Un pallet multiproducto debe contarse como un pallet con su detalle de bultos.");
+    contents.forEach((item) => requireKnownSku(item.sku));
     return { occupied: true, palletCount, contents };
   }
   const sku = String($("#countSku").value || "").trim();
   if (!sku) throw new Error("Indicá el SKU encontrado.");
+  requireKnownSku(sku);
   return { occupied: true, palletCount, contents: [normalizeContentLine({ sku, legacyPallets: palletCount })] };
 }
 
@@ -1673,12 +2212,13 @@ async function saveInventoryCount(event) {
   if (!requirePermission("count_write")) return;
   const message = $("#countMessage");
   try {
+    if (!state.countSession) throw new Error("Iniciá o unite a un inventario antes de guardar el conteo.");
     const entered = normalizePosition($("#countPosition").value);
     const location = findLocation(entered);
     if (!location) throw new Error("La posición indicada no existe.");
     if (!locationInOperationalScope(location)) throw new Error(`La posición no pertenece al ámbito ${scopeLabel()}.`);
     const primary = footprintPrimaryLocation(location);
-    if (state.countSession && !locationInCountScope(primary, state.countSession.scope)) throw new Error(`La posición no pertenece al alcance ${countScopeLabel(state.countSession.scope)}.`);
+    if (!locationInCountAssignment(primary, state.countSession)) throw new Error("La posición no pertenece al recorrido asignado para este inventario.");
     const expected = locationLoadSnapshot(primary);
     const found = readCountFound();
     const timestamp = new Date();
@@ -1694,7 +2234,8 @@ async function saveInventoryCount(event) {
       estado: matches ? "CERRADO" : "PENDIENTE",
       observacion: String($("#countObservation").value || "").trim(),
       usuario: state.syncConfig.operator,
-      inventario_id: state.countSession?.id || "",
+      responsable: state.countSession?.assignee || state.syncConfig.operator,
+      inventario_id: normalizeInventoryId(state.countSession?.id),
       alcance: state.countSession?.scope || "ALL",
     };
     const localCount = normalizeInventoryCount(count);
@@ -1709,22 +2250,213 @@ async function saveInventoryCount(event) {
     $("#countPackageCount").value = 1;
     updateCountLoadFields();
     renderCountExpected();
-    const result = await centralRequest("count_save", { count });
-    if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
-    message.textContent = isBlindCounter() ? "Conteo guardado y sincronizado." : matches ? "Conteo guardado y sincronizado." : "Diferencia guardada y pendiente de ajuste.";
+    queueInventoryCount(count);
+    const synced = await flushCountOutbox();
+    message.textContent = synced
+      ? isBlindCounter() ? "Conteo guardado y sincronizado." : matches ? "Conteo guardado y sincronizado." : "Diferencia guardada y pendiente de ajuste."
+      : "Conteo guardado en este dispositivo y pendiente de sincronización.";
   } catch (error) {
     message.classList.add("error");
     message.textContent = error.message;
   }
 }
 
+function queueInventoryCount(count) {
+  const id = String(count?.id_conteo || "");
+  if (!id || state.countOutbox.some((item) => item.id_conteo === id)) return;
+  state.countOutbox.push(count);
+  localStorage.setItem(COUNT_OUTBOX_KEY, JSON.stringify(state.countOutbox));
+  renderCountSyncStatus();
+}
+
+async function flushCountOutbox() {
+  if (state.countSyncBusy || !state.syncConfig.endpoint) return state.countOutbox.length === 0;
+  if (!state.countOutbox.length) {
+    renderCountSyncStatus();
+    return true;
+  }
+  state.countSyncBusy = true;
+  try {
+    while (state.countOutbox.length) {
+      const count = state.countOutbox[0];
+      const result = await centralRequest("count_save", { count });
+      if (!result.ok) throw new Error(result.error || "No se pudo guardar el conteo centralmente.");
+      if (Number(result.version) > 0 && Number(result.version) < 27) {
+        state.countBackendWarning = "Backend pendiente de actualizar; el conteo se conserva en este dispositivo.";
+      }
+      state.countOutbox.shift();
+      localStorage.setItem(COUNT_OUTBOX_KEY, JSON.stringify(state.countOutbox));
+      renderCountSyncStatus();
+    }
+    await pullInventoryCounts();
+    return true;
+  } catch (error) {
+    console.warn("Conteo pendiente de sincronización:", error);
+    renderCountSyncStatus(error.message);
+    return false;
+  } finally {
+    state.countSyncBusy = false;
+  }
+}
+
+function renderCountSyncStatus(error = "") {
+  const status = $("#countsBackendStatus");
+  if (!status) return;
+  if (state.countOutbox.length) {
+    status.textContent = `${fmt.format(state.countOutbox.length)} conteo(s) pendiente(s) de sincronizar${error ? ` · ${error}` : ""}`;
+    return;
+  }
+  status.textContent = error || state.countBackendWarning || "Registro central conectado";
+}
+
 function locationSector(location) { if (location.storageType === "drivein" || location.aisle === "PE") return "PE"; if (location.storageType === "wallrack") return String(location.aisle || "ZE").toUpperCase(); if (location.storageType === "backstore") return "BACK"; return String(location.side); }
 function locationInCountScope(location, scope) { return locationInOperationalScope(location) && (scope === "ALL" || locationSector(location) === scope); }
 function countScopeLabel(scope) { return ({ ALL: "Todas las zonas", "1": "Lado 1", "2": "Lado 2", PE: "Penetrable", ZE: "Zona Este", ZO: "Zona Oeste", ZN: "Zona Norte", BACK: "Back salón Escobar" })[scope] || scope; }
-function startInventorySession() { const id = $("#countInventoryId").value.trim().toUpperCase(); const scope = $("#countScope").value; if (!id) return alert("Ingresá un identificador para el inventario."); state.countSession = { id, scope, startedAt: new Date().toISOString() }; localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession)); renderCountSession(); $("#countPosition").focus(); }
-function inventorySessionData() { if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [] }; const targets = scopedLocations().filter((item) => locationInCountScope(item, state.countSession.scope)); const counts = state.inventoryCounts.filter((item) => item.inventoryId === state.countSession.id && movementPositionInOperationalScope(item.position)); const counted = new Set(counts.map((item) => item.position)); return { targets, counts, counted, missing: targets.filter((item) => !counted.has(item.id)) }; }
-function renderCountSession() { const session = state.countSession; const status = $("#countSessionStatus"); const progress = $("#countSessionProgress"); const finish = $("#finishInventoryCount"); if (!status || !progress) return; finish.hidden = isBlindCounter(); if (!session) { status.textContent = "Sin inventario iniciado"; progress.textContent = "Iniciá un inventario para controlar la cobertura."; finish.disabled = true; return; } $("#countInventoryId").value = session.id; $("#countScope").value = session.scope; const data = inventorySessionData(); const pct = data.targets.length ? Math.round(data.counted.size / data.targets.length * 100) : 0; status.textContent = `${session.id} · ${countScopeLabel(session.scope)}`; progress.innerHTML = `<strong>${fmt.format(data.counted.size)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`; finish.disabled = false; }
-function finishInventorySession() { if (isBlindCounter()) return alert("El cierre y la revisión del inventario corresponden a Supervisión o Administración."); if (!state.countSession) return; const data = inventorySessionData(); const report = $("#countSessionReport"); if (data.missing.length) { report.hidden = false; report.innerHTML = `<strong>No se puede finalizar: faltan ${fmt.format(data.missing.length)} posiciones.</strong><span>Primeras pendientes: ${data.missing.slice(0, 20).map((item) => escapeHtml(item.id)).join(", ")}</span>`; return; } const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length; const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length; const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000)); report.hidden = false; report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado</strong><span>${fmt.format(data.targets.length)} posiciones · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`; state.countSession = null; localStorage.removeItem(COUNT_SESSION_KEY); renderCountSession(); }
+
+function normalizeInventoryId(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function normalizeCountSession(source) {
+  if (!source?.id) return null;
+  return {
+    id: normalizeInventoryId(source.id),
+    scope: String(source.scope || "ALL").toUpperCase(),
+    aisle: String(source.aisle || "ALL").trim().toUpperCase() || "ALL",
+    side: String(source.side || "ALL").toUpperCase(),
+    assignee: String(source.assignee || "").trim(),
+    startedAt: source.startedAt || new Date().toISOString(),
+  };
+}
+
+function startInventorySession() {
+  const id = normalizeInventoryId($("#countInventoryId").value);
+  if (!id) return alert("Ingresá un identificador para el inventario.");
+  state.countSession = normalizeCountSession({
+    id,
+    scope: $("#countScope").value,
+    aisle: $("#countRouteAisle").value,
+    side: $("#countRouteSide").value,
+    assignee: $("#countAssignee").value || state.syncConfig.operator,
+    startedAt: state.countSession?.id === id ? state.countSession.startedAt : new Date().toISOString(),
+  });
+  localStorage.setItem(COUNT_SESSION_KEY, JSON.stringify(state.countSession));
+  renderCountSession();
+  renderInventoryCounts();
+  $("#countPosition").focus();
+}
+
+function locationInCountAssignment(location, session) {
+  if (!locationInCountScope(location, session.scope)) return false;
+  if (session.aisle !== "ALL" && String(location.aisle || "").toUpperCase() !== session.aisle) return false;
+  if (session.side !== "ALL" && String(location.side || "") !== session.side) return false;
+  return true;
+}
+
+function compareInventoryRoute(a, b) {
+  return String(a.aisle).localeCompare(String(b.aisle), "es", { numeric: true })
+    || Number(a.side || 0) - Number(b.side || 0)
+    || Number(a.rack || 0) - Number(b.rack || 0)
+    || Number(a.module || a.position || 0) - Number(b.module || b.position || 0)
+    || Number(a.level || 0) - Number(b.level || 0)
+    || Number(a.depth || 0) - Number(b.depth || 0)
+    || a.id.localeCompare(b.id, "es", { numeric: true });
+}
+
+function inventorySessionData() {
+  if (!state.countSession) return { targets: [], counts: [], counted: new Set(), missing: [], completed: [] };
+  const sessionId = normalizeInventoryId(state.countSession.id);
+  const targets = scopedLocations()
+    .filter((item) => locationInCountAssignment(item, state.countSession))
+    .sort(compareInventoryRoute);
+  const counts = state.inventoryCounts.filter((item) => normalizeInventoryId(item.inventoryId) === sessionId && movementPositionInOperationalScope(item.position));
+  const counted = new Set();
+  counts.forEach((item) => {
+    const positions = Array.isArray(item.expected?.positions) && item.expected.positions.length ? item.expected.positions : [item.position];
+    positions.forEach((position) => counted.add(normalizePosition(position)));
+  });
+  const missing = targets.filter((item) => !counted.has(normalizePosition(item.id)));
+  const completed = targets.filter((item) => counted.has(normalizePosition(item.id)));
+  return { targets, counts, counted, missing, completed };
+}
+
+function renderInventoryRoute(data) {
+  const container = $("#countRouteOverview");
+  if (!container) return;
+  if (!state.countSession) {
+    container.hidden = true;
+    container.replaceChildren();
+    return;
+  }
+  const pending = data.missing.slice(0, 24);
+  const completed = data.completed.slice(-24).reverse();
+  const pendingExtra = Math.max(0, data.missing.length - pending.length);
+  const completedExtra = Math.max(0, data.completed.length - completed.length);
+  container.hidden = false;
+  container.innerHTML = `
+    <section class="inventory-route-group">
+      <strong>Próximas posiciones</strong><small>Ordenadas por pasillo, lado, rack, módulo y nivel</small>
+      <div class="inventory-route-positions">${pending.map((item) => `<button type="button" data-count-route-position="${escapeHtml(item.id)}">${escapeHtml(item.id)}</button>`).join("") || "<span>Recorrido completo</span>"}${pendingExtra ? `<span>+${fmt.format(pendingExtra)}</span>` : ""}</div>
+    </section>
+    <section class="inventory-route-group">
+      <strong>Posiciones ya contadas</strong><small>${escapeHtml(state.countSession.assignee || "Equipo sin identificar")}</small>
+      <div class="inventory-route-positions">${completed.map((item) => `<span class="counted">${escapeHtml(item.id)}</span>`).join("") || "<span>Todavía no hay posiciones contadas</span>"}${completedExtra ? `<span>+${fmt.format(completedExtra)}</span>` : ""}</div>
+    </section>`;
+}
+
+function openCountRoutePosition(event) {
+  const button = event.target.closest("[data-count-route-position]");
+  if (!button) return;
+  $("#countPosition").value = button.dataset.countRoutePosition;
+  renderCountExpected();
+  $("#countPosition").focus();
+}
+
+function renderCountSession() {
+  const session = state.countSession;
+  const status = $("#countSessionStatus");
+  const progress = $("#countSessionProgress");
+  const finish = $("#finishInventoryCount");
+  if (!status || !progress) return;
+  finish.hidden = isBlindCounter();
+  if (!session) {
+    status.textContent = "Sin inventario iniciado";
+    progress.textContent = "Iniciá un inventario para controlar la cobertura.";
+    finish.disabled = true;
+    renderInventoryRoute({ missing: [], completed: [] });
+    return;
+  }
+  $("#countInventoryId").value = session.id;
+  $("#countScope").value = session.scope;
+  $("#countRouteAisle").value = session.aisle === "ALL" ? "" : session.aisle;
+  $("#countRouteSide").value = session.side;
+  $("#countAssignee").value = session.assignee;
+  const data = inventorySessionData();
+  const countedTargets = data.targets.length - data.missing.length;
+  const pct = data.targets.length ? Math.round(countedTargets / data.targets.length * 100) : 0;
+  status.textContent = `${session.id} · ${countScopeLabel(session.scope)}${session.aisle !== "ALL" ? ` · Pasillo ${session.aisle}` : ""}${session.side !== "ALL" ? ` · Lado ${session.side}` : ""}`;
+  progress.innerHTML = `<strong>${fmt.format(countedTargets)} / ${fmt.format(data.targets.length)}</strong> posiciones relevadas · ${pct}% · ${fmt.format(data.missing.length)} pendientes`;
+  finish.disabled = false;
+  renderInventoryRoute(data);
+}
+
+function finishInventorySession() {
+  if (isBlindCounter()) return alert("El cierre y la revisión del inventario corresponden a Supervisión o Administración.");
+  if (!state.countSession) return;
+  const data = inventorySessionData();
+  if (data.missing.length && !confirm(`Faltan ${fmt.format(data.missing.length)} de ${fmt.format(data.targets.length)} posiciones por relevar.\n\n¿Estás seguro de finalizar el inventario igualmente?`)) return;
+  const report = $("#countSessionReport");
+  const differences = data.counts.filter((item) => item.result === "DIFERENCIA").length;
+  const adjusted = data.counts.filter((item) => item.status === "AJUSTADO").length;
+  const minutes = Math.max(1, Math.round((Date.now() - Date.parse(state.countSession.startedAt)) / 60000));
+  const countedTargets = data.targets.length - data.missing.length;
+  report.hidden = false;
+  report.innerHTML = `<strong>Inventario ${escapeHtml(state.countSession.id)} finalizado${data.missing.length ? " con posiciones pendientes" : ""}</strong><span>${fmt.format(countedTargets)} de ${fmt.format(data.targets.length)} posiciones relevadas · ${fmt.format(data.missing.length)} pendientes · ${fmt.format(differences)} diferencias · ${fmt.format(adjusted)} ajustes · ${fmt.format(minutes)} min</span>`;
+  state.countSession = null;
+  localStorage.removeItem(COUNT_SESSION_KEY);
+  renderCountSession();
+  renderInventoryCounts();
+}
 
 function exportInventoryCsv() {
   if (isBlindCounter()) return alert("El rol Inventario no puede exportar ni consultar el stock del sistema.");
@@ -1735,7 +2467,7 @@ function exportInventoryCsv() {
   const latestActivity = new Map();
   state.movements.forEach((move) => [move.from, move.to].filter(Boolean).forEach((id) => { if (!latestActivity.has(id)) latestActivity.set(id, move); }));
   const movementLabels = { IN: "Ingreso", OUT: "Egreso", MOVE: "Reubicación", ADJUST: "Ajuste" };
-  const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "ID pallet SAP", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Usuario", "Observación"]];
+  const rows = [["Posición", "Posición principal", "Sector", "Pasillo", "Rack", "Módulo", "Nivel", "Estado", "Motivo de bloqueo", "Tipo de carga", "Pallets", "ID pallet SAP", "Bultos", "SKU / contenido", "Ocupada desde", "Última actividad", "Último movimiento", "Inventario", "Fecha último conteo", "Sistema al contar", "Encontrado", "Resultado", "Estado del conteo", "Responsable", "Observación"]];
   locations.forEach((location) => {
     const primary = locationsById.get(String(location.footprintPrimaryId || location.id).toUpperCase()) || location;
     const load = { palletCount: Number(primary.palletCount || 0), contents: primary.contents || [] };
@@ -1751,7 +2483,7 @@ function exportInventoryCsv() {
       Number(load.palletCount || 0), primary.palletId || "", packages, contentLabel, location.occupiedSince ? formatDateTime(location.occupiedSince) : "",
       activity ? formatMovementDate(activity) : "", activity ? movementLabels[activity.type] || activity.type : "",
       count?.inventoryId || "", count ? formatDateTime(count.timestamp) || count.date : "", count ? stripHtml(countLoadSummary(count.expected)) : "",
-      count ? stripHtml(countLoadSummary(count.found)) : "", count?.result || "", count?.status || "", count?.user || "", count?.observation || "",
+      count ? stripHtml(countLoadSummary(count.found)) : "", count?.result || "", count?.status || "", count?.assignee || count?.user || "", count?.observation || "",
     ]);
   });
   const now = new Date();
@@ -1762,15 +2494,25 @@ function exportInventoryCsv() {
 function renderInventoryCounts() {
   const body = $("#inventoryCountsTable");
   if (!body) return;
-  if (isBlindCounter()) {
-    body.innerHTML = `<tr><td colspan="8">El conteo ciego no muestra resultados ni referencias del sistema.</td></tr>`;
-    return;
-  }
-  const counts = state.inventoryCounts.filter((count) => movementPositionInOperationalScope(count.position));
+  const sessionId = normalizeInventoryId(state.countSession?.id);
+  const counts = state.inventoryCounts.filter((count) => movementPositionInOperationalScope(count.position) && (!sessionId || normalizeInventoryId(count.inventoryId) === sessionId));
   $("#countKpiTotal").textContent = fmt.format(counts.length);
   $("#countKpiPending").textContent = fmt.format(counts.filter((item) => item.status === "PENDIENTE").length);
   $("#countKpiMatch").textContent = fmt.format(counts.filter((item) => item.result === "COINCIDE").length);
   $("#countKpiAdjusted").textContent = fmt.format(counts.filter((item) => item.status === "AJUSTADO").length);
+  if (isBlindCounter()) {
+    body.innerHTML = counts.map((count) => `<tr>
+      <td>${escapeHtml(formatDateTime(count.timestamp) || count.date)}</td>
+      <td>${escapeHtml(count.position)}</td>
+      <td>Oculto</td>
+      <td>Registrado</td>
+      <td><span class="pill available">Contado</span></td>
+      <td>Guardado</td>
+      <td>${escapeHtml(count.assignee || count.user || "—")}</td>
+      <td>—</td>
+    </tr>`).join("") || `<tr><td colspan="8">Todavía no hay posiciones contadas en este inventario.</td></tr>`;
+    return;
+  }
   body.innerHTML = counts.map((count) => {
     const difference = count.result === "DIFERENCIA";
     const canAdjust = difference && count.status === "PENDIENTE" && hasPermission("inventory_adjust");
@@ -1781,7 +2523,7 @@ function renderInventoryCounts() {
       <td>${countLoadSummary(count.found)}</td>
       <td><span class="pill ${difference ? "blocked" : "available"}">${difference ? "Diferencia" : "Coincide"}</span></td>
       <td>${escapeHtml(count.status === "PENDIENTE" ? "Pendiente de ajuste" : count.status === "AJUSTADO" ? "Ajustado" : "Cerrado")}</td>
-      <td>${escapeHtml(count.user || "—")}</td>
+      <td>${escapeHtml(count.assignee || count.user || "—")}</td>
       <td>${canAdjust ? `<button type="button" class="primary-action compact" data-adjust-count="${count.id}">Aplicar ajuste</button>` : count.adjustedBy ? `Por ${escapeHtml(count.adjustedBy)}` : "—"}</td>
     </tr>`;
   }).join("") || `<tr><td colspan="8">Todavía no hay conteos registrados.</td></tr>`;
@@ -1827,14 +2569,14 @@ async function handleCountAdjustment(event) {
     countId: count.id,
     adjustmentReason: `Diferencia de conteo${count.observation ? `: ${count.observation}` : ""}`,
     previousLoad: count.expected,
-    adminPassword: ADMIN_PASSWORD_HASH,
+    adminPassword: state.authHash,
   };
   button.disabled = true;
   try {
     const result = await centralRequest("count_adjust", {
       count_id: count.id,
       movement: movementToCentralRecord("CREADO", movement),
-      admin_password: ADMIN_PASSWORD_HASH,
+      admin_password: state.authHash,
     });
     if (!result.ok) throw new Error(result.error || "No se pudo aplicar el ajuste.");
     await pullCentralMovements();
@@ -1852,14 +2594,28 @@ function stripHtml(value) {
 }
 
 function downloadSkuTemplate() {
-  const headers = ["SKU","Descripción","EAN","Categoría","Clasificación","Bultos por pallet","Peso kg","Posiciones requeridas","Días de stock mínimo","Días de stock máximo","Consumo diario en bultos","Activo"];
-  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","A",50,0.5,1,45,90,25,"Sí"];
+  const headers = ["SKU","Descripción","EAN","Categoría","Grupo","Clasificación","Bultos por pallet","Peso kg","Posiciones requeridas","Días de stock mínimo","Días de stock máximo","Consumo diario en bultos","Activo"];
+  const sample = ["SKU-DEMO","Descripción","7790000000000","Categoría","FOOD","A",50,0.5,1,45,90,25,"Sí"];
   const csv = [headers, sample].map((row) => row.join(";")).join("\n");
   const link = document.createElement("a");
   link.href = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
   link.download = "plantilla_maestro_sku.csv";
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+function exportSkuMaster() {
+  const rows = [["SKU","Descripción","EAN","Categoría","Grupo","Clasificación","Bultos por pallet","Peso kg","Posiciones requeridas","Días de stock mínimo","Días de stock máximo","Consumo diario en bultos","Activo"]];
+  state.skuMaster
+    .slice()
+    .sort((a, b) => a.sku.localeCompare(b.sku, "es", { numeric: true }))
+    .forEach((item) => rows.push([
+      item.sku, item.description, item.ean, item.category, formatProductGroup(item.productGroup),
+      formatVelocityClass(item.velocityClass), item.casesPerPallet, item.weightKg, item.positionsRequired,
+      item.minDays, item.maxDays, item.dailyConsumption, item.active ? "Sí" : "No",
+    ]));
+  const stamp = new Date().toISOString().slice(0, 10);
+  downloadCsv(`maestro_sku_gps_${stamp}.csv`, rows);
 }
 
 function centralRequest(action, payload = {}) {
@@ -1878,8 +2634,11 @@ function centralRequest(action, payload = {}) {
 async function pullSkuMaster() {
   try {
     const result = await centralRequest("sku_list");
-    if (result.ok && Array.isArray(result.items) && (result.items.length || !state.skuMaster.length)) {
-      state.skuMaster = result.items.map(normalizeSku);
+    if (result.ok && Array.isArray(result.items)) {
+      const merged = new Map(result.items.map(normalizeSku).filter((item) => item.sku).map((item) => [item.sku.toUpperCase(), item]));
+      state.skuMaster.forEach((item) => { if (!merged.has(item.sku.toUpperCase())) merged.set(item.sku.toUpperCase(), item); });
+      state.skuSyncOutbox.forEach((item) => merged.set(item.sku.toUpperCase(), item));
+      state.skuMaster = [...merged.values()];
       localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
       renderSkuMaster();
       renderMovementPreview();
@@ -1893,15 +2652,36 @@ async function pullInventoryCounts() {
   try {
     const result = await centralRequest("count_list");
     if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
+    if (Number(result.version) > 0 && Number(result.version) < 27) {
+      state.countBackendWarning = "Backend pendiente de actualizar; los datos nuevos se conservan localmente.";
+    } else if (!result.version || Number(result.version) >= 27) {
+      state.countBackendWarning = "";
+    }
     const merged = new Map(state.inventoryCounts.map((item) => [item.id, item]));
-    result.items.map(normalizeInventoryCount).forEach((item) => merged.set(item.id, item));
+    result.items.forEach((source) => {
+      const remote = normalizeInventoryCount(source);
+      const local = merged.get(remote.id);
+      if (!local) {
+        merged.set(remote.id, remote);
+        return;
+      }
+      const remoteHasInventory = Boolean(normalizeInventoryId(source.inventario_id || source.inventoryId));
+      const remoteHasAssignee = Boolean(String(source.responsable || source.assignee || "").trim());
+      merged.set(remote.id, {
+        ...local,
+        ...remote,
+        inventoryId: remoteHasInventory ? remote.inventoryId : local.inventoryId,
+        scope: remoteHasInventory ? remote.scope : local.scope,
+        assignee: remoteHasAssignee ? remote.assignee : local.assignee || remote.user,
+      });
+    });
     state.inventoryCounts = [...merged.values()].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
     localStorage.setItem(COUNT_CACHE_KEY, JSON.stringify(state.inventoryCounts));
-    $("#countsBackendStatus").textContent = "Registro central conectado";
+    renderCountSyncStatus();
     renderInventoryCounts();
     renderCountSession();
   } catch (error) {
-    $("#countsBackendStatus").textContent = "El registro central requiere la actualización de conteos";
+    renderCountSyncStatus("El registro central no respondió");
     console.warn("Conteos centrales no disponibles:", error);
   }
 }
@@ -1918,10 +2698,11 @@ function normalizeInventoryCount(source) {
     status: String(source.estado || source.status || "").toUpperCase(),
     observation: String(source.observacion || source.observation || ""),
     user: String(source.usuario || source.user || ""),
+    assignee: String(source.responsable || source.assignee || source.usuario || source.user || ""),
     adjustmentId: String(source.ajuste_id || source.adjustmentId || ""),
     adjustedBy: String(source.ajustado_por || source.adjustedBy || ""),
     adjustedAt: String(source.ajustado_en || source.adjustedAt || ""),
-    inventoryId: String(source.inventario_id || source.inventoryId || ""),
+    inventoryId: normalizeInventoryId(source.inventario_id || source.inventoryId),
     scope: String(source.alcance || source.scope || "ALL").toUpperCase(),
   };
 }
@@ -1977,7 +2758,7 @@ async function saveSlottingRule(event) {
   event.currentTarget.reset();
   $("#slottingScope").value = rule.scope;
   try {
-    const result = await centralRequest("slotting_save", { rule, admin_password: ADMIN_PASSWORD_HASH });
+    const result = await centralRequest("slotting_save", { rule, admin_password: state.authHash });
     if (!result.ok) throw new Error(result.error || "No se pudo guardar la zona.");
   } catch (error) {
     alert(`La zona quedó guardada sólo en este dispositivo: ${error.message}`);
@@ -1993,7 +2774,7 @@ async function deleteSlottingRule(event) {
   localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
   renderSlottingRules();
   renderSkuAlerts();
-  const result = await centralRequest("slotting_delete", { id, admin_password: ADMIN_PASSWORD_HASH }).catch(() => null);
+  const result = await centralRequest("slotting_delete", { id, admin_password: state.authHash }).catch(() => null);
   if (!result?.ok) alert("La zona se eliminó localmente, pero no pudo sincronizarse.");
 }
 
@@ -2003,14 +2784,14 @@ function renderSlottingRules() {
   const visibleRules = state.slottingRules.filter((rule) => state.operationalScope === "ALL" || rule.scope === state.operationalScope);
   body.innerHTML = visibleRules.map((rule) => `
     <tr>
-      <td>${scopeLabel(rule.scope)}</td>
-      <td>${formatVelocityClass(rule.velocityClass)}</td>
-      <td>${rule.aisle === "ALL" ? "Todos" : rule.aisle}</td>
-      <td>${rule.side === "all" ? "Ambos" : rule.side}</td>
-      <td>${rule.rackFrom}-${rule.rackTo}</td>
-      <td>${rule.moduleFrom}-${rule.moduleTo}</td>
-      <td>${rule.level === "all" ? "Todos" : rule.level}</td>
-      <td><button type="button" class="icon-action danger" data-rule-id="${rule.id}" title="Eliminar zona">×</button></td>
+      <td>${escapeHtml(scopeLabel(rule.scope))}</td>
+      <td>${escapeHtml(formatVelocityClass(rule.velocityClass))}</td>
+      <td>${escapeHtml(rule.aisle === "ALL" ? "Todos" : rule.aisle)}</td>
+      <td>${escapeHtml(rule.side === "all" ? "Ambos" : rule.side)}</td>
+      <td>${escapeHtml(rule.rackFrom)}-${escapeHtml(rule.rackTo)}</td>
+      <td>${escapeHtml(rule.moduleFrom)}-${escapeHtml(rule.moduleTo)}</td>
+      <td>${escapeHtml(rule.level === "all" ? "Todos" : rule.level)}</td>
+      <td><button type="button" class="icon-action danger" data-rule-id="${escapeHtml(rule.id)}" title="Eliminar zona">×</button></td>
     </tr>`).join("") || `<tr><td colspan="8">No hay reglas definidas para ${scopeLabel()}.</td></tr>`;
 }
 
@@ -2043,7 +2824,7 @@ function renderSkuAlerts() {
   });
   $("#skuAlertCount").textContent = `${alerts.length} alerta${alerts.length === 1 ? "" : "s"}`;
   $("#skuAlertTabCount").textContent = String(alerts.length);
-  container.innerHTML = alerts.length ? alerts.map((alert) => `<article class="sku-alert ${alert.level}"><strong>${alert.title}</strong><span>${alert.detail}</span></article>`).join("") : `<p class="empty-state">Sin desvíos de stock ni ubicación.</p>`;
+  container.innerHTML = alerts.length ? alerts.map((alert) => `<article class="sku-alert ${escapeHtml(alert.level)}"><strong>${escapeHtml(alert.title)}</strong><span>${escapeHtml(alert.detail)}</span></article>`).join("") : `<p class="empty-state">Sin desvíos de stock ni ubicación.</p>`;
 }
 
 async function pullSlottingRules() {
@@ -2169,8 +2950,8 @@ function renderDashboardInsights() {
   const blocked = locations.filter((item) => item.blocked).length;
   const typeLabel = { IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste de inventario" };
   container.innerHTML = `
-    <article><span>SKU con más posiciones</span><strong>${leader?.sku || "Sin stock"}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
-    <article><span>Último movimiento</span><strong>${last ? typeLabel[last.type] || last.type : "Sin movimientos"}</strong><small>${last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad"}</small></article>
+    <article><span>SKU con más posiciones</span><strong>${escapeHtml(leader?.sku || "Sin stock")}</strong><small>${leader ? `${leader.positions} posiciones · ${fmt.format(leader.packages)} bultos` : "Sin ocupación registrada"}</small></article>
+    <article><span>Último movimiento</span><strong>${escapeHtml(last ? typeLabel[last.type] || last.type : "Sin movimientos")}</strong><small>${escapeHtml(last ? `${last.material || "Sin SKU"} · ${last.from || last.to || "—"} · ${formatMovementDate(last)}` : "Todavía no hay actividad")}</small></article>
     <article><span>Posiciones bloqueadas</span><strong>${fmt.format(blocked)}</strong><small>No disponibles para ingreso ni picking</small></article>`;
 }
 
@@ -2250,7 +3031,7 @@ function renderMap() {
 function storageCard(label, rack, positions) {
   const occupied = positions.filter((item) => item.occupied).length;
   const blocked = positions.filter((item) => item.blocked).length;
-  return `<button class="rack-card storage-card${blocked ? " has-blocked" : ""}" data-id="${positions[0].id}"><strong>${label} ${String(rack).padStart(2, "0")}</strong><span>${occupied}/${positions.length} posiciones ocupadas</span>${blocked ? `<span class="rack-blocked-count">${blocked} bloqueadas</span>` : ""}</button>`;
+  return `<button class="rack-card storage-card${blocked ? " has-blocked" : ""}" data-id="${escapeHtml(positions[0].id)}"><strong>${escapeHtml(label)} ${escapeHtml(String(rack).padStart(2, "0"))}</strong><span>${occupied}/${positions.length} posiciones ocupadas</span>${blocked ? `<span class="rack-blocked-count">${blocked} bloqueadas</span>` : ""}</button>`;
 }
 
 function loadPickingExample() {
@@ -2264,6 +3045,7 @@ function loadPickingExample() {
   $("#pickingLines").value = Object.entries(stock).slice(0, 6)
     .map(([sku, available]) => `${sku}, ${Math.min(available, 2)}`)
     .join("\n");
+  if (!$("#pickingOrderRef").value.trim()) $("#pickingOrderRef").value = "VIAJE-PRUEBA";
   $("#pickingMessage").textContent = Object.keys(stock).length
     ? "Pedido de prueba cargado con SKU que tienen stock disponible."
     : "No hay stock disponible para preparar pedidos.";
@@ -2276,6 +3058,12 @@ function addPickingLine() {
   const quantity = Number($("#pickingQuantity").value);
   if (!sku || !(quantity > 0)) {
     $("#pickingMessage").textContent = "Ingresá un SKU y una cantidad válida.";
+    return;
+  }
+  try {
+    requireKnownSku(sku);
+  } catch (error) {
+    $("#pickingMessage").textContent = error.message;
     return;
   }
   const requests = parsePickingLines($("#pickingLines").value);
@@ -2314,22 +3102,28 @@ async function importPickingFile(event) {
       destination: pickingColumn(row, ["sucursal destino", "destino", "sucursal"]),
       sku: pickingColumn(row, ["sku", "material", "codigo de producto"]),
       quantity: Number(String(pickingColumn(row, ["bultos", "cantidad"])).replace(",", ".")),
-    })).filter((row) => row.trip && row.delivery && row.sku && row.quantity > 0);
+    })).filter((row) => row.trip && row.sku && row.quantity > 0);
     if (!normalized.length) throw new Error("No se encontraron filas válidas. Revisá los encabezados de la plantilla.");
+    normalized.forEach((row) => requireKnownSku(row.sku));
 
     const groups = new Map();
     normalized.forEach((row) => {
-      const key = `${row.trip}||${row.delivery}`;
-      if (!groups.has(key)) groups.set(key, { trip: row.trip, delivery: row.delivery, destination: row.destination, lines: [] });
-      groups.get(key).lines.push({ sku: row.sku, quantity: row.quantity });
+      const key = row.trip.toUpperCase();
+      if (!groups.has(key)) groups.set(key, { trip: row.trip, deliveries: new Set(), destinations: new Set(), lines: [] });
+      const group = groups.get(key);
+      if (row.delivery) group.deliveries.add(row.delivery);
+      if (row.destination) group.destinations.add(row.destination);
+      group.lines.push({ sku: row.sku, quantity: row.quantity });
     });
     state.pickingOrders = [...groups.values()].map((order) => ({
-      ...order,
+      trip: order.trip,
+      deliveryCount: order.deliveries.size,
+      destination: [...order.destinations].join(" / "),
       lines: parsePickingLines(serializePickingLines(order.lines)),
     }));
     renderPickingOrderSelector(file.name, normalized.length);
     loadImportedPickingOrder();
-    $("#pickingMessage").textContent = `${state.pickingOrders.length} entregas importadas correctamente.`;
+    $("#pickingMessage").textContent = `${state.pickingOrders.length} viajes consolidados correctamente.`;
   } catch (error) {
     $("#pickingMessage").textContent = error.message;
   } finally {
@@ -2356,16 +3150,16 @@ function escapeHtml(value) {
 function renderPickingOrderSelector(fileName, rowCount) {
   const select = $("#pickingOrderSelect");
   select.innerHTML = state.pickingOrders.map((order, index) =>
-    `<option value="${index}">Viaje ${escapeHtml(order.trip)} · Entrega ${escapeHtml(order.delivery)} · ${order.lines.length} SKU</option>`
+    `<option value="${index}">Viaje ${escapeHtml(order.trip)} · ${order.deliveryCount || 0} entregas · ${order.lines.length} SKU</option>`
   ).join("");
-  $("#pickingImportSummary").textContent = `${fileName} · ${rowCount} líneas · ${state.pickingOrders.length} entregas`;
+  $("#pickingImportSummary").textContent = `${fileName} · ${rowCount} líneas · ${state.pickingOrders.length} viajes`;
   $("#pickingImportPanel").classList.remove("hidden");
 }
 
 function loadImportedPickingOrder() {
   const order = state.pickingOrders[Number($("#pickingOrderSelect").value) || 0];
   if (!order) return;
-  $("#pickingOrderRef").value = `V${order.trip}-E${order.delivery}`;
+  $("#pickingOrderRef").value = order.trip;
   $("#pickingDestination").value = order.destination || "";
   $("#pickingLines").value = serializePickingLines(order.lines);
   clearPickingResults();
@@ -2387,7 +3181,7 @@ function printPickingRoute() {
     $("#pickingMessage").textContent = "Generá una ruta antes de imprimir.";
     return;
   }
-  $("#printPickingReference").textContent = $("#pickingOrderRef").value.trim() || "Sin referencia";
+  $("#printPickingReference").textContent = $("#pickingOrderRef").value.trim() || "Sin viaje";
   $("#printPickingPriority").textContent = $("#pickingPriority").value;
   $("#printPickingDestination").textContent = $("#pickingDestination").value.trim() || "Sin destino";
   $("#printPickingSummary").textContent = $("#pickingSummary").textContent;
@@ -2451,6 +3245,17 @@ function calculatePickingRoute(event) {
   const requests = parsePickingLines($("#pickingLines").value);
   if (!requests.length) {
     $("#pickingMessage").textContent = "Ingresá al menos un SKU con una cantidad válida.";
+    return;
+  }
+  const trip = $("#pickingOrderRef").value.trim();
+  if (!trip) {
+    $("#pickingMessage").textContent = "Ingresá el número de viaje.";
+    return;
+  }
+  try {
+    requests.forEach((request) => requireKnownSku(request.sku));
+  } catch (error) {
+    $("#pickingMessage").textContent = error.message;
     return;
   }
 
@@ -3083,17 +3888,17 @@ function locationRow(item) {
   const sector = locationSector(item);
   const sectorLabel = sector === "PE" ? "Penetrable" : sector === "ZE" ? "Zona Este" : sector === "ZO" ? "Zona Oeste" : sector === "ZN" ? "Zona Norte" : sector === "BACK" ? "Back salón Escobar" : `Lado ${sector}`;
   return `
-    <tr data-id="${item.id}">
-      <td>${item.id}</td>
-      <td>${item.aisle}</td>
-      <td>${sectorLabel}</td>
-      <td>${item.rack}</td>
-      <td>${item.module}</td>
-      <td>${item.level}</td>
+    <tr data-id="${escapeHtml(item.id)}">
+      <td>${escapeHtml(item.id)}</td>
+      <td>${escapeHtml(item.aisle)}</td>
+      <td>${escapeHtml(sectorLabel)}</td>
+      <td>${escapeHtml(item.rack)}</td>
+      <td>${escapeHtml(item.module)}</td>
+      <td>${escapeHtml(item.level)}</td>
       <td>${materialCell}</td>
       <td>${escapeHtml(item.palletId || "")}</td>
       <td>${locationLoadLabel(item)}</td>
-      <td><span class="pill ${statusClass}" title="${item.blockReason || ""}">${status}</span></td>
+      <td><span class="pill ${statusClass}" title="${escapeHtml(item.blockReason || "")}">${status}</span></td>
       <td>${activity ? formatMovementDate(activity) : "—"}</td>
       <td>${activity ? activityLabel[activity.type] || activity.type : "—"}</td>
     </tr>
@@ -3119,13 +3924,13 @@ function renderMovements() {
         (move) => `
           <tr>
             <td>${formatMovementDate(move)}</td>
-            <td>${({ IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste" })[move.type] || move.type}</td>
+            <td>${escapeHtml(({ IN: "Ingreso", MOVE: "Reubicación", OUT: "Egreso", ADJUST: "Ajuste" })[move.type] || move.type)}</td>
             <td><strong>${escapeHtml(move.palletId || "—")}</strong></td>
             <td>${movementMaterialCell(move)}</td>
             <td>${movementPositionLabel(move.from)}</td>
             <td>${movementPositionLabel(move.to)}</td>
             <td>${movementQuantityLabel(move)}</td>
-            <td class="movement-actions">${actions && move.type !== "ADJUST" ? `<button type="button" class="edit-movement" data-edit-movement="${move.id}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${move.id}">Eliminar</button>` : move.type === "ADJUST" ? "Auditable" : "—"}</td>
+            <td class="movement-actions">${actions && move.type !== "ADJUST" ? `<button type="button" class="edit-movement" data-edit-movement="${escapeHtml(move.id)}">Editar</button><button type="button" class="delete-movement" data-delete-movement="${escapeHtml(move.id)}">Eliminar</button>` : move.type === "ADJUST" ? "Auditable" : "—"}</td>
           </tr>
         `
       )
@@ -3294,7 +4099,7 @@ function rebuildInventoryFromMovements(nextMovements) {
     for (const movement of ordered) {
       const timestamp = movement.timestamp || new Date(movementTimestamp(movement)).toISOString();
       if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount, movement.palletId);
-      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true, palletId: movement.palletId });
+      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true, palletId: movement.palletId, fullPallet: movement.logisticsUnit === "PALLET" });
       if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material, movement.palletId);
       if (movement.type === "ADJUST") registerAdjustment(movement.to, movement.contents, movement.palletCount, timestamp);
       state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
@@ -3314,17 +4119,25 @@ function setMovementType(type) {
   const form = $("#registerMovement");
   form.dataset.operation = type;
   $$("[data-move-type]").forEach((button) => button.classList.toggle("active", button.dataset.moveType === type));
-  $("#registerMaterialGroup").hidden = false;
   $("#registerLoadTypeGroup").hidden = type !== "IN";
   $("#registerFromGroup").hidden = type === "IN";
   $("#registerToGroup").hidden = type === "OUT";
-  $("#registerMaterial").required = type === "IN" && $("#registerLoadType").value !== "PALLET_MULTI";
+  $("#registerPalletIdGroup").hidden = type !== "IN";
   $("#registerFrom").required = type !== "IN";
   $("#registerTo").required = type !== "OUT";
-  $("#registerPalletId").required = true;
+  $("#registerPalletId").required = type === "IN";
+  $("#registerPalletId").readOnly = type !== "IN";
+  $("#registerPalletIdGroup .scan-button").hidden = type !== "IN";
+  $("#registerPalletIdHelp").textContent = type === "IN"
+    ? "Este código acompaña al pallet durante todo su recorrido."
+    : "Se completa automáticamente a partir de la posición origen.";
+  $("#registerExitModeGroup").hidden = type !== "OUT";
+  $("#registerExitMode").value = "PALLET";
+  if (type === "IN") $("#registerPalletId").value = "";
   $("#registerSubmit").textContent = `Registrar ${{ IN: "ingreso", MOVE: "reubicación", OUT: "egreso" }[type]}`;
   $("#registerMessage").textContent = "";
   updateRegisterLoadFields();
+  syncOriginMovementFields();
   renderMovementPreview();
   focusRegisterField();
 }
@@ -3333,13 +4146,27 @@ function updateRegisterLoadFields() {
   const type = $("#registerMovement").dataset.operation;
   const loadType = $("#registerLoadType").value;
   const multi = type === "IN" && loadType === "PALLET_MULTI";
+  const packageExit = type === "OUT" && $("#registerExitMode").value === "PACKAGES";
   $("#registerMultiGroup").hidden = !multi;
-  $("#registerMaterialGroup").hidden = multi;
+  $("#registerMaterialGroup").hidden = multi || type === "MOVE" || (type === "OUT" && !packageExit);
   $("#registerPalletCountGroup").hidden = type !== "IN";
-  $("#registerQuantityGroup").hidden = type === "MOVE" || (type === "IN");
+  $("#registerQuantityGroup").hidden = !packageExit;
   $("#registerMaterial").required = type === "IN" && !multi;
-  if (type !== "IN") $("#registerMaterialGroup").hidden = false;
+  if (packageExit) $("#registerMaterial").required = true;
+  if (!packageExit && type !== "IN") $("#registerMaterial").required = false;
   renderMovementPreview();
+}
+
+function syncOriginMovementFields() {
+  const type = $("#registerMovement").dataset.operation;
+  if (type === "IN") return;
+  const origin = footprintPrimaryLocation(findOperationalLocation(normalizePosition($("#registerFrom").value)));
+  $("#registerPalletId").value = normalizePalletId(origin?.palletId);
+  if (type === "MOVE" || $("#registerExitMode").value === "PALLET") {
+    $("#registerMaterial").value = origin?.contents?.length === 1 ? origin.contents[0].sku : "";
+  } else if (origin?.contents?.length === 1 && !$("#registerMaterial").value.trim()) {
+    $("#registerMaterial").value = origin.contents[0].sku;
+  }
 }
 
 function parseMultiContents(text) {
@@ -3356,26 +4183,27 @@ function handleRegisterEnter(event) {
   if (event.key !== "Enter" || event.target.tagName !== "INPUT") return;
   const type = $("#registerMovement").dataset.operation;
   const nextByField = {
-    registerPalletId: type === "IN" ? "registerMaterial" : "registerFrom",
+    registerPalletId: "registerMaterial",
     registerMaterial: type === "IN" ? "registerTo" : "registerQuantity",
-    registerFrom: type === "MOVE" ? "registerTo" : "registerQuantity",
-    registerTo: "registerQuantity",
+    registerFrom: type === "MOVE" ? "registerTo" : type === "OUT" && $("#registerExitMode").value === "PACKAGES" ? "registerMaterial" : "registerSubmit",
+    registerTo: "registerSubmit",
   };
   const nextId = nextByField[event.target.id];
   if (!nextId) return;
   event.preventDefault();
   const next = $(`#${nextId}`);
   next.focus();
-  next.select();
+  if (typeof next.select === "function") next.select();
 }
 
 function focusRegisterField() {
-  const target = $("#registerPalletId");
+  const target = $("#registerMovement").dataset.operation === "IN" ? $("#registerPalletId") : $("#registerFrom");
   target.focus({ preventScroll: true });
   target.select();
 }
 
 function renderMovementPreview() {
+  syncOriginMovementFields();
   const form = $("#registerMovement");
   const data = Object.fromEntries(new FormData(form));
   data.type = form.dataset.operation;
@@ -3397,9 +4225,13 @@ function renderMovementPreview() {
   } catch {}
   const totalPackages = contents.reduce((sum, item) => sum + item.packages, 0);
   const material = data.type === "IN" ? (contents.length > 1 ? `${contents.length} SKU` : contents[0]?.sku || "Sin SKU") : from?.material || "Sin material";
-  const quantityText = data.type === "MOVE" ? "pallet completo" : data.type === "IN" && data.loadType === "PALLET_MONO" ? `${fmt.format(Number(data.palletCount || 1))} pallet` : `${fmt.format(totalPackages || Number(data.quantity || 0))} bultos`;
+  const quantityText = data.type === "MOVE" || data.type === "OUT" && data.exitMode !== "PACKAGES"
+    ? "pallet completo"
+    : data.type === "IN" && data.loadType === "PALLET_MONO"
+      ? `${fmt.format(Number(data.palletCount || 1))} pallet`
+      : `${fmt.format(totalPackages || Number(data.quantity || 0))} bultos`;
   $("#registerContentTotal").textContent = data.type === "IN" ? `Contenido: ${quantityText}` : "";
-  $("#movementSummary").innerHTML = `<span>${typeLabel}</span><strong>${material}</strong><small>Pallet ${escapeHtml(data.palletId || "—")} · ${route} · ${quantityText}</small>`;
+  $("#movementSummary").innerHTML = `<span>${escapeHtml(typeLabel)}</span><strong>${escapeHtml(material)}</strong><small>Pallet ${escapeHtml(data.palletId || "—")} · ${escapeHtml(route)} · ${escapeHtml(quantityText)}</small>`;
 }
 
 function positionInfo(location, rawValue, role) {
@@ -3428,9 +4260,9 @@ function renderRegistration() {
     ? movements.slice(0, 8).map((move) => `
       <div class="recent-movement">
         <span class="movement-type ${move.type.toLowerCase()}">${{ IN: "IN", MOVE: "TR", OUT: "OUT", ADJUST: "AJ" }[move.type] || move.type}</span>
-        <div><strong>${move.material || "Sin material"}</strong><small>Pallet ${escapeHtml(move.palletId || "—")} · ${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
+        <div><strong>${escapeHtml(move.material || "Sin material")}</strong><small>Pallet ${escapeHtml(move.palletId || "—")} · ${movementPositionLabel(move.from) || "Entrada"} → ${movementPositionLabel(move.to) || "Salida"}</small></div>
         <div class="recent-quantity"><strong>${movementQuantityLabel(move)}</strong><small>${formatMovementDate(move)}</small></div>
-        ${actions && move.type !== "ADJUST" ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${move.id}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${move.id}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
+        ${actions && move.type !== "ADJUST" ? `<div class="recent-actions"><button type="button" class="edit-movement icon-edit" data-edit-movement="${escapeHtml(move.id)}" aria-label="Editar movimiento" title="Editar">E</button><button type="button" class="delete-movement icon-delete" data-delete-movement="${escapeHtml(move.id)}" aria-label="Eliminar movimiento" title="Eliminar">×</button></div>` : ""}
       </div>
     `).join("")
     : `<p class="empty-state">Todavía no hay movimientos registrados.</p>`;
@@ -3654,14 +4486,14 @@ function applyScannedValue(rawValue) {
 function advanceAfterScan(target) {
   const type = $("#registerMovement").dataset.operation;
   const nextByField = {
-    registerPalletId: type === "IN" ? "registerMaterial" : "registerFrom",
+    registerPalletId: "registerMaterial",
     registerMaterial: type === "IN" ? "registerTo" : "registerQuantity",
-    registerFrom: type === "MOVE" ? "registerTo" : "registerQuantity",
-    registerTo: "registerQuantity",
+    registerFrom: type === "MOVE" ? "registerTo" : type === "OUT" && $("#registerExitMode").value === "PACKAGES" ? "registerMaterial" : "registerSubmit",
+    registerTo: "registerSubmit",
   };
   const next = $(`#${nextByField[target.id]}`);
   (next || target).focus();
-  (next || target).select();
+  if (typeof (next || target).select === "function") (next || target).select();
 }
 
 async function decodeCapturedBarcode(event) {
@@ -4177,7 +5009,7 @@ function handleMovement(event) {
   const data = Object.fromEntries(new FormData(event.currentTarget));
   const type = event.currentTarget.id === "registerMovement" ? event.currentTarget.dataset.operation : data.type;
   const loadType = String(data.loadType || "PALLET_MONO");
-  const palletId = normalizePalletId(data.palletId);
+  const requestedPalletId = normalizePalletId(data.palletId);
   const quantity = Number(data.quantity || 0);
   const palletCount = type === "IN" ? Number(data.palletCount || 1) : 0;
   const material = String(data.material || "").trim();
@@ -4187,6 +5019,8 @@ function handleMovement(event) {
   const movementId = crypto.randomUUID ? crypto.randomUUID() : `move-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const occupiedBefore = state.locations.filter((item) => item.occupied).length;
   const originBefore = findLocation(from);
+  const palletId = type === "IN" ? requestedPalletId : normalizePalletId(originBefore?.palletId || requestedPalletId);
+  const fullPalletExit = type === "OUT" && String(data.exitMode || "PALLET") !== "PACKAGES";
   const originMaterial = originBefore?.material || "";
   const originContents = structuredClone(originBefore?.contents || []);
   const originPalletCount = Number(originBefore?.palletCount || 0);
@@ -4197,7 +5031,7 @@ function handleMovement(event) {
     : null;
 
   try {
-    if (!palletId) throw new Error("Escaneá o ingresá el ID único del pallet SAP.");
+    if (type === "IN" && !palletId) throw new Error("Escaneá o ingresá el ID único del pallet SAP.");
     [from, to].filter(Boolean).forEach((position) => {
       const location = findLocation(position);
       if (location && !locationInOperationalScope(location)) throw new Error(`La posición ${position} no pertenece al ámbito ${scopeLabel()}.`);
@@ -4208,20 +5042,32 @@ function handleMovement(event) {
         : [normalizeContentLine({ sku: material, legacyPallets: palletCount })]
       : [];
     if (type === "IN") {
+      contents.forEach((item) => requireKnownSku(item.sku));
       const activeDuplicate = state.locations.find((location) => location.occupied && normalizePalletId(location.palletId) === palletId);
       if (activeDuplicate) throw new Error(`El pallet ${palletId} ya está activo en ${activeDuplicate.id}.`);
       contents = contents.map((item) => normalizeContentLine({ ...item, palletId }));
-    } else {
-      const storedPalletId = normalizePalletId(originBefore?.palletId);
-      if (storedPalletId && storedPalletId !== palletId) throw new Error(`El pallet de ${from} es ${storedPalletId}; el código escaneado no coincide.`);
     }
-    const movementPackages = type === "IN" ? contents.reduce((sum, item) => sum + item.packages, 0) : type === "MOVE" ? Number(originBefore?.quantity || 0) : quantity;
-    const movementQuantity = type === "IN" && loadType === "PALLET_MONO" ? palletCount : movementPackages;
-    if (type === "OUT" && quantity <= 0) throw new Error("La cantidad de bultos debe ser mayor a cero.");
+    if (type === "OUT" && !fullPalletExit) requireKnownSku(material);
+    const originPackages = originContents.reduce((sum, item) => {
+      if (Number(item.packages) > 0) return sum + Number(item.packages);
+      const master = skuMasterItem(item.sku);
+      return sum + Number(item.legacyPallets || 0) * Number(master?.casesPerPallet || 0);
+    }, 0);
+    const movementPackages = type === "IN"
+      ? contents.reduce((sum, item) => sum + item.packages, 0)
+      : type === "MOVE" || fullPalletExit
+        ? originPackages
+        : quantity;
+    const movementQuantity = type === "IN" && loadType === "PALLET_MONO"
+      ? palletCount
+      : type === "MOVE" || fullPalletExit
+        ? originPalletCount || 1
+        : movementPackages;
+    if (type === "OUT" && !fullPalletExit && quantity <= 0) throw new Error("La cantidad de bultos debe ser mayor a cero.");
     if (type === "IN" && !contents.length) throw new Error("Indicá el contenido de la carga.");
     if (type === "IN" && contents.some((item) => !item.sku || (loadType === "PALLET_MULTI" && item.packages <= 0))) throw new Error("Cada SKU multiproducto debe tener una cantidad de bultos mayor a cero.");
     if (type === "IN") registerIn(material, to, quantity, timestamp, contents, palletCount, palletId);
-    if (type === "OUT") registerOut(material, from, quantity, { palletId });
+    if (type === "OUT") registerOut(material, from, fullPalletExit ? movementQuantity : quantity, { palletId, fullPallet: fullPalletExit });
     if (type === "MOVE") registerMove(from, to, quantity, timestamp, material, palletId);
 
     const occupiedAfter = state.locations.filter((item) => item.occupied).length;
@@ -4236,14 +5082,16 @@ function handleMovement(event) {
       from,
       to: type === "OUT" ? "" : to,
       quantity: movementQuantity,
-      logisticsUnit: type === "IN" || type === "MOVE" ? "PALLET" : "BULTO",
-      palletCount: type === "MOVE" ? (originPalletCount || 1) : palletCount,
+      logisticsUnit: type === "IN" || type === "MOVE" || fullPalletExit ? "PALLET" : "BULTO",
+      palletCount: type === "MOVE" || fullPalletExit ? (originPalletCount || 1) : palletCount,
       packages: movementPackages,
       contents: type === "IN"
         ? contents
         : type === "MOVE"
           ? originContents.map((item) => normalizeContentLine({ ...item, palletId }))
-          : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0, palletId })] : [],
+          : fullPalletExit
+            ? originContents.map((item) => normalizeContentLine({ ...item, palletId }))
+            : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0, palletId })] : [],
       occupancyDelta: occupiedAfter - occupiedBefore,
       dwellHours: type === "IN" ? null : dwellHours,
     };
@@ -4403,6 +5251,10 @@ function registerOut(material, from, quantity, options = {}) {
   if (!origin.occupied) throw new Error("La posición origen está libre.");
   validateDriveInRetrieval(origin);
   const contents = origin.contents || [];
+  if (options.fullPallet) {
+    releaseLocationFootprint(origin);
+    return;
+  }
   const target = material
     ? contents.find((item) => item.sku.toLowerCase() === material.toLowerCase())
     : contents.length === 1 ? contents[0] : null;
@@ -4570,7 +5422,7 @@ function aisleNumber(aisle) {
 }
 
 function setFormMessage(form, text, isError = false) {
-  const message = form.id === "registerMovement" ? $("#registerMessage") : $("#formMessage");
+  const message = $("#registerMessage");
   message.textContent = text;
   message.style.color = isError ? "var(--danger)" : "var(--available-text)";
 }
@@ -4742,7 +5594,7 @@ async function saveLocationBlock(event) {
 }
 
 async function authenticateAdmin() {
-  if (hasPermission("admin") && state.syncConfig.operator === ADMIN_USER) return ADMIN_PASSWORD_HASH;
+  if (hasPermission("admin") && state.authHash) return state.authHash;
   alert("La sesión actual no tiene permisos de administrador. Ingresá con el usuario administrador.");
   return false;
 }

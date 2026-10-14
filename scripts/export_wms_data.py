@@ -1,11 +1,13 @@
 import json
+import os
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
 import openpyxl
 
 
-SOURCE = Path(r"C:\Users\santi\Desktop\wms\Layout WMS.xlsx")
+SOURCE = Path(os.environ.get("GPS_LAYOUT_XLSX", sys.argv[1] if len(sys.argv) > 1 else "Layout WMS.xlsx"))
 OUTPUT = Path("data/locations.json")
 
 
@@ -61,9 +63,8 @@ def main():
 
     payload = {
         "source": {
-            "file": str(SOURCE),
             "sheet": "Listado Posiciones",
-            "exportedFrom": "Layout WMS.xlsx",
+            "exportedFrom": SOURCE.name,
         },
         "summary": {
             "totalLocations": len(locations),

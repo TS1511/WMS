@@ -1,12 +1,14 @@
 import json
+import os
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
 import openpyxl
 
 
-SOURCE = Path(r"C:\Users\santi\Desktop\wms\Layout WMS.xlsx")
+SOURCE = Path(os.environ.get("GPS_LAYOUT_XLSX", sys.argv[1] if len(sys.argv) > 1 else "Layout WMS.xlsx"))
 OUTPUT = Path("data/layout3d.json")
 POSITION_RE = re.compile(r"^([A-Z]{1,2})([12])\.(\d{2})\.([0-4])$")
 
@@ -66,7 +68,6 @@ def main():
     cols = [item["col"] for item in base_positions]
     payload = {
         "source": {
-            "file": str(SOURCE),
             "layoutSheet": "Layout Vista Aerea",
             "stockSheet": "Listado Posiciones",
         },
