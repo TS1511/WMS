@@ -11,6 +11,9 @@ const LOCATION_SCOPE_KEY = "gps-location-scope-v1";
 const PRESENCE_SESSION_KEY = "gps-presence-session-v1";
 const STAFF_CACHE_KEY = "gps-staff-cache-v1";
 const ACCESS_KEYS_CACHE_KEY = "gps-access-keys-v1";
+const WAREHOUSE_CACHE_KEY = "gps-warehouses-v1";
+const SELECTED_WAREHOUSE_KEY = "gps-selected-warehouse-v1";
+const MANAGED_POSITIONS_KEY = "gps-managed-positions-v1";
 const DEFAULT_SYNC_ENDPOINT = "https://script.google.com/macros/s/AKfycbzR8nRr6BmE1vyPowE76KU1SWG4Sn8HcNAy8i4mJ2l90vqHZQ_EiZK-Yp6pRl9D6eW48w/exec";
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
 const POSITION_RECODE_CUTOFF = Date.parse("2026-09-30T17:30:00.000Z");
@@ -30,7 +33,7 @@ const ROLE_SECTIONS = {
   picking: ["dashboard", "picking", "locations", "map", "map3d"],
   inventory: ["counts"],
   supervisor: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels"],
-  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels", "staff"],
+  admin: ["dashboard", "register", "picking", "locations", "counts", "map", "map3d", "movements", "sku-master", "slotting", "analytics", "reconciliation", "forms", "labels", "warehouses", "position-create", "position-admin", "staff"],
 };
 const ROLE_PERMISSIONS = {
   operations: ["movement_write"],
@@ -56,6 +59,7 @@ const POSITION_3D = {
 };
 
 const state = {
+  baseLocations: [],
   original: [],
   locations: [],
   layout3d: null,
@@ -116,7 +120,9 @@ const state = {
   syncTimer: 0,
   sessionTimer: 0,
   syncError: "",
+  backendWarning: "",
   centralBlocks: new Map(),
+  centralMovementSignature: "",
   skuMaster: [],
   skuSyncOutbox: [],
   skuSyncBusy: false,
@@ -138,6 +144,13 @@ const state = {
   staffMembers: [],
   accessKeys: { CD: "", BACK: "", ALL: "" },
   authHash: "",
+  warehouses: [
+    { almacen_id: "ESCOBAR_CD", codigo: "ESC-CD", nombre: "CD Escobar", activo: true, modelo_3d: true, ambito_acceso: "CD" },
+    { almacen_id: "ESCOBAR_BACK", codigo: "ESC-BACK", nombre: "Back Salón Escobar", activo: true, modelo_3d: false, ambito_acceso: "SALON" },
+  ],
+  selectedWarehouseId: "ESCOBAR_CD",
+  managedPositions: [],
+  positionImportPreview: [],
 };
 
 const shadeCache = new Map();
@@ -179,15 +192,17 @@ async function init() {
     payload = await response.json();
     state.layout3d = await layoutResponse.json();
   }
-  state.original = payload.locations;
+  state.baseLocations = payload.locations.map((location) => ({
+    ...structuredClone(location),
+    warehouseId: embeddedWarehouseId(location),
+    isBasePosition: true,
+  }));
+  state.warehouses = loadJson(WAREHOUSE_CACHE_KEY, state.warehouses).map(normalizeWarehouse);
+  state.selectedWarehouseId = loadJson(SELECTED_WAREHOUSE_KEY, "ESCOBAR_CD");
+  state.managedPositions = loadJson(MANAGED_POSITIONS_KEY, []);
 
   const saved = loadSavedState();
-  const savedLocations = new Map((saved?.locations || []).map((location) => {
-    const id = normalizePosition(location.id);
-    return [id, { ...location, id }];
-  }));
-  state.locations = state.original.map((location) => ({ ...structuredClone(location), ...(savedLocations.get(location.id) || {}) }));
-  state.locations.forEach(normalizeLocationLoad);
+  rebuildWarehouseLocations(saved?.locations || []);
   state.movements = saved?.movements || [];
   state.movements.forEach((move, index) => {
     if (!move.id) move.id = `legacy-${movementTimestamp(move) || 0}-${index}`;
@@ -235,6 +250,7 @@ async function init() {
   bindEvents();
   applyRoleAccess();
   renderScopeControls();
+  renderAccessScopeControls();
   switchView(defaultViewForRole());
   renderAll();
   renderCountSession();
@@ -247,6 +263,8 @@ async function init() {
   flushSyncOutbox();
   flushCountOutbox();
   await flushSkuSyncOutbox();
+  await pullWarehouses();
+  await pullManagedPositions();
   await pullSkuMaster();
   await pullCentralMovements();
   await pullSlottingRules();
@@ -278,6 +296,7 @@ function loadSavedState() {
 
 function persistentLocationState(location) {
   return {
+    warehouseId: location.warehouseId || state.selectedWarehouseId,
     material: location.material || "",
     quantity: Number(location.quantity || 0),
     occupied: Boolean(location.occupied),
@@ -303,6 +322,88 @@ function saveState() {
     STORAGE_KEY,
     JSON.stringify({ locations, movements: state.movements, history: state.history })
   );
+}
+
+function rebuildWarehouseLocations(savedLocations = state.locations) {
+  const warehouseId = state.selectedWarehouseId;
+  const persisted = new Map((savedLocations || [])
+    .filter((item) => !item.warehouseId || item.warehouseId === warehouseId)
+    .map((item) => [`${warehouseId}|${String(item.id || "").toUpperCase()}`, item]));
+  const overlays = new Map(state.managedPositions
+    .filter((item) => item.almacen_id === warehouseId)
+    .map((item) => [String(item.codigo || "").toUpperCase(), item]));
+  const baseCodes = new Set();
+  const catalog = [];
+
+  state.baseLocations.filter((item) => item.warehouseId === warehouseId).forEach((base) => {
+    const code = String(base.id || "").toUpperCase();
+    baseCodes.add(code);
+    const overlay = overlays.get(code);
+    if (overlay && overlay.estado === "INACTIVA") return;
+    const location = overlay ? mergeManagedPosition(base, overlay) : structuredClone(base);
+    location.warehouseId = warehouseId;
+    location.isBasePosition = true;
+    catalog.push(location);
+  });
+
+  state.managedPositions
+    .filter((item) => item.almacen_id === warehouseId && item.estado !== "INACTIVA" && !baseCodes.has(String(item.codigo || "").toUpperCase()))
+    .forEach((item) => catalog.push(managedPositionToLocation(item)));
+
+  state.original = catalog.map((item) => structuredClone(item));
+  state.locations = catalog.map((location) => ({
+    ...structuredClone(location),
+    ...(persisted.get(`${warehouseId}|${String(location.id || "").toUpperCase()}`) || {}),
+    warehouseId,
+  }));
+  state.locations.forEach(normalizeLocationLoad);
+}
+
+function mergeManagedPosition(base, item) {
+  const location = structuredClone(base);
+  if (item.pasillo !== "") location.aisle = item.pasillo;
+  if (item.modulo !== "") location.module = numericOrText(item.modulo);
+  if (item.nivel !== "") location.level = numericOrText(item.nivel);
+  if (item.lado !== "") location.side = numericOrText(item.lado);
+  if (item.rack !== "") location.rack = numericOrText(item.rack);
+  if (item.sector !== "") location.sector = item.sector;
+  applyManagedStorageType(location, item.tipo_ubicacion);
+  location.managedPositionId = item.posicion_id;
+  return location;
+}
+
+function managedPositionToLocation(item) {
+  const location = {
+    id: item.codigo,
+    aisle: item.pasillo || "",
+    module: numericOrText(item.modulo),
+    level: numericOrText(item.nivel),
+    side: numericOrText(item.lado),
+    rack: numericOrText(item.rack),
+    sector: item.sector || "",
+    material: "",
+    quantity: 0,
+    occupied: false,
+    warehouseId: item.almacen_id,
+    managedPositionId: item.posicion_id,
+    isBasePosition: false,
+  };
+  applyManagedStorageType(location, item.tipo_ubicacion);
+  return location;
+}
+
+function numericOrText(value) {
+  const text = String(value ?? "").trim();
+  return text !== "" && /^-?\d+(?:\.\d+)?$/.test(text) ? Number(text) : text;
+}
+
+function applyManagedStorageType(location, value) {
+  const type = String(value || "").trim().toUpperCase();
+  if (type === "DRIVE_IN") location.storageType = "drivein";
+  else if (type === "SIMPLE") location.storageType = "wallrack";
+  else if (type === "BACKSTORE") location.storageType = "backstore";
+  else if (location.storageType && type === "SELECTIVO") delete location.storageType;
+  location.locationType = type || (location.storageType === "drivein" ? "DRIVE_IN" : location.storageType === "wallrack" ? "SIMPLE" : location.storageType === "backstore" ? "BACKSTORE" : "SELECTIVO");
 }
 
 function fillLevelFilter() {
@@ -401,6 +502,7 @@ function bindEvents() {
   $("#skuImport").addEventListener("change", importSkuFile);
   $("#downloadSkuTemplate").addEventListener("click", downloadSkuTemplate);
   $("#exportSkuMaster").addEventListener("click", exportSkuMaster);
+  $("#clearSkuMaster").addEventListener("click", clearSkuMaster);
   $("#previewBulkInitialLoad").addEventListener("click", previewBulkInitialLoad);
   $("#bulkInitialLoadForm").addEventListener("submit", registerBulkInitialLoad);
   $("#movementImport").addEventListener("change", importMovementFile);
@@ -514,6 +616,24 @@ function bindEvents() {
   }, { passive: false });
   $("#openSyncSettings").addEventListener("click", openSyncSettings);
   $("#globalScopeFilter").addEventListener("change", (event) => setOperationalScope(event.target.value));
+  $("#warehouseForm").addEventListener("submit", saveWarehouse);
+  $("#clearWarehouseForm").addEventListener("click", clearWarehouseForm);
+  $("#warehouseTable").addEventListener("click", handleWarehouseTableClick);
+  $("#positionForm").addEventListener("submit", saveManagedPosition);
+  $("#clearPositionForm").addEventListener("click", clearPositionForm);
+  $("#positionAdminSearch").addEventListener("input", renderPositionAdmin);
+  $("#positionAdminAisle").addEventListener("input", renderPositionAdmin);
+  $("#positionAdminLevel").addEventListener("input", renderPositionAdmin);
+  $("#positionAdminStatus").addEventListener("change", renderPositionAdmin);
+  $("#positionAdminOccupancy").addEventListener("change", renderPositionAdmin);
+  $("#positionAdminTable").addEventListener("click", editManagedPositionFromTable);
+  $("#selectAllPositions").addEventListener("change", toggleAllManagedPositions);
+  $$('[data-position-action]').forEach((button) => button.addEventListener("click", runManagedPositionAction));
+  $("#downloadPositionTemplate").addEventListener("click", downloadPositionTemplate);
+  $("#exportPositions").addEventListener("click", exportManagedPositions);
+  $("#positionImport").addEventListener("change", previewPositionImport);
+  $("#cancelPositionImport").addEventListener("click", clearPositionImportPreview);
+  $("#confirmPositionImport").addEventListener("click", confirmPositionImport);
   $("#logoutSession").addEventListener("click", () => logoutSession(false));
   $("#closeSyncSettings").addEventListener("click", closeSyncSettings);
   $("#syncSettingsForm").addEventListener("submit", saveSyncSettings);
@@ -537,8 +657,8 @@ function bindEvents() {
 }
 
 function openSyncSettings() {
+  renderAccessScopeControls();
   $("#operatorName").value = state.syncConfig.operator || "";
-  $("#sessionDisplayName").value = state.syncConfig.workstation || "";
   $("#operatorPassword").value = "";
   $("#loginScope").value = state.operationalScope || "CD";
   updateLoginPasswordLabel();
@@ -550,16 +670,17 @@ function openSyncSettings() {
 
 function updateLoginPasswordLabel() {
   const scope = $("#loginScope").value || "CD";
-  const label = scope === "CD" ? "CD Escobar" : scope === "BACK" ? "Back salón" : "Todo Escobar";
-  $("#loginPasswordLabel").textContent = `Contraseña de ${label}`;
-  $("#operatorPassword").placeholder = `Clave compartida de ${label}`;
+  const label = scopeLabel(scope);
+  $("#loginPasswordLabel").textContent = `Contraseña compartida de ${label}`;
+  $("#operatorPassword").placeholder = `Clave de 6 dígitos de ${label}`;
+  $("#loginPasswordHelp").textContent = `No es la contraseña personal del legajo: es la clave compartida de ${label}.`;
+  $("#loginScopeContext").innerHTML = `<strong>Acceso a ${escapeHtml(label)}</strong><span>El legajo y la clave se validarán para este ámbito.</span>`;
 }
 
 async function saveSyncSettings(event) {
   event.preventDefault();
   const data = new FormData(event.currentTarget);
   const operator = String(data.get("operator") || "").trim();
-  const workstation = String(data.get("displayName") || "").trim();
   const password = String(data.get("password") || "");
   const requestedScope = String(data.get("scope") || "CD").toUpperCase();
   if (!/^\d{1,12}$/.test(operator)) {
@@ -569,25 +690,23 @@ async function saveSyncSettings(event) {
     return;
   }
   const hash = await sha256(password);
-  const account = await authenticateStaffLegajo(operator, hash, requestedScope);
-  if (!account) {
-    $("#syncSettingsMessage").textContent = "Legajo o contraseña de ámbito incorrectos, o legajo desactivado.";
+  const authentication = await authenticateStaffLegajo(operator, hash, requestedScope);
+  if (!authentication.account) {
+    const errorMessage = loginErrorMessage(authentication, operator, requestedScope);
+    $("#syncSettingsMessage").textContent = errorMessage;
     $("#syncSettingsMessage").classList.add("error");
-    $("#operatorPassword").select();
+    if (authentication.code === "SCOPE_PASSWORD_INVALID" || authentication.code === "SCOPE_KEY_NOT_CONFIGURED") $("#operatorPassword").select();
+    else $("#operatorName").focus();
     return;
   }
-  if (!staffScopeAllows(account.scope, requestedScope, account.role)) {
-    $("#syncSettingsMessage").textContent = "El legajo no está habilitado para el ámbito seleccionado.";
-    $("#syncSettingsMessage").classList.add("error");
-    return;
-  }
-  state.operationalScope = ["CD", "BACK", "ALL"].includes(requestedScope) ? requestedScope : "CD";
+  const account = authentication.account;
+  state.operationalScope = requestedScope;
   localStorage.setItem(LOCATION_SCOPE_KEY, JSON.stringify(state.operationalScope));
   state.syncConfig = {
     operator: account.employeeId,
     employeeName: account.name,
-    displayName: workstation ? `${account.name} · ${workstation}` : account.name,
-    workstation,
+    displayName: account.name,
+    workstation: "",
     role: account.role,
     endpoint: state.syncConfig.endpoint || DEFAULT_SYNC_ENDPOINT,
     expiresAt: Date.now() + SESSION_DURATION_MS,
@@ -596,6 +715,16 @@ async function saveSyncSettings(event) {
   };
   state.authHash = hash;
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
+  await pullWarehouses();
+  const preferredWarehouse = state.warehouses.find((item) => item.almacen_id === state.selectedWarehouseId && warehouseAllowedForCurrentUser(item))
+    || (requestedScope === "ALL" ? state.warehouses.find((item) => item.activo) : warehouseForAccessScope(requestedScope))
+    || state.warehouses[0];
+  if (preferredWarehouse) {
+    state.selectedWarehouseId = preferredWarehouse.almacen_id;
+    localStorage.setItem(SELECTED_WAREHOUSE_KEY, JSON.stringify(state.selectedWarehouseId));
+    await pullManagedPositions();
+    rebuildWarehouseLocations();
+  }
   $("#syncSettingsMessage").classList.remove("error");
   applyRoleAccess();
   renderScopeControls();
@@ -628,9 +757,13 @@ function renderSyncStatus() {
   $("#roleLabel").textContent = state.syncConfig.authenticated ? ROLE_LABELS[state.syncConfig.role] || "" : "Sin sesión";
   const indicator = $("#syncIndicator");
   indicator.className = `sync-indicator ${state.syncOutbox.length ? "pending" : state.syncConfig.endpoint ? "online" : "local"}`;
+  const issue = [state.backendWarning, state.syncError].filter(Boolean).join(" ");
   $("#openSyncSettings").title = state.syncOutbox.length
     ? `${state.syncOutbox.length} registro(s) pendientes`
-    : state.syncError || (state.syncConfig.endpoint ? "Registro central conectado" : "Guardado local; falta configurar el registro central");
+    : issue || (state.syncConfig.endpoint ? "Registro central conectado" : "Guardado local; falta configurar el registro central");
+  const banner = $("#syncErrorBanner");
+  banner.hidden = !issue;
+  banner.textContent = issue;
 }
 
 function presencePayload() {
@@ -640,6 +773,7 @@ function presencePayload() {
     nombre_puesto: state.syncConfig.displayName || state.syncConfig.operator,
     rol: state.syncConfig.role,
     ambito: state.operationalScope,
+    almacen_id: state.selectedWarehouseId,
     ultima_actividad: new Date().toISOString(),
   };
 }
@@ -696,7 +830,7 @@ function renderAdminPresence() {
   list.innerHTML = active.map((item) => `<div class="presence-row">
     <strong>${escapeHtml(item.nombre_puesto || item.usuario || "Sin identificar")}</strong>
     <span>${escapeHtml(item.usuario || "—")} · ${escapeHtml(ROLE_LABELS[item.rol] || item.rol || "—")}</span>
-    <span>${escapeHtml(scopeLabel(item.ambito))}</span>
+    <span>${escapeHtml(scopeLabel(item.almacen_id || item.ambito))}</span>
     <small>Activo ${escapeHtml(formatDateTime(item.ultima_actividad))}</small>
   </div>`).join("") || '<p class="empty-state">No hay otras sesiones activas.</p>';
 }
@@ -750,8 +884,8 @@ async function saveStaffMember(event) {
   if (!/^\d{1,12}$/.test(employeeId)) return showStaffMessage("El legajo debe contener solamente números.", true);
   if (!name) return showStaffMessage("Ingresá el nombre y apellido.", true);
   if (!ROLE_LABELS[role]) return showStaffMessage("Seleccioná un rol válido.", true);
-  if (!["CD", "BACK", "ALL"].includes(scope)) return showStaffMessage("Seleccioná un ámbito válido.", true);
-  if (scope === "ALL" && role !== "admin") return showStaffMessage("Todo Escobar está reservado para administradores.", true);
+  if (!accessScopeOptions(true).some((item) => item.value === scope)) return showStaffMessage("Seleccioná un almacén o ámbito válido.", true);
+  if (scope === "ALL" && role !== "admin") return showStaffMessage("Todos los almacenes está reservado para administradores.", true);
   const member = normalizeStaffMember({
     employeeId,
     name,
@@ -786,7 +920,8 @@ async function saveAccessKeys(event) {
   if (!requirePermission("admin", "Solo Administración puede cambiar las contraseñas de acceso.")) return;
   const data = new FormData(event.currentTarget);
   const changes = {};
-  for (const scope of ["CD", "BACK", "ALL"]) {
+  for (const input of $$("[data-access-scope]")) {
+    const scope = String(input.dataset.accessScope || "").toUpperCase();
     const password = String(data.get(scope) || "");
     if (!password) continue;
     if (!/^\d{6}$/.test(password)) {
@@ -882,20 +1017,33 @@ async function authenticateStaffLegajo(employeeId, accessHash, requestedScope) {
         state.staffMembers = state.staffMembers.filter((item) => item.employeeId !== account.employeeId);
         state.staffMembers.push(account);
         localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(state.staffMembers));
-        return account.active ? account : null;
+        return account.active ? { account, error: "", code: "" } : { account: null, error: "Legajo inexistente o desactivado.", code: "STAFF_NOT_FOUND_OR_INACTIVE" };
       }
-      if (result.error && !/Acción no válida/i.test(result.error)) return null;
+      if (result.error && !/Acción no válida/i.test(result.error)) return { account: null, error: result.error, code: result.code || "AUTH_FAILED" };
     } catch (error) {
       console.warn("Validación central de legajo no disponible:", error);
     }
   }
   const account = userAccount(employeeId);
   const expectedHash = state.accessKeys[String(requestedScope || "CD").toUpperCase()] || "";
-  return account?.active && staffScopeAllows(account.scope, requestedScope, account.role) && expectedHash === accessHash ? account : null;
+  if (!account?.active) return { account: null, error: "Legajo inexistente o desactivado.", code: "STAFF_NOT_FOUND_OR_INACTIVE" };
+  if (!staffScopeAllows(account.scope, requestedScope, account.role)) return { account: null, error: "El legajo no está habilitado para este ámbito.", code: "SCOPE_FORBIDDEN" };
+  if (!expectedHash) return { account: null, error: "La clave del ámbito todavía no fue configurada.", code: "SCOPE_KEY_NOT_CONFIGURED" };
+  if (expectedHash !== accessHash) return { account: null, error: "La contraseña del ámbito es incorrecta.", code: "SCOPE_PASSWORD_INVALID" };
+  return { account, error: "", code: "" };
+}
+
+function loginErrorMessage(authentication, employeeId, requestedScope) {
+  const scopeName = scopeLabel(requestedScope);
+  if (authentication.code === "SCOPE_FORBIDDEN") return `El legajo ${employeeId} no tiene permiso para ingresar a ${scopeName}.`;
+  if (authentication.code === "SCOPE_PASSWORD_INVALID") return `La contraseña de ${scopeName} es incorrecta.`;
+  if (authentication.code === "SCOPE_KEY_NOT_CONFIGURED") return `La contraseña de ${scopeName} todavía no fue configurada por un administrador.`;
+  if (authentication.code === "STAFF_NOT_FOUND_OR_INACTIVE") return "El legajo no existe o está desactivado.";
+  return authentication.error || "No se pudo validar el acceso.";
 }
 
 function staffScopeAllows(allowedScope, requestedScope, role) {
-  if (role === "admin" || allowedScope === "ALL") return true;
+  if (role === "admin" || String(allowedScope).toUpperCase() === "ALL") return true;
   return String(allowedScope || "CD").toUpperCase() === String(requestedScope || "CD").toUpperCase();
 }
 
@@ -939,12 +1087,16 @@ function applyRoleAccess() {
   $("#skuForm").hidden = !hasPermission("sku_write");
   $("#skuImport").closest("label").hidden = !hasPermission("sku_write");
   $("#exportSkuMaster").hidden = !canAccessView("sku-master");
+  $("#clearSkuMaster").hidden = !hasPermission("admin");
   $("#bulkInitialLoadForm").hidden = !hasPermission("movement_write");
   $("#adminPresencePanel").hidden = !hasPermission("admin");
   $("#slottingForm").hidden = !hasPermission("slotting_write");
   $$(".open-manual-movement-sheet").forEach((button) => { button.hidden = !hasPermission("movement_write"); });
   $("#sapStockImport").closest("label").hidden = !hasPermission("sap_import");
   $("#inventoryCountForm").hidden = !hasPermission("count_write");
+  const activeWarehouse = currentWarehouse();
+  const map3dButton = $('.nav-item[data-view="map3d"]');
+  if (map3dButton) map3dButton.hidden = !canAccessView("map3d") || !activeWarehouse?.modelo_3d;
   const blindCount = isBlindCounter();
   $("#exportInventoryCsv").hidden = blindCount;
   $("#finishInventoryCount").hidden = blindCount;
@@ -958,14 +1110,70 @@ function applyRoleAccess() {
   renderInventoryCounts();
 }
 
-function scopeLabel(scope = state.operationalScope) {
-  return ({ CD: "CD", BACK: "Back salón", ALL: "Todo Escobar" })[scope] || "CD";
+function currentWarehouse() {
+  return state.warehouses.find((item) => item.almacen_id === state.selectedWarehouseId) || state.warehouses[0];
 }
 
-function locationInOperationalScope(location, scope = state.operationalScope) {
-  if (!location || scope === "ALL") return Boolean(location);
-  const isBack = location.storageType === "backstore" || location.sector === "BACK";
-  return scope === "BACK" ? isBack : !isBack;
+function scopeLabel(scope = state.selectedWarehouseId) {
+  const normalized = String(scope || "").toUpperCase();
+  if (normalized === "ALL") return "Todos los almacenes";
+  const warehouse = state.warehouses.find((item) => item.almacen_id === scope || warehouseScopeValue(item) === normalized);
+  if (warehouse) return warehouse.nombre;
+  if (normalized === "CD") return "CD Escobar";
+  if (normalized === "BACK") return "Back Salón Escobar";
+  return "Almacén";
+}
+
+function warehouseScopeValue(warehouse) {
+  const id = String(warehouse?.almacen_id || "").toUpperCase();
+  if (id === "ESCOBAR_CD") return "CD";
+  if (id === "ESCOBAR_BACK") return "BACK";
+  return id;
+}
+
+function warehouseForAccessScope(scope) {
+  const normalized = String(scope || "").toUpperCase();
+  return state.warehouses.find((item) => warehouseScopeValue(item) === normalized) || null;
+}
+
+function accessScopeOptions(includeInactive = false) {
+  const seen = new Set();
+  const options = state.warehouses
+    .filter((item) => includeInactive || item.activo)
+    .map((item) => ({ value: warehouseScopeValue(item), label: `${item.nombre}${item.activo ? "" : " (inactivo)"}`, active: item.activo }))
+    .filter((item) => item.value && !seen.has(item.value) && seen.add(item.value));
+  options.push({ value: "ALL", label: "Todos los almacenes (solo administrador)", active: true });
+  return options;
+}
+
+function renderAccessScopeControls() {
+  const login = $("#loginScope");
+  const loginValue = String(login?.value || state.operationalScope || "CD").toUpperCase();
+  const loginOptions = accessScopeOptions(false);
+  if (login) {
+    login.innerHTML = loginOptions.map((item) => `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`).join("");
+    login.value = loginOptions.some((item) => item.value === loginValue) ? loginValue : loginOptions[0]?.value || "CD";
+  }
+  const staff = $("#staffScope");
+  const staffValue = String(staff?.value || "CD").toUpperCase();
+  const staffOptions = accessScopeOptions(true);
+  if (staff) {
+    staff.innerHTML = staffOptions.map((item) => `<option value="${escapeHtml(item.value)}"${item.active ? "" : " disabled"}>${escapeHtml(item.label)}</option>`).join("");
+    staff.value = staffOptions.some((item) => item.value === staffValue) ? staffValue : staffOptions[0]?.value || "CD";
+  }
+  const fields = $("#accessKeysFields");
+  if (fields) {
+    fields.innerHTML = loginOptions.map((item) => `<label>${escapeHtml(item.label)}<input name="${escapeHtml(item.value)}" data-access-scope="${escapeHtml(item.value)}" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave de 6 dígitos" /></label>`).join("");
+  }
+  updateLoginPasswordLabel();
+}
+
+function embeddedWarehouseId(location) {
+  return location?.storageType === "backstore" || location?.sector === "BACK" ? "ESCOBAR_BACK" : "ESCOBAR_CD";
+}
+
+function locationInOperationalScope(location) {
+  return Boolean(location && location.warehouseId === state.selectedWarehouseId);
 }
 
 function scopedLocations() {
@@ -973,7 +1181,7 @@ function scopedLocations() {
 }
 
 function movementInOperationalScope(move) {
-  if (state.operationalScope === "ALL") return true;
+  if (move.warehouseId) return move.warehouseId === state.selectedWarehouseId;
   const ids = [move.from, move.to].map(normalizePosition).filter(Boolean);
   return ids.some(movementPositionInOperationalScope);
 }
@@ -991,36 +1199,47 @@ function scopedMovements() {
 function renderScopeControls() {
   const control = $("#globalScopeFilter");
   if (!control) return;
-  const options = [
-    ["CD", "CD"],
-    ["BACK", "Back salón"],
-    ...(state.syncConfig.role === "admin" ? [["ALL", "Todo Escobar"]] : []),
-  ];
-  if (!options.some(([value]) => value === state.operationalScope)) state.operationalScope = "CD";
+  const options = state.warehouses
+    .filter((item) => item.activo || item.almacen_id === state.selectedWarehouseId)
+    .filter((item) => warehouseAllowedForCurrentUser(item))
+    .map((item) => [item.almacen_id, item.nombre]);
+  if (!options.some(([value]) => value === state.selectedWarehouseId)) state.selectedWarehouseId = options[0]?.[0] || "ESCOBAR_CD";
   control.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
-  control.value = state.operationalScope;
+  control.value = state.selectedWarehouseId;
   control.disabled = !state.syncConfig.authenticated;
   const slottingScope = $("#slottingScope");
-  if (slottingScope && state.operationalScope !== "ALL") slottingScope.value = state.operationalScope;
+  if (slottingScope) slottingScope.value = currentWarehouse()?.ambito_acceso === "SALON" ? "BACK" : "CD";
   $("#configuredPositionCount").title = `Ámbito activo: ${scopeLabel()}`;
 }
 
-function setOperationalScope(scope) {
-  const normalized = String(scope || "CD").toUpperCase();
-  if (normalized === "ALL" && state.syncConfig.role !== "admin") return;
-  state.operationalScope = ["CD", "BACK", "ALL"].includes(normalized) ? normalized : "CD";
-  state.syncConfig.scope = state.operationalScope;
-  localStorage.setItem(LOCATION_SCOPE_KEY, JSON.stringify(state.operationalScope));
+function warehouseAllowedForCurrentUser(warehouse) {
+  if (!state.syncConfig.authenticated) return warehouse.almacen_id === "ESCOBAR_CD";
+  if (state.syncConfig.role === "admin") return true;
+  return warehouseScopeValue(warehouse) === String(state.syncConfig.scope || "CD").toUpperCase();
+}
+
+async function setOperationalScope(warehouseId) {
+  const warehouse = state.warehouses.find((item) => item.almacen_id === warehouseId);
+  if (!warehouse || !warehouseAllowedForCurrentUser(warehouse)) return;
+  state.selectedWarehouseId = warehouse.almacen_id;
+  localStorage.setItem(SELECTED_WAREHOUSE_KEY, JSON.stringify(state.selectedWarehouseId));
   localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(state.syncConfig));
+  await pullManagedPositions();
+  rebuildWarehouseLocations();
   state.filters.side = "all";
   state.filters.locationSide = "all";
   state.view3d.side = "all";
   ["sideFilter", "locationSideFilter", "side3dFilter", "labelSide"].forEach((id) => { if ($(`#${id}`)) $(`#${id}`).value = "all"; });
   fillLabelFilters();
+  fillLevelFilter();
   renderScopeControls();
+  applyRoleAccess();
+  const activeView = document.querySelector(".view.active")?.id;
+  if (activeView === "map3d" && !warehouse.modelo_3d) switchView("locations");
   renderAll();
   renderCountSession();
   pingPresence();
+  await pullCentralMovements();
 }
 
 function scheduleSessionExpiry() {
@@ -1084,6 +1303,7 @@ function movementToCentralRecord(action, movement) {
     motivo_ajuste: movement.adjustmentReason || "",
     contenido_anterior_json: JSON.stringify(movement.previousLoad || {}),
     id_pallet: movement.palletId || "",
+    almacen_id: movement.warehouseId || state.selectedWarehouseId,
   };
 }
 
@@ -1184,6 +1404,8 @@ function applyCentralMovements(records) {
   const current = new Map();
   const blocks = new Map();
   records.forEach((record) => {
+    const warehouseId = centralRecordWarehouse(record);
+    if (warehouseId !== state.selectedWarehouseId) return;
     const id = String(record.id_movimiento || "").trim();
     const status = String(record.estado || "CREADO").toUpperCase();
     if (!id) return;
@@ -1225,10 +1447,20 @@ function applyCentralMovements(records) {
       countId: String(record.id_conteo || ""),
       adjustmentReason: String(record.motivo_ajuste || ""),
       previousLoad: parseJsonValue(record.contenido_anterior_json, {}),
+      warehouseId,
     });
   });
 
   const centralMovements = [...current.values()].sort((a, b) => movementTimestamp(b) - movementTimestamp(a));
+  const validMovements = centralMovements.filter((movement) => {
+    if (movement.type === "IN") return Boolean(movement.to);
+    if (movement.type === "MOVE") return Boolean(movement.from && movement.to);
+    if (movement.type === "OUT") return Boolean(movement.from);
+    if (movement.type === "ADJUST") return Boolean(movement.to);
+    return true;
+  });
+  const movementSignature = JSON.stringify(centralMovements);
+  const structurallyInvalid = centralMovements.length - validMovements.length;
   const blocksChanged = JSON.stringify([...blocks]) !== JSON.stringify([...state.centralBlocks]);
   const needsLoadRepair = state.locations.some((location) =>
     location.occupied
@@ -1242,9 +1474,22 @@ function applyCentralMovements(records) {
     && !isFootprintSecondary(location)
     && positionsRequiredForContents(location.contents) !== footprintLocations(location).length
   );
-  if (!blocksChanged && !needsLoadRepair && !needsFootprintRepair && JSON.stringify(centralMovements) === JSON.stringify(state.movements)) return;
+  if (!blocksChanged && !needsLoadRepair && !needsFootprintRepair && movementSignature === state.centralMovementSignature) return;
   state.centralBlocks = blocks;
-  rebuildInventoryFromMovements(centralMovements);
+  const replay = rebuildInventoryFromMovements(validMovements, { skipInvalid: true });
+  state.centralMovementSignature = movementSignature;
+  const invalidCount = structurallyInvalid + replay.skipped;
+  if (invalidCount) {
+    state.syncError = `${invalidCount} movimiento(s) históricos inconsistentes fueron omitidos. Revisalos en la hoja central.`;
+    renderSyncStatus();
+  }
+}
+
+function centralRecordWarehouse(record) {
+  const explicit = String(record?.almacen_id || "").trim();
+  if (explicit) return explicit;
+  const position = String(record?.posicion_destino || record?.posicion_origen || "").trim().toUpperCase();
+  return /^[A-R]\.\d{2}\.[0-4]$/.test(position) ? "ESCOBAR_BACK" : "ESCOBAR_CD";
 }
 
 function parseMovementContents(value, fallbackSku = "", fallbackPackages = 0, fallbackUnits = 0, legacyPallets = false) {
@@ -1368,6 +1613,8 @@ function switchView(view) {
   if (view === "counts") requestAnimationFrame(() => $("#countPosition").focus());
   if (view === "labels") requestAnimationFrame(renderLabels);
   if (view === "staff") requestAnimationFrame(renderStaffRegistry);
+  if (view === "warehouses") requestAnimationFrame(renderWarehouseAdmin);
+  if (view === "position-admin") requestAnimationFrame(renderPositionAdmin);
 }
 
 function renderAll() {
@@ -1387,6 +1634,8 @@ function renderAll() {
   renderInventoryCounts();
   renderAdminPresence();
   renderStaffRegistry();
+  renderWarehouseAdmin();
+  renderPositionAdmin();
 }
 
 function switchSkuSection(section) {
@@ -1573,6 +1822,31 @@ function clearSkuForm(clearMessage = true) {
   $("#skuForm").reset();
   $("#skuForm").elements.active.checked = true;
   if (clearMessage) setSkuMessage("");
+}
+
+async function clearSkuMaster() {
+  if (!requirePermission("admin", "Solo Administración puede limpiar el maestro de SKU.")) return;
+  if (state.skuSyncOutbox.length) return setSkuMessage("Primero deben sincronizarse los cambios pendientes del maestro.", true);
+  const confirmation = prompt("Esta acción elimina todos los SKU del maestro compartido. Los movimientos históricos no se borran. Escribí LIMPIAR para continuar.");
+  if (confirmation !== "LIMPIAR") return;
+  const button = $("#clearSkuMaster");
+  button.disabled = true;
+  setSkuMessage("Limpiando el maestro compartido…");
+  try {
+    const result = await centralRequest("sku_clear", { admin_password: state.authHash });
+    if (!result.ok) throw new Error(result.error || "No se pudo limpiar el maestro.");
+    state.skuMaster = [];
+    state.skuSyncOutbox = [];
+    localStorage.setItem(SKU_MASTER_KEY, "[]");
+    localStorage.setItem(SKU_SYNC_OUTBOX_KEY, "[]");
+    renderSkuMaster();
+    renderSkuAlerts();
+    setSkuMessage(`Maestro limpiado. Se eliminaron ${Number(result.deleted || 0)} SKU.`);
+  } catch (error) {
+    setSkuMessage(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function setSkuMessage(text, error = false) {
@@ -2237,6 +2511,7 @@ async function saveInventoryCount(event) {
       responsable: state.countSession?.assignee || state.syncConfig.operator,
       inventario_id: normalizeInventoryId(state.countSession?.id),
       alcance: state.countSession?.scope || "ALL",
+      almacen_id: state.selectedWarehouseId,
     };
     const localCount = normalizeInventoryCount(count);
     state.inventoryCounts = [localCount, ...state.inventoryCounts.filter((item) => item.id !== localCount.id)];
@@ -2369,7 +2644,7 @@ function inventorySessionData() {
   const targets = scopedLocations()
     .filter((item) => locationInCountAssignment(item, state.countSession))
     .sort(compareInventoryRoute);
-  const counts = state.inventoryCounts.filter((item) => normalizeInventoryId(item.inventoryId) === sessionId && movementPositionInOperationalScope(item.position));
+  const counts = state.inventoryCounts.filter((item) => item.warehouseId === state.selectedWarehouseId && normalizeInventoryId(item.inventoryId) === sessionId && movementPositionInOperationalScope(item.position));
   const counted = new Set();
   counts.forEach((item) => {
     const positions = Array.isArray(item.expected?.positions) && item.expected.positions.length ? item.expected.positions : [item.position];
@@ -2495,7 +2770,7 @@ function renderInventoryCounts() {
   const body = $("#inventoryCountsTable");
   if (!body) return;
   const sessionId = normalizeInventoryId(state.countSession?.id);
-  const counts = state.inventoryCounts.filter((count) => movementPositionInOperationalScope(count.position) && (!sessionId || normalizeInventoryId(count.inventoryId) === sessionId));
+  const counts = state.inventoryCounts.filter((count) => count.warehouseId === state.selectedWarehouseId && movementPositionInOperationalScope(count.position) && (!sessionId || normalizeInventoryId(count.inventoryId) === sessionId));
   $("#countKpiTotal").textContent = fmt.format(counts.length);
   $("#countKpiPending").textContent = fmt.format(counts.filter((item) => item.status === "PENDIENTE").length);
   $("#countKpiMatch").textContent = fmt.format(counts.filter((item) => item.result === "COINCIDE").length);
@@ -2570,6 +2845,7 @@ async function handleCountAdjustment(event) {
     adjustmentReason: `Diferencia de conteo${count.observation ? `: ${count.observation}` : ""}`,
     previousLoad: count.expected,
     adminPassword: state.authHash,
+    warehouseId: state.selectedWarehouseId,
   };
   button.disabled = true;
   try {
@@ -2631,12 +2907,371 @@ function centralRequest(action, payload = {}) {
   });
 }
 
+function normalizeWarehouse(source) {
+  const active = String(source.activo ?? source.active ?? "true").toLowerCase();
+  const model3d = String(source.modelo_3d ?? source.model3d ?? "false").toLowerCase();
+  const name = String(source.nombre || source.name || "").trim();
+  return {
+    almacen_id: String(source.almacen_id || source.id || "").trim(),
+    codigo: String(source.codigo || source.code || "").trim(),
+    nombre: name,
+    activo: !["0", "false", "no", "inactivo"].includes(active),
+    modelo_3d: !["0", "false", "no"].includes(model3d),
+    ambito_acceso: normalizeWarehouseGroup(source.ambito_acceso || source.accessScope, name),
+  };
+}
+
+function normalizeWarehouseGroup(value, warehouseName = "") {
+  const group = String(value || "").trim().toUpperCase();
+  if (["DEPOSITO", "SALON", "CD", "DEPOSITO_NON_FOOD"].includes(group)) return group;
+  if (group === "BACK") return "SALON";
+  if (String(warehouseName).toUpperCase().includes("SALON") || String(warehouseName).toUpperCase().includes("BACK")) return "SALON";
+  return group === "CD" ? "CD" : "DEPOSITO";
+}
+
+function warehouseGroupLabel(group) {
+  return ({ DEPOSITO: "Depósito", SALON: "Salón", CD: "CD", DEPOSITO_NON_FOOD: "Depósito NON FOOD" })[group] || "Depósito";
+}
+
+function normalizeManagedPosition(source) {
+  const stateValue = String(source.estado || source.state || "ACTIVA").trim().toUpperCase();
+  return {
+    posicion_id: String(source.posicion_id || source.id || "").trim(),
+    almacen_id: String(source.almacen_id || source.warehouseId || state.selectedWarehouseId).trim(),
+    codigo: String(source.codigo || source.code || source.Posicion_Completa || "").trim(),
+    pasillo: String(source.pasillo || source.aisle || "").trim(),
+    modulo: String(source.modulo ?? source.module ?? "").trim(),
+    nivel: String(source.nivel ?? source.level ?? "").trim(),
+    lado: String(source.lado ?? source.side ?? "").trim(),
+    rack: String(source.rack ?? "").trim(),
+    tipo_ubicacion: String(source.tipo_ubicacion || source.type || "").trim().toUpperCase(),
+    sector: String(source.sector || "").trim(),
+    estado: stateValue === "INACTIVA" ? "INACTIVA" : "ACTIVA",
+    es_base: source.es_base === true || String(source.es_base).toLowerCase() === "true",
+  };
+}
+
+async function pullWarehouses() {
+  try {
+    const result = await centralRequest("warehouses_list");
+    if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
+    const warehouses = result.items.map(normalizeWarehouse).filter((item) => item.almacen_id && item.nombre);
+    if (warehouses.length) state.warehouses = warehouses;
+    state.backendWarning = "";
+    localStorage.setItem(WAREHOUSE_CACHE_KEY, JSON.stringify(state.warehouses));
+    if (!state.warehouses.some((item) => item.almacen_id === state.selectedWarehouseId)) state.selectedWarehouseId = state.warehouses[0]?.almacen_id || "ESCOBAR_CD";
+    renderScopeControls();
+    renderAccessScopeControls();
+    renderWarehouseAdmin();
+  } catch (error) {
+    state.backendWarning = "El servicio central todavía no tiene la administración completa de almacenes y ámbitos. Publicá Apps Script v36 para habilitar estas funciones.";
+    renderSyncStatus();
+    console.warn("No se pudo actualizar el maestro de almacenes:", error);
+  }
+}
+
+async function pullManagedPositions() {
+  try {
+    const result = await centralRequest("positions_list", { almacen_id: state.selectedWarehouseId });
+    if (!result.ok || !Array.isArray(result.items)) throw new Error(result.error || "Respuesta inválida");
+    const current = state.managedPositions.filter((item) => item.almacen_id !== state.selectedWarehouseId);
+    state.managedPositions = [...current, ...result.items.map(normalizeManagedPosition).filter((item) => item.codigo)];
+    localStorage.setItem(MANAGED_POSITIONS_KEY, JSON.stringify(state.managedPositions));
+    rebuildWarehouseLocations();
+    renderPositionAdmin();
+  } catch (error) {
+    console.warn("No se pudo actualizar el maestro de posiciones:", error);
+  }
+}
+
+async function saveWarehouse(event) {
+  event.preventDefault();
+  if (!requirePermission("admin")) return;
+  const raw = Object.fromEntries(new FormData(event.currentTarget));
+  raw.activo = $("#warehouseActive").checked;
+  raw.modelo_3d = raw.almacen_id === "ESCOBAR_CD";
+  const item = normalizeWarehouse(raw);
+  if (!item.codigo || !item.nombre) return setWarehouseMessage("Código y nombre son obligatorios.", true);
+  try {
+    const result = await centralRequest("warehouse_save", { item, admin_password: state.authHash, actor: state.syncConfig.operator });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar el almacén.");
+    await pullWarehouses();
+    clearWarehouseForm();
+    setWarehouseMessage(`Almacén ${item.nombre} guardado.`);
+  } catch (error) { setWarehouseMessage(error.message, true); }
+}
+
+function clearWarehouseForm() {
+  $("#warehouseForm").reset();
+  $("#warehouseId").value = "";
+  $("#warehouseActive").checked = true;
+  $("#warehouseCode").readOnly = false;
+  setWarehouseMessage("");
+}
+
+function setWarehouseMessage(text, error = false) {
+  $("#warehouseMessage").textContent = text;
+  $("#warehouseMessage").classList.toggle("error", error);
+}
+
+function warehousePositionCount(warehouseId) {
+  const base = state.baseLocations.filter((item) => item.warehouseId === warehouseId);
+  const baseCodes = new Set(base.map((item) => String(item.id).toUpperCase()));
+  const overlays = state.managedPositions.filter((item) => item.almacen_id === warehouseId);
+  const inactiveBase = new Set(overlays.filter((item) => item.es_base && item.estado === "INACTIVA").map((item) => item.codigo.toUpperCase()));
+  const extras = overlays.filter((item) => !baseCodes.has(item.codigo.toUpperCase()) && item.estado === "ACTIVA").length;
+  return base.filter((item) => !inactiveBase.has(String(item.id).toUpperCase())).length + extras;
+}
+
+function renderWarehouseAdmin() {
+  const body = $("#warehouseTable");
+  if (!body) return;
+  $("#warehouseAdminSummary").textContent = `${fmt.format(state.warehouses.length)} almacenes`;
+  body.innerHTML = state.warehouses.map((item) => {
+    const selected = item.almacen_id === state.selectedWarehouseId;
+    const occupied = selected ? scopedLocations().filter((location) => location.occupied && !isFootprintSecondary(location)).length : null;
+    const protectedWarehouse = ["ESCOBAR_CD", "ESCOBAR_BACK"].includes(item.almacen_id);
+    return `<tr data-warehouse-id="${escapeHtml(item.almacen_id)}"><td>${escapeHtml(item.codigo)}</td><td><strong>${escapeHtml(item.nombre)}</strong></td><td>${escapeHtml(warehouseGroupLabel(item.ambito_acceso))}</td><td>${fmt.format(warehousePositionCount(item.almacen_id))}</td><td>${occupied === null ? "—" : fmt.format(occupied)}</td><td>${item.modelo_3d ? "Sí" : "No"}</td><td>${item.activo ? "Activo" : "Inactivo"}</td><td><div class="warehouse-row-actions"><button type="button" class="ghost compact" data-edit-warehouse="${escapeHtml(item.almacen_id)}">Editar</button><button type="button" class="ghost compact" data-toggle-warehouse="${escapeHtml(item.almacen_id)}">${item.activo ? "Desactivar" : "Activar"}</button><button type="button" class="danger-action compact" data-delete-warehouse="${escapeHtml(item.almacen_id)}"${protectedWarehouse ? " disabled title=\"Los almacenes iniciales pueden desactivarse, pero no eliminarse.\"" : ""}>Eliminar</button></div></td></tr>`;
+  }).join("");
+}
+
+async function handleWarehouseTableClick(event) {
+  const toggle = event.target.closest("[data-toggle-warehouse]");
+  const edit = event.target.closest("[data-edit-warehouse]");
+  const remove = event.target.closest("[data-delete-warehouse]");
+  const row = event.target.closest("tr[data-warehouse-id]");
+  if (!row) return;
+  const item = state.warehouses.find((warehouse) => warehouse.almacen_id === row.dataset.warehouseId);
+  if (!item) return;
+  if (toggle) {
+    event.stopPropagation();
+    if (!confirm(`¿${item.activo ? "Desactivar" : "Activar"} el almacén ${item.nombre}?`)) return;
+    const result = await centralRequest("warehouse_toggle", { almacen_id: item.almacen_id, activo: !item.activo, admin_password: state.authHash, actor: state.syncConfig.operator }).catch((error) => ({ ok: false, error: error.message }));
+    if (!result.ok) return setWarehouseMessage(result.error || "No se pudo cambiar el estado.", true);
+    await pullWarehouses();
+    return;
+  }
+  if (remove) {
+    event.stopPropagation();
+    if (!confirm(`¿Eliminar el almacén ${item.nombre}?\n\nSolo podrá eliminarse si no tiene posiciones, movimientos, conteos, zonas ni legajos asociados.`)) return;
+    const result = await centralRequest("warehouse_delete", { almacen_id: item.almacen_id, admin_password: state.authHash, actor: state.syncConfig.operator }).catch((error) => ({ ok: false, error: error.message }));
+    if (!result.ok) return setWarehouseMessage(result.error || "No se pudo eliminar el almacén.", true);
+    if (state.selectedWarehouseId === item.almacen_id) {
+      state.selectedWarehouseId = state.warehouses.find((warehouse) => warehouse.almacen_id !== item.almacen_id && warehouse.activo)?.almacen_id || "ESCOBAR_CD";
+      localStorage.setItem(SELECTED_WAREHOUSE_KEY, JSON.stringify(state.selectedWarehouseId));
+    }
+    await pullWarehouses();
+    await pullManagedPositions();
+    rebuildWarehouseLocations();
+    clearWarehouseForm();
+    setWarehouseMessage(`Almacén ${item.nombre} eliminado.`);
+    return;
+  }
+  if (!edit && event.target.closest("button")) return;
+  $("#warehouseId").value = item.almacen_id;
+  $("#warehouseCode").value = item.codigo;
+  $("#warehouseCode").readOnly = true;
+  $("#warehouseName").value = item.nombre;
+  $("#warehouseAccessScope").value = item.ambito_acceso;
+  $("#warehouseActive").checked = item.activo;
+  $("#warehouseForm").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function positionAdminItems() {
+  const warehouseId = state.selectedWarehouseId;
+  const overlays = new Map(state.managedPositions.filter((item) => item.almacen_id === warehouseId).map((item) => [item.codigo.toUpperCase(), item]));
+  const items = state.baseLocations.filter((item) => item.warehouseId === warehouseId).map((location) => {
+    const overlay = overlays.get(String(location.id).toUpperCase());
+    return overlay || normalizeManagedPosition({
+      posicion_id: "", almacen_id: warehouseId, codigo: location.id, pasillo: location.aisle,
+      modulo: location.module, nivel: location.level, lado: location.side, rack: location.rack,
+      tipo_ubicacion: location.locationType || (location.storageType === "drivein" ? "DRIVE_IN" : location.storageType === "wallrack" ? "SIMPLE" : location.storageType === "backstore" ? "BACKSTORE" : "SELECTIVO"),
+      sector: location.sector || "", estado: "ACTIVA", es_base: true,
+    });
+  });
+  const keys = new Set(items.map((item) => item.codigo.toUpperCase()));
+  state.managedPositions.filter((item) => item.almacen_id === warehouseId && !keys.has(item.codigo.toUpperCase())).forEach((item) => items.push(item));
+  return items;
+}
+
+function renderPositionAdmin() {
+  const body = $("#positionAdminTable");
+  if (!body) return;
+  const query = String($("#positionAdminSearch")?.value || "").trim().toLowerCase();
+  const aisle = String($("#positionAdminAisle")?.value || "").trim().toLowerCase();
+  const level = String($("#positionAdminLevel")?.value || "").trim().toLowerCase();
+  const status = $("#positionAdminStatus")?.value || "ALL";
+  const occupancy = $("#positionAdminOccupancy")?.value || "ALL";
+  const all = positionAdminItems();
+  const filtered = all.filter((item) => {
+    const occupied = Boolean(findLocation(item.codigo)?.occupied);
+    return (status === "ALL" || item.estado === status)
+      && (!aisle || String(item.pasillo || "").toLowerCase() === aisle)
+      && (!level || String(item.nivel || "").toLowerCase() === level)
+      && (occupancy === "ALL" || (occupancy === "OCCUPIED" ? occupied : !occupied))
+      && (!query || [item.codigo, item.pasillo, item.sector, item.tipo_ubicacion].some((value) => String(value || "").toLowerCase().includes(query)));
+  });
+  const visible = filtered.slice(0, 300);
+  $("#positionAdminSummary").textContent = `${scopeLabel()} · ${fmt.format(all.length)} posiciones${filtered.length > visible.length ? ` · mostrando ${fmt.format(visible.length)} de ${fmt.format(filtered.length)}` : ""}`;
+  body.innerHTML = visible.map((item) => {
+    const location = findLocation(item.codigo);
+    const occupied = Boolean(location?.occupied);
+    return `<tr data-position-code="${escapeHtml(item.codigo)}"><td><input type="checkbox" data-position-select="${escapeHtml(item.codigo)}" aria-label="Seleccionar ${escapeHtml(item.codigo)}" /></td><td><strong>${escapeHtml(item.codigo)}</strong>${item.es_base ? `<small class="muted">Base Escobar</small>` : ""}</td><td>${escapeHtml(item.pasillo || "—")}</td><td>${escapeHtml(item.modulo || "—")}</td><td>${escapeHtml(item.nivel || "—")}</td><td>${escapeHtml(item.lado || "—")}</td><td>${escapeHtml(item.rack || "—")}</td><td>${escapeHtml(item.tipo_ubicacion || "—")}</td><td>${escapeHtml(item.sector || "—")}</td><td>${occupied ? "Ocupada" : "Disponible"}</td><td><span class="pill ${item.estado === "ACTIVA" ? "available" : "blocked"}">${item.estado === "ACTIVA" ? "Activa" : "Inactiva"}</span></td></tr>`;
+  }).join("") || `<tr><td colspan="11">No hay posiciones para los filtros seleccionados.</td></tr>`;
+}
+
+function clearPositionForm() {
+  $("#positionForm").reset();
+  $("#positionInternalId").value = "";
+  $("#positionIsBase").value = "";
+  $("#positionCode").readOnly = false;
+  $("#positionState").value = "ACTIVA";
+  setPositionMessage("");
+}
+
+function setPositionMessage(text, error = false) {
+  $("#positionMessage").textContent = text;
+  $("#positionMessage").classList.toggle("error", error);
+}
+
+function setPositionAdminMessage(text, error = false) {
+  $("#positionAdminMessage").textContent = text;
+  $("#positionAdminMessage").classList.toggle("error", error);
+}
+
+function editManagedPositionFromTable(event) {
+  if (event.target.matches("input[type=checkbox]")) return;
+  const row = event.target.closest("tr[data-position-code]");
+  if (!row) return;
+  const item = positionAdminItems().find((candidate) => candidate.codigo === row.dataset.positionCode);
+  if (!item) return;
+  const fields = { posicion_id: "positionInternalId", codigo: "positionCode", pasillo: "positionAisle", modulo: "positionModule", nivel: "positionLevel", lado: "positionSide", rack: "positionRack", tipo_ubicacion: "positionType", sector: "positionSector", estado: "positionState" };
+  Object.entries(fields).forEach(([key, id]) => { $(`#${id}`).value = item[key] ?? ""; });
+  $("#positionIsBase").value = String(Boolean(item.es_base));
+  $("#positionCode").readOnly = true;
+  setPositionMessage(`Editando ${item.codigo}.`);
+  switchView("position-create");
+  requestAnimationFrame(() => $("#positionForm").scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+async function saveManagedPosition(event) {
+  event.preventDefault();
+  if (!requirePermission("admin")) return;
+  const raw = Object.fromEntries(new FormData(event.currentTarget));
+  raw.almacen_id = state.selectedWarehouseId;
+  raw.es_base = raw.es_base === "true";
+  const item = normalizeManagedPosition(raw);
+  if (!item.codigo) return setPositionMessage("El código es obligatorio.", true);
+  const duplicate = positionAdminItems().find((candidate) => candidate.codigo.toUpperCase() === item.codigo.toUpperCase() && candidate.posicion_id !== item.posicion_id);
+  if (duplicate && !item.es_base) return setPositionMessage(`La posición ${item.codigo} ya existe en este almacén.`, true);
+  const location = findLocation(item.codigo);
+  if (item.estado === "INACTIVA" && location?.occupied) return setPositionMessage("No se puede desactivar una posición ocupada.", true);
+  try {
+    const result = await centralRequest("position_save", { item, admin_password: state.authHash, actor: state.syncConfig.operator });
+    if (!result.ok) throw new Error(result.error || "No se pudo guardar la posición.");
+    await pullManagedPositions();
+    clearPositionForm();
+    renderAll();
+    setPositionMessage(`Posición ${item.codigo} guardada.`);
+  } catch (error) { setPositionMessage(error.message, true); }
+}
+
+function toggleAllManagedPositions(event) {
+  $$('[data-position-select]').forEach((input) => { input.checked = event.target.checked; });
+}
+
+async function runManagedPositionAction(event) {
+  if (!requirePermission("admin")) return;
+  const operation = event.currentTarget.dataset.positionAction;
+  const codes = $$('[data-position-select]:checked').map((input) => input.dataset.positionSelect);
+  if (!codes.length) return setPositionAdminMessage("Seleccioná al menos una posición.", true);
+  const verb = { ACTIVATE: "activar", DEACTIVATE: "desactivar", DELETE: "eliminar" }[operation];
+  if (!confirm(`¿Seguro que querés ${verb} ${codes.length} posiciones de ${scopeLabel()}?`)) return;
+  const items = positionAdminItems().filter((item) => codes.includes(item.codigo));
+  if (operation === "DEACTIVATE" && items.some((item) => findLocation(item.codigo)?.occupied)) return setPositionAdminMessage("La selección incluye posiciones ocupadas; deben vaciarse antes de desactivarlas.", true);
+  if (operation !== "DELETE") {
+    const missingOverlays = items.filter((item) => !item.posicion_id).map((item) => ({ ...item, estado: operation === "ACTIVATE" ? "ACTIVA" : "INACTIVA", es_base: true }));
+    for (let index = 0; index < missingOverlays.length; index += 15) {
+      const saved = await centralRequest("positions_bulk", { items: missingOverlays.slice(index, index + 15), admin_password: state.authHash, actor: state.syncConfig.operator });
+      if (!saved.ok) return setPositionAdminMessage(saved.error || "No se pudieron preparar las posiciones base.", true);
+    }
+  }
+  const result = await centralRequest("positions_action", { almacen_id: state.selectedWarehouseId, codigos: codes, operation, admin_password: state.authHash, actor: state.syncConfig.operator }).catch((error) => ({ ok: false, error: error.message }));
+  if (!result.ok) return setPositionAdminMessage(result.error || "No se pudo completar la operación.", true);
+  await pullManagedPositions();
+  renderAll();
+  const rejected = (result.results || []).filter((item) => !item.ok);
+  setPositionAdminMessage(rejected.length ? `${codes.length - rejected.length} modificadas; ${rejected.length} rechazadas: ${rejected[0].error}` : `${codes.length} posiciones modificadas.`, Boolean(rejected.length));
+}
+
+function downloadPositionTemplate() {
+  downloadCsv("plantilla_posiciones_gps.csv", [["Posicion_Completa", "Pasillo", "Modulo_Posicion", "Nivel", "Lado", "Rack", "Tipo_Ubicacion", "Sector"], ["A.01.0", "A", "01", "0", "1", "1", "SELECTIVO", ""]]);
+}
+
+function exportManagedPositions() {
+  const rows = [["Almacen", "Posicion_Completa", "Pasillo", "Modulo_Posicion", "Nivel", "Lado", "Rack", "Tipo_Ubicacion", "Sector", "Estado"]];
+  positionAdminItems().sort((a, b) => a.codigo.localeCompare(b.codigo, "es", { numeric: true })).forEach((item) => rows.push([scopeLabel(), item.codigo, item.pasillo, item.modulo, item.nivel, item.lado, item.rack, item.tipo_ubicacion, item.sector, item.estado]));
+  downloadCsv(`posiciones_${currentWarehouse()?.codigo || "almacen"}.csv`, rows);
+}
+
+async function previewPositionImport(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const rows = parseDelimited(await file.text());
+    const existing = new Set(positionAdminItems().map((item) => item.codigo.toUpperCase()));
+    const seen = new Set();
+    state.positionImportPreview = rows.map((row, index) => {
+      const normalizedHeaders = Object.fromEntries(Object.entries(row).map(([key, value]) => [key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[\s_-]+/g, ""), value]));
+      const item = normalizeManagedPosition({ almacen_id: state.selectedWarehouseId, codigo: normalizedHeaders.posicioncompleta || normalizedHeaders.posicion || normalizedHeaders.codigo, pasillo: normalizedHeaders.pasillo, modulo: normalizedHeaders.moduloposicion || normalizedHeaders.modulo, nivel: normalizedHeaders.nivel, lado: normalizedHeaders.lado, rack: normalizedHeaders.rack, tipo_ubicacion: normalizedHeaders.tipoubicacion || normalizedHeaders.tipo, sector: normalizedHeaders.sector, estado: "ACTIVA" });
+      const key = item.codigo.toUpperCase();
+      const error = !item.codigo ? "Código vacío" : seen.has(key) ? "Duplicada en el archivo" : existing.has(key) ? "Ya existe en el almacén" : "";
+      if (key) seen.add(key);
+      return { row: index + 2, item, error };
+    });
+    renderPositionImportPreview();
+  } catch (error) { setPositionMessage(error.message, true); }
+  finally { event.target.value = ""; }
+}
+
+function renderPositionImportPreview() {
+  const panel = $("#positionImportPreview");
+  const valid = state.positionImportPreview.filter((item) => !item.error);
+  panel.hidden = false;
+  $("#positionImportSummary").textContent = `${state.positionImportPreview.length} filas · ${valid.length} válidas · ${state.positionImportPreview.length - valid.length} rechazadas`;
+  $("#positionImportTable").innerHTML = state.positionImportPreview.slice(0, 500).map((row) => `<tr><td>${row.row}</td><td>${escapeHtml(row.item.codigo || "—")}</td><td>${escapeHtml(row.item.pasillo || "—")}</td><td>${escapeHtml(row.item.nivel || "—")}</td><td><span class="pill ${row.error ? "blocked" : "available"}">${escapeHtml(row.error || "Válida")}</span></td></tr>`).join("");
+  $("#confirmPositionImport").disabled = !valid.length;
+}
+
+function clearPositionImportPreview() {
+  state.positionImportPreview = [];
+  $("#positionImportPreview").hidden = true;
+}
+
+async function confirmPositionImport() {
+  const items = state.positionImportPreview.filter((row) => !row.error).map((row) => row.item);
+  if (!items.length || !confirm(`¿Importar ${items.length} posiciones válidas en ${scopeLabel()}?`)) return;
+  const button = $("#confirmPositionImport");
+  button.disabled = true;
+  try {
+    for (let index = 0; index < items.length; index += 15) {
+      const result = await centralRequest("positions_bulk", { items: items.slice(index, index + 15), admin_password: state.authHash, actor: state.syncConfig.operator });
+      if (!result.ok) throw new Error(result.error || `Falló el lote ${Math.floor(index / 15) + 1}.`);
+      $("#positionImportSummary").textContent = `Importando ${Math.min(index + 15, items.length)} de ${items.length}…`;
+    }
+    clearPositionImportPreview();
+    await pullManagedPositions();
+    renderAll();
+    setPositionMessage(`${items.length} posiciones importadas correctamente.`);
+  } catch (error) { setPositionMessage(`Importación interrumpida: ${error.message}`, true); }
+  finally { button.disabled = false; }
+}
+
 async function pullSkuMaster() {
   try {
     const result = await centralRequest("sku_list");
     if (result.ok && Array.isArray(result.items)) {
       const merged = new Map(result.items.map(normalizeSku).filter((item) => item.sku).map((item) => [item.sku.toUpperCase(), item]));
-      state.skuMaster.forEach((item) => { if (!merged.has(item.sku.toUpperCase())) merged.set(item.sku.toUpperCase(), item); });
       state.skuSyncOutbox.forEach((item) => merged.set(item.sku.toUpperCase(), item));
       state.skuMaster = [...merged.values()];
       localStorage.setItem(SKU_MASTER_KEY, JSON.stringify(state.skuMaster));
@@ -2687,11 +3322,12 @@ async function pullInventoryCounts() {
 }
 
 function normalizeInventoryCount(source) {
+  const position = canonicalPositionForLayout(source.posicion || source.position, source.fecha_hora_utc || source.timestamp);
   return {
     id: String(source.id_conteo || source.id || ""),
     timestamp: String(source.fecha_hora_utc || source.timestamp || ""),
     date: String(source.fecha_local || source.date || ""),
-    position: canonicalPositionForLayout(source.posicion || source.position, source.fecha_hora_utc || source.timestamp),
+    position,
     expected: parseJsonValue(source.esperado_json ?? source.expected, {}),
     found: parseJsonValue(source.encontrado_json ?? source.found, {}),
     result: String(source.resultado || source.result || "").toUpperCase(),
@@ -2704,6 +3340,7 @@ function normalizeInventoryCount(source) {
     adjustedAt: String(source.ajustado_en || source.adjustedAt || ""),
     inventoryId: normalizeInventoryId(source.inventario_id || source.inventoryId),
     scope: String(source.alcance || source.scope || "ALL").toUpperCase(),
+    warehouseId: String(source.almacen_id || source.warehouseId || (/^[A-R]\.\d{2}\.[0-4]$/i.test(position) ? "ESCOBAR_BACK" : "ESCOBAR_CD")),
   };
 }
 
@@ -2724,6 +3361,7 @@ function normalizeSlottingRule(source) {
   const scope = ["CD", "BACK"].includes(rawScope) ? rawScope : id.toUpperCase().startsWith("BACK-") ? "BACK" : "CD";
   return {
     id,
+    warehouseId: String(source.almacen_id || source.warehouseId || (scope === "BACK" ? "ESCOBAR_BACK" : "ESCOBAR_CD")).trim(),
     scope,
     velocityClass: String(source.velocityClass || "").toUpperCase(),
     aisle: String(source.aisle || "ALL").trim().toUpperCase(),
@@ -2738,7 +3376,8 @@ function normalizeSlottingRule(source) {
 
 function locationMatchesRule(location, rule) {
   const aisles = String(rule.aisle || "ALL").split(/[,;\s]+/).map((value) => value.trim().toUpperCase()).filter(Boolean);
-  return locationInOperationalScope(location, rule.scope || "CD")
+  return locationInOperationalScope(location)
+    && (!rule.warehouseId || rule.warehouseId === location.warehouseId)
     && (aisles.includes("ALL") || aisles.includes(String(location.aisle).toUpperCase()))
     && (rule.side === "all" || String(location.side) === rule.side)
     && Number(location.rack) >= rule.rackFrom && Number(location.rack) <= rule.rackTo
@@ -2750,6 +3389,7 @@ async function saveSlottingRule(event) {
   event.preventDefault();
   if (!requirePermission("slotting_write")) return;
   const rule = normalizeSlottingRule(Object.fromEntries(new FormData(event.currentTarget)));
+  rule.warehouseId = state.selectedWarehouseId;
   if (!VELOCITY_CLASSES.includes(rule.velocityClass)) return;
   state.slottingRules.push(rule);
   localStorage.setItem(SLOTTING_RULES_KEY, JSON.stringify(state.slottingRules));
@@ -2781,10 +3421,10 @@ async function deleteSlottingRule(event) {
 function renderSlottingRules() {
   const body = $("#slottingTable");
   if (!body) return;
-  const visibleRules = state.slottingRules.filter((rule) => state.operationalScope === "ALL" || rule.scope === state.operationalScope);
+  const visibleRules = state.slottingRules.filter((rule) => rule.warehouseId === state.selectedWarehouseId);
   body.innerHTML = visibleRules.map((rule) => `
     <tr>
-      <td>${escapeHtml(scopeLabel(rule.scope))}</td>
+      <td>${escapeHtml(scopeLabel(rule.warehouseId))}</td>
       <td>${escapeHtml(formatVelocityClass(rule.velocityClass))}</td>
       <td>${escapeHtml(rule.aisle === "ALL" ? "Todos" : rule.aisle)}</td>
       <td>${escapeHtml(rule.side === "all" ? "Ambos" : rule.side)}</td>
@@ -2811,14 +3451,14 @@ function renderSkuAlerts() {
       if (minStock > 0 && quantity < minStock) alerts.push({ type: "stock", level: "critical", title: `${item.sku} por debajo del mínimo`, detail: `${fmt.format(quantity)} bultos actuales · mínimo ${fmt.format(minStock)}` });
       if (maxStock > 0 && quantity > maxStock) alerts.push({ type: "stock", level: "warning", title: `${item.sku} supera el máximo`, detail: `${fmt.format(quantity)} bultos actuales · máximo ${fmt.format(maxStock)}` });
     }
-    if (item.velocityClass && !state.slottingRules.some((rule) => rule.velocityClass === item.velocityClass)) missingZones.add(item.velocityClass);
+    if (item.velocityClass && !state.slottingRules.some((rule) => rule.warehouseId === state.selectedWarehouseId && rule.velocityClass === item.velocityClass)) missingZones.add(item.velocityClass);
   });
   missingZones.forEach((velocityClass) => alerts.push({ type: "config", level: "warning", title: `${formatVelocityClass(velocityClass)} sin zona definida`, detail: "Los SKU de esta clase todavía no pueden validarse por ubicación." }));
   scopedLocations().filter((location) => location.occupied).forEach((location) => {
     (location.contents || []).forEach((content) => {
       const item = state.skuMaster.find((sku) => sku.sku === content.sku);
       if (!item?.velocityClass) return;
-      const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
+      const rules = state.slottingRules.filter((rule) => rule.warehouseId === state.selectedWarehouseId && rule.velocityClass === item.velocityClass);
       if (rules.length && !rules.some((rule) => locationMatchesRule(location, rule))) alerts.push({ type: "slotting", level: "critical", title: `${item.sku} fuera de zona ${formatVelocityClass(item.velocityClass)}`, detail: `Ubicado en ${location.id}.` });
     });
   });
@@ -3452,7 +4092,7 @@ function render3dMap() {
         const skuQuery = state.view3d.sku.toLowerCase();
         const skuMatch = !skuQuery || Boolean(location?.occupied && location.contents?.some((content) => content.sku.toLowerCase().includes(skuQuery)));
         const positionMatch = !state.view3d.position || String(locationId).toUpperCase().includes(state.view3d.position.toUpperCase());
-        const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => String(rule.velocityClass).toUpperCase() === state.view3d.zone);
+        const zoneRules = state.view3d.zone === "all" ? [] : state.slottingRules.filter((rule) => rule.warehouseId === state.selectedWarehouseId && String(rule.velocityClass).toUpperCase() === state.view3d.zone);
         const stockClassMatch = location?.contents?.some((content) => state.skuMaster.some((sku) => sku.sku.toLowerCase() === content.sku.toLowerCase() && sku.velocityClass === state.view3d.zone));
         const zoneMatch = state.view3d.zone === "all" || zoneRules.some((rule) => location && locationMatchesRule(location, rule)) || (!zoneRules.length && stockClassMatch);
         return { occupied: Boolean(location?.occupied), blocked: Boolean(location?.blocked), location, matchesFilter: skuMatch && positionMatch && zoneMatch };
@@ -4080,7 +4720,7 @@ function saveEditedMovement(event) {
   }
 }
 
-function rebuildInventoryFromMovements(nextMovements) {
+function rebuildInventoryFromMovements(nextMovements, options = {}) {
   const previousLocations = state.locations;
   const previousHistory = state.history;
   const previousMovements = state.movements;
@@ -4093,20 +4733,32 @@ function rebuildInventoryFromMovements(nextMovements) {
     normalizeLocationLoad(location);
   });
   const ordered = [...nextMovements].sort((a, b) => movementTimestamp(a) - movementTimestamp(b));
+  const accepted = [];
+  let skipped = 0;
   const firstTimestamp = ordered[0]?.timestamp || new Date().toISOString();
   state.history = [createSnapshot(new Date(Date.parse(firstTimestamp) - 1).toISOString())];
   try {
     for (const movement of ordered) {
       const timestamp = movement.timestamp || new Date(movementTimestamp(movement)).toISOString();
-      if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount, movement.palletId);
-      if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true, palletId: movement.palletId, fullPallet: movement.logisticsUnit === "PALLET" });
-      if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material, movement.palletId);
-      if (movement.type === "ADJUST") registerAdjustment(movement.to, movement.contents, movement.palletCount, timestamp);
-      state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
+      const locationsBeforeMovement = options.skipInvalid ? structuredClone(state.locations) : null;
+      try {
+        if (movement.type === "IN") registerIn(movement.material, movement.to, Number(movement.quantity), timestamp, movement.contents, movement.palletCount, movement.palletId);
+        if (movement.type === "OUT") registerOut(movement.material, movement.from, Number(movement.quantity), { replay: true, palletId: movement.palletId, fullPallet: movement.logisticsUnit === "PALLET" });
+        if (movement.type === "MOVE") registerMove(movement.from, movement.to, Number(movement.quantity), timestamp, movement.material, movement.palletId);
+        if (movement.type === "ADJUST") registerAdjustment(movement.to, movement.contents, movement.palletCount, timestamp);
+        accepted.push(movement);
+        state.history.push({ ...createSnapshot(timestamp), movementId: movement.id });
+      } catch (error) {
+        if (!options.skipInvalid) throw error;
+        state.locations = locationsBeforeMovement;
+        skipped += 1;
+        console.warn(`Movimiento histórico ${movement.id || "sin ID"} omitido:`, error.message);
+      }
     }
-    state.movements = nextMovements;
+    state.movements = options.skipInvalid ? accepted : nextMovements;
     saveState();
     renderAll();
+    return { skipped, accepted: state.movements.length };
   } catch (error) {
     state.locations = previousLocations;
     state.history = previousHistory;
@@ -5094,6 +5746,7 @@ function handleMovement(event) {
             : originContent ? [normalizeContentLine({ ...originContent, packages: quantity, legacyPallets: 0, palletId })] : [],
       occupancyDelta: occupiedAfter - occupiedBefore,
       dwellHours: type === "IN" ? null : dwellHours,
+      warehouseId: state.selectedWarehouseId,
     };
     state.movements.unshift(movement);
     state.history.push({ ...createSnapshot(timestamp), movementId });
@@ -5353,7 +6006,12 @@ function requiredLocation(id) {
 }
 
 function normalizePosition(value) {
-  const normalized = String(value || "").trim().toUpperCase().replaceAll(" ", "");
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (!["ESCOBAR_CD", "ESCOBAR_BACK"].includes(state.selectedWarehouseId)) {
+    return state.locations.find((item) => String(item.id).toUpperCase() === raw.toUpperCase())?.id || raw;
+  }
+  const normalized = raw.toUpperCase().replaceAll(" ", "");
   const driveInMatch = normalized.match(/^DI\.(\d{1,2})\.([0-4])\.(\d{1,2})$/);
   if (driveInMatch) return `DI.${driveInMatch[1].padStart(2, "0")}.${driveInMatch[2]}.${driveInMatch[3].padStart(2, "0")}`;
   const penetrableMatch = normalized.match(/^PE\.(\d{1,2})\.([0-4])\.([0-4])$/);
@@ -5464,7 +6122,7 @@ function recommendPutawayLocation(sku) {
   const item = state.skuMaster.find((candidate) => candidate.sku.toLowerCase() === String(sku || "").trim().toLowerCase());
   if (!item) return { location: null, reason: "El SKU no está registrado en el maestro." };
   const available = scopedLocations().filter((location) => !location.occupied && !location.blocked && isEligibleDriveInPutaway(location, item.sku) && canFitSkuFootprint(location, item.sku));
-  const rules = state.slottingRules.filter((rule) => rule.velocityClass === item.velocityClass);
+  const rules = state.slottingRules.filter((rule) => rule.warehouseId === state.selectedWarehouseId && rule.velocityClass === item.velocityClass);
   const zoned = rules.length ? available.filter((location) => rules.some((rule) => locationMatchesRule(location, rule))) : available;
   const fastMover = item.velocityClass === "SUPER_A" || item.velocityClass === "A";
   const sorted = zoned.sort((a, b) => {

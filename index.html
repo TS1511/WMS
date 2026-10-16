@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GPS | Goods Position System</title>
-  <link rel="stylesheet" href="styles.css?v=20261013-claves-ambito" />
+    <link rel="stylesheet" href="styles.css?v=20261015-warehouse-login-v36" />
   </head>
   <body>
     <aside class="sidebar">
@@ -34,6 +34,9 @@
         <button class="nav-item" data-view="forms">Planillas</button>
         <button class="nav-item" data-view="labels">Etiquetas</button>
         <span class="nav-section-label">Administración</span>
+        <button class="nav-item" data-view="warehouses">Almacenes</button>
+        <button class="nav-item" data-view="position-create">Crear posiciones</button>
+        <button class="nav-item" data-view="position-admin">Administrar posiciones</button>
         <button class="nav-item" data-view="staff">Legajos y roles</button>
       </nav>
       <div class="source">
@@ -50,10 +53,10 @@
           <p>Gestión operativa de posiciones, stock y movimientos.</p>
         </div>
         <div class="top-actions">
-          <label class="scope-control">Ámbito
-            <select id="globalScopeFilter" aria-label="Ámbito de trabajo">
-              <option value="CD">CD</option>
-              <option value="BACK">Back salón</option>
+          <label class="scope-control">Almacén
+            <select id="globalScopeFilter" aria-label="Almacén de trabajo">
+              <option value="ESCOBAR_CD">CD Escobar</option>
+              <option value="ESCOBAR_BACK">Back Salón Escobar</option>
             </select>
           </label>
           <span id="roleLabel" class="role-badge">Sin sesión</span>
@@ -62,6 +65,7 @@
           <button id="resetData" class="ghost">Restaurar datos</button>
         </div>
       </header>
+      <p id="syncErrorBanner" class="sync-error-banner" hidden></p>
 
       <section id="dashboard" class="view active">
         <div class="kpis">
@@ -576,6 +580,7 @@
               <label class="ghost file-action">Importar CSV/TSV<input id="skuImport" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" /></label>
               <button id="downloadSkuTemplate" type="button" class="ghost">Descargar plantilla</button>
               <button id="exportSkuMaster" type="button" class="ghost">Exportar maestro</button>
+              <button id="clearSkuMaster" type="button" class="danger-action">Limpiar maestro</button>
             </div>
             <p class="import-format">Campos: SKU, descripción, EAN, categoría, grupo, clasificación, bultos por pallet, peso kg, posiciones requeridas, días de stock mínimo, días de stock máximo, consumo diario en bultos y activo.</p>
             <div class="table-wrap sku-table-wrap"><table class="sku-master-table"><thead><tr><th>SKU</th><th>Descripción</th><th>EAN</th><th>Categoría</th><th>Grupo</th><th>Clase</th><th>Bultos/pallet</th><th>Peso kg</th><th>Posiciones</th><th>Stock actual</th><th>Días mín.</th><th>Días máx.</th><th>Stock mín.</th><th>Stock máx.</th><th>Consumo/día</th><th>Stock en días</th><th>Activo</th><th>Estado</th></tr></thead><tbody id="skuTable"></tbody></table></div>
@@ -597,7 +602,7 @@
         <section class="panel">
           <div class="panel-head"><h2>Zonas por clasificación</h2><span class="muted">Rangos inclusivos</span></div>
           <form id="slottingForm" class="slotting-form">
-            <label>Ámbito<select id="slottingScope" name="scope" required><option value="CD">CD</option><option value="BACK">Back salón</option></select></label>
+            <label>Grupo operativo<select id="slottingScope" name="scope" required><option value="CD">CD</option><option value="BACK">Back salón</option></select></label>
             <label>Clase<select name="velocityClass" required><option value="SUPER_A">Súper A</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="ESTACIONAL">Estacional</option></select></label>
             <label>Pasillo<input name="aisle" value="ALL" placeholder="ALL, A, B..." /></label>
             <label>Lado<select name="side"><option value="all">Ambos</option><option value="1">1</option><option value="2">2</option></select></label>
@@ -608,7 +613,7 @@
             <label>Nivel<select name="level"><option value="all">Todos</option><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
             <button type="submit" class="primary-action">Agregar zona</button>
           </form>
-          <div class="table-wrap"><table><thead><tr><th>Ámbito</th><th>Clase</th><th>Pasillo</th><th>Lado</th><th>Racks</th><th>Posiciones</th><th>Nivel</th><th></th></tr></thead><tbody id="slottingTable"></tbody></table></div>
+          <div class="table-wrap"><table><thead><tr><th>Almacén</th><th>Clase</th><th>Pasillo</th><th>Lado</th><th>Racks</th><th>Posiciones</th><th>Nivel</th><th></th></tr></thead><tbody id="slottingTable"></tbody></table></div>
         </section>
       </section>
 
@@ -674,6 +679,90 @@
         </section>
       </section>
 
+      <section id="warehouses" class="view">
+        <header class="section-heading">
+          <div><h1>Administración de almacenes</h1><p>Alta, edición y habilitación de los espacios operativos.</p></div>
+          <span id="warehouseAdminSummary" class="muted">0 almacenes</span>
+        </header>
+        <div class="admin-master-layout">
+          <form id="warehouseForm" class="panel form-grid admin-editor">
+            <input id="warehouseId" name="almacen_id" type="hidden" />
+            <div class="panel-head admin-form-heading"><h2>Almacén</h2><button id="clearWarehouseForm" type="button" class="ghost">Nuevo</button></div>
+            <label>Código único<input id="warehouseCode" name="codigo" maxlength="30" required placeholder="Ej. ROS-CD" /></label>
+            <label>Nombre<input id="warehouseName" name="nombre" maxlength="120" required placeholder="Ej. CD Rosario" /></label>
+            <label>Grupo operativo<select id="warehouseAccessScope" name="ambito_acceso"><option value="DEPOSITO">Depósito</option><option value="SALON">Salón</option><option value="CD">CD</option><option value="DEPOSITO_NON_FOOD">Depósito NON FOOD</option></select></label>
+            <label class="inline-check"><input id="warehouseActive" name="activo" type="checkbox" checked /> Almacén activo</label>
+            <p class="form-help">Cada almacén tendrá su propio ámbito para legajos y su propia clave compartida. El grupo operativo sólo clasifica el tipo de espacio.</p>
+            <button type="submit" class="primary-action">Guardar almacén</button>
+            <p id="warehouseMessage" class="message"></p>
+          </form>
+          <section class="panel admin-list-panel">
+            <div class="panel-head"><h2>Almacenes configurados</h2><span>Editá, desactivá o eliminá cada almacén</span></div>
+            <div class="table-wrap"><table><thead><tr><th>Código</th><th>Nombre</th><th>Grupo</th><th>Posiciones</th><th>Ocupadas</th><th>3D</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="warehouseTable"></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
+      <section id="position-admin" class="view">
+        <header class="section-heading">
+          <div><h1>Administración de posiciones</h1><p>Buscá, filtrá y administrá las ubicaciones existentes del almacén seleccionado.</p></div>
+          <span id="positionAdminSummary" class="muted">0 posiciones</span>
+        </header>
+        <div class="position-admin-toolbar panel">
+          <input id="positionAdminSearch" type="search" placeholder="Buscar código, pasillo o sector" />
+          <input id="positionAdminAisle" type="search" placeholder="Pasillo" />
+          <input id="positionAdminLevel" type="search" placeholder="Nivel" />
+          <select id="positionAdminStatus"><option value="ALL">Todos los estados</option><option value="ACTIVA">Activas</option><option value="INACTIVA">Inactivas</option></select>
+          <select id="positionAdminOccupancy"><option value="ALL">Toda ocupación</option><option value="OCCUPIED">Ocupadas</option><option value="AVAILABLE">Disponibles</option></select>
+          <button id="exportPositions" type="button" class="ghost">Exportar posiciones</button>
+        </div>
+        <section class="panel admin-list-panel">
+          <div class="panel-head"><div><h2>Maestro de posiciones</h2><span>Seleccioná una fila para editarla</span></div><div class="bulk-position-actions"><button type="button" data-position-action="ACTIVATE" class="ghost">Activar</button><button type="button" data-position-action="DEACTIVATE" class="ghost">Desactivar</button><button type="button" data-position-action="DELETE" class="danger-action">Eliminar</button></div></div>
+          <p id="positionAdminMessage" class="message"></p>
+          <div class="table-wrap position-admin-table-wrap"><table><thead><tr><th><input id="selectAllPositions" type="checkbox" aria-label="Seleccionar todas" /></th><th>Código</th><th>Pasillo</th><th>Módulo</th><th>Nivel</th><th>Lado</th><th>Rack</th><th>Tipo</th><th>Sector</th><th>Ocupación</th><th>Estado</th></tr></thead><tbody id="positionAdminTable"></tbody></table></div>
+        </section>
+      </section>
+
+      <section id="position-create" class="view">
+        <header class="section-heading">
+          <div><h1>Crear posiciones</h1><p>Alta individual o carga masiva para el almacén seleccionado.</p></div>
+          <span class="muted">Administración</span>
+        </header>
+        <div class="position-create-layout">
+          <form id="positionForm" class="panel form-grid admin-editor">
+            <input id="positionInternalId" name="posicion_id" type="hidden" />
+            <input id="positionIsBase" name="es_base" type="hidden" />
+            <div class="panel-head admin-form-heading"><div><h2>Alta individual</h2><span>Una ubicación por vez</span></div><button id="clearPositionForm" type="button" class="ghost">Nueva</button></div>
+            <label>Código completo<input id="positionCode" name="codigo" required placeholder="A.01.0" /></label>
+            <label>Pasillo<input id="positionAisle" name="pasillo" /></label>
+            <label>Módulo / posición<input id="positionModule" name="modulo" /></label>
+            <label>Nivel<input id="positionLevel" name="nivel" /></label>
+            <label>Lado<input id="positionSide" name="lado" /></label>
+            <label>Rack<input id="positionRack" name="rack" /></label>
+            <label>Tipo de ubicación<input id="positionType" name="tipo_ubicacion" placeholder="SELECTIVO" /></label>
+            <label>Sector<input id="positionSector" name="sector" /></label>
+            <label>Estado<select id="positionState" name="estado"><option value="ACTIVA">Activa</option><option value="INACTIVA">Inactiva</option></select></label>
+            <p class="form-help">El código se conserva tal como fue escrito. Los atributos físicos no se deducen automáticamente.</p>
+            <button type="submit" class="primary-action">Guardar posición</button>
+            <p id="positionMessage" class="message"></p>
+          </form>
+          <section class="panel position-import-card">
+            <div class="panel-head"><div><h2>Carga masiva</h2><span>Importación mediante archivo CSV</span></div></div>
+            <p class="import-format"><strong>Columnas requeridas:</strong> Posicion_Completa, Pasillo, Modulo_Posicion, Nivel, Lado, Rack, Tipo_Ubicacion y Sector. Sólo Posicion_Completa es obligatoria.</p>
+            <div class="position-import-actions">
+              <button id="downloadPositionTemplate" type="button" class="ghost">Descargar plantilla CSV</button>
+              <label class="primary-action file-action">Seleccionar archivo CSV<input id="positionImport" type="file" accept=".csv,text/csv" /></label>
+            </div>
+            <p class="form-help">Antes de guardar se muestran las filas válidas, duplicadas o incompletas para que puedas revisar el archivo.</p>
+          </section>
+        </div>
+        <section id="positionImportPreview" class="panel import-preview" hidden>
+          <div class="panel-head"><div><h2>Vista previa de importación</h2><span id="positionImportSummary"></span></div><div class="import-preview-actions"><button id="cancelPositionImport" type="button" class="ghost">Cancelar</button><button id="confirmPositionImport" type="button" class="primary-action">Importar válidas</button></div></div>
+          <p class="import-format">Las filas rechazadas no se guardarán. Corregí el archivo si necesitás incluirlas.</p>
+          <div class="table-wrap"><table><thead><tr><th>Fila</th><th>Código</th><th>Pasillo</th><th>Nivel</th><th>Resultado</th></tr></thead><tbody id="positionImportTable"></tbody></table></div>
+        </section>
+      </section>
+
       <section id="staff" class="view">
         <header class="section-heading">
           <div><h1>Legajos y roles</h1><p>Accesos individuales y permisos operativos de GPS.</p></div>
@@ -700,10 +789,11 @@
               </label>
               <label>Ámbito habilitado
                 <select id="staffScope" name="scope" required>
-                  <option value="CD">CD</option>
-                  <option value="BACK">Back salón</option>
-                  <option value="ALL">Todo Escobar</option>
+                  <option value="CD">CD Escobar</option>
+                  <option value="BACK">Back Salón Escobar</option>
+                  <option value="ALL">Todos los almacenes</option>
                 </select>
+                <small>El legajo sólo podrá ingresar al almacén seleccionado. “Todos los almacenes” es exclusivo para administradores.</small>
               </label>
               <label class="staff-active"><input id="staffActive" name="active" type="checkbox" checked /> Legajo activo</label>
               <div class="staff-form-actions">
@@ -720,15 +810,7 @@
           <section class="panel staff-access-panel">
             <div class="panel-head"><div><h2>Contraseñas por ámbito</h2><span>Son compartidas por los legajos habilitados para cada ambiente.</span></div></div>
             <form id="accessKeysForm" class="access-keys-grid">
-              <label>CD Escobar
-                <input id="accessKeyCd" name="CD" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave de 6 dígitos" />
-              </label>
-              <label>Back salón
-                <input id="accessKeyBack" name="BACK" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave de 6 dígitos" />
-              </label>
-              <label>Todo Escobar
-                <input id="accessKeyAll" name="ALL" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" maxlength="6" placeholder="Nueva clave administrativa" />
-              </label>
+              <div id="accessKeysFields" class="access-keys-fields"></div>
               <p class="access-keys-help">Completá solamente las claves que quieras cambiar. Las contraseñas actuales nunca se muestran.</p>
               <div class="staff-form-actions"><button type="submit" class="primary-action">Guardar contraseñas</button></div>
               <p id="accessKeysMessage" class="message"></p>
@@ -878,23 +960,28 @@
           <h2>Acceso a GPS</h2>
           <button type="button" id="closeSyncSettings" class="close">×</button>
         </div>
-        <label>Legajo
-          <input id="operatorName" name="operator" inputmode="numeric" autocomplete="username" required placeholder="Legajo" />
-        </label>
-        <label><span id="loginPasswordLabel">Contraseña de CD Escobar</span>
-          <input id="operatorPassword" name="password" type="password" autocomplete="current-password" required placeholder="Clave compartida de CD Escobar" />
-        </label>
-        <label>Puesto o equipo <span class="muted">(opcional)</span>
-          <input id="sessionDisplayName" name="displayName" autocomplete="off" placeholder="Ej. Autoelevador 2" />
-        </label>
-        <label>Ámbito de trabajo
-          <select id="loginScope" name="scope" required>
-            <option value="CD">CD</option>
-            <option value="BACK">Back salón</option>
-            <option value="ALL">Todo Escobar (solo administrador)</option>
-          </select>
-        </label>
-        <p class="login-note"><strong>Esta no es una contraseña personal.</strong> Usá la clave compartida del ámbito seleccionado. El legajo identifica al operario y su rol define las secciones habilitadas.</p>
+        <section class="login-section">
+          <div class="login-section-heading"><span>1</span><div><strong>Identificación del operario</strong><small>Ingresá tu legajo personal.</small></div></div>
+          <label>Legajo
+            <input id="operatorName" name="operator" inputmode="numeric" autocomplete="username" required placeholder="Ej. 123456" />
+          </label>
+        </section>
+        <section class="login-section login-access-section">
+          <div class="login-section-heading"><span>2</span><div><strong>Sucursal o ámbito de trabajo</strong><small>Elegí dónde vas a trabajar e ingresá la clave compartida de ese ámbito.</small></div></div>
+          <label>Sucursal / ámbito
+            <select id="loginScope" name="scope" required>
+              <option value="CD">CD Escobar</option>
+              <option value="BACK">Back Salón Escobar</option>
+              <option value="ALL">Todos los almacenes (solo administrador)</option>
+            </select>
+          </label>
+          <div id="loginScopeContext" class="login-scope-context"><strong>Acceso a CD Escobar</strong><span>La clave siguiente es compartida por este ámbito.</span></div>
+          <label><span id="loginPasswordLabel">Contraseña compartida de CD Escobar</span>
+            <input id="operatorPassword" name="password" type="password" inputmode="numeric" autocomplete="current-password" required placeholder="Clave de 6 dígitos de CD Escobar" />
+            <small id="loginPasswordHelp">No es una contraseña personal del legajo.</small>
+          </label>
+        </section>
+        <p class="login-note">El sistema validará por separado que el legajo tenga permiso en el ámbito elegido y que la contraseña del ámbito sea correcta.</p>
         <p id="syncSettingsMessage" class="message"></p>
         <div class="dialog-actions">
           <button type="button" id="retrySync" class="ghost">Reintentar pendientes</button>
@@ -922,6 +1009,6 @@
 
     <script src="data/embedded-data.js?v=20261006-5"></script>
     <script src="assets/vendor/JsBarcode.code128.min.js?v=3.12.3"></script>
-    <script src="app.js?v=20261014-auth-segura"></script>
+    <script src="app.js?v=20261015-warehouse-login-v36"></script>
   </body>
 </html>

@@ -12,5 +12,16 @@
 /sharepoint/api/node_modules/
 /sharepoint/dist/
 /gps/api/.env
+/gps/api/.env.*
+!/gps/api/.env.example
+!/gps/api/.env.production.example
 /gps/api/node_modules/
 /gps/dist/
+/iis/Gps.Web/bin/
+/iis/Gps.Web/obj/
+/iis/prerequisites/*.exe
+/.dotnet-sdk/
+/.dotnet-home/
+/.nuget-packages/
+/output/GPS_IIS_Windows_x64_*/
+/output/GPS_IIS_Windows_x64_*.zip
